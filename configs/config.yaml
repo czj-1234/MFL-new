@@ -1,0 +1,56 @@
+seed: 42
+
+data:
+  train_json: data/processed/mvsa_6class_train.json
+  val_json: data/processed/mvsa_6class_val.json
+  test_json: data/processed/mvsa_6class_test.json
+  num_classes: 6
+
+model:
+  tokenizer_name: distilbert-base-uncased
+  text_model_name: distilbert-base-uncased
+  image_hidden_dim: 128
+  text_hidden_dim: 128
+  projector_hidden_dim: 128
+  dropout: 0.1
+  freeze_image_backbone: true
+  freeze_text_backbone: true
+  pretrained_image: true
+
+federated:
+  num_clients: 6
+
+  # 先用 20 测试流程；正式实验可以改成 100 或更大
+  samples_per_client: 20
+  allow_overlap: false
+
+  # 先用 1 测试流程；正式实验可以改成 100 或 200
+  rounds: 1
+  local_epochs: 1
+  lr: 0.0005
+  batch_size: 32
+  max_local_steps: null
+
+evaluation:
+  eval_batch_size: 64
+
+  # 先用小样本快速测试；正式实验可以改成 null
+  max_train_eval_samples: 100
+  max_val_eval_samples: 100
+  max_test_eval_samples: 100
+
+  max_text_len: 64
+  num_workers: 0
+
+experiment:
+  setting_name: modality_exclusive
+  association: iid
+  output_root: results/structure_baseline
+  analysis_rounds: [1]
+
+update:
+  target_patterns:
+    - multi_modal_projector.0.weight
+    - multi_modal_projector.0.bias
+    - classifier.weight
+    - classifier.bias

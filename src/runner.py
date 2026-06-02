@@ -1,0 +1,152 @@
+# ============================================================
+# Experiment Runner
+# ============================================================
+
+import os
+
+import pandas as pd
+
+from src.config import ExperimentArgs
+from src.federated import run_experiment
+from src.utils import set_seed
+
+
+def run_one_experiment(args):
+    """
+    Run one experiment.
+    """
+    set_seed(args.seed)
+
+    print("Running MVSA Clean FL Structural Baseline")
+    print("Model: ResNet18 + DistilBERT")
+    print("SETTING_NAME:", args.setting_name)
+    print("ASSOCIATION:", args.association)
+    print("DEVICE:", args.device)
+    print("TRAIN_JSON:", args.train_json)
+    print("VAL_JSON:", args.val_json)
+    print("TEST_JSON:", args.test_json)
+    print("OUT_DIR:", args.out_dir)
+
+    summary, round_logs, all_mat = run_experiment(args)
+
+    print("\nDone.")
+    print("Summary:")
+    for k, v in summary.items():
+        print(f"{k}: {v}")
+
+    return summary, round_logs, all_mat
+
+
+def run_all_experiments(cfg, cli_args):
+    """
+    Run all structural baseline experiments.
+    """
+    all_summaries = []
+
+    setting_list = [
+        "image_only",
+        "text_only",
+        "modality_exclusive",
+    ]
+
+    association_list = [
+        "iid",
+        "0.3",
+        "0.7",
+        "1.0",
+    ]
+
+    for setting_name in setting_list:
+        for association in association_list:
+            print("\n" + "=" * 80)
+            print(f"Running setting={setting_name}, association={association}")
+            print("=" * 80)
+
+            args = ExperimentArgs(
+                cfg,
+                setting_name=setting_name,
+                association=association,
+                rounds=cli_args.rounds,
+                samples_per_client=cli_args.samples_per_client,
+                output_root=cli_args.output_root,
+            )
+
+            summary, round_logs, all_mat = run_one_experiment(args)
+            all_summaries.append(summary)
+
+    summary_df = pd.DataFrame(all_summaries)
+
+    preferred_columns = [
+        "setting_name",
+        "association",
+        "num_clients",
+        "samples_per_client",
+        "allow_overlap",
+        "rounds",
+        "local_epochs",
+        "lr",
+        "seed",
+        "model",
+        "freeze_image_backbone",
+        "freeze_text_backbone",
+
+        # task definition
+        "task_type",
+        "global_num_classes",
+        "random_chance_acc",
+        "label_space_split_by_modality",
+
+        # validation/global utility metrics
+        "global_acc",
+        "global_macro_f1",
+        "global_macro_precision",
+        "global_macro_recall",
+        "global_balanced_acc",
+
+        # test utility metrics
+        "test_acc",
+        "test_macro_f1",
+        "test_macro_precision",
+        "test_macro_recall",
+        "test_balanced_acc",
+
+        # accuracy above random chance
+        "global_acc_above_chance",
+        "test_acc_above_chance",
+
+        # structure metrics
+        "e_rank",
+        "Top1_ratio",
+        "Top3_ratio",
+        "Top5_ratio",
+        "Silhouette",
+        "DBI",
+        "CHI",
+        "kmeans_acc",
+
+        # attack metrics
+        "attack_success_rate_rf",
+        "attack_success_rate_mlp",
+        "attack_success_rate_xgb",
+        "attack_success_rate_mean",
+    ]
+
+    summary_df = summary_df[
+        [c for c in preferred_columns if c in summary_df.columns]
+    ]
+
+    output_root = cli_args.output_root or cfg["experiment"]["output_root"]
+
+    summary_csv = os.path.join(
+        output_root,
+        "all_structure_baseline_summary.csv",
+    )
+
+    os.makedirs(os.path.dirname(summary_csv), exist_ok=True)
+    summary_df.to_csv(summary_csv, index=False)
+
+    print("\nAll experiments done.")
+    print("Saved summary CSV to:", summary_csv)
+    print(summary_df)
+
+    return summary_df
