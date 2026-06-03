@@ -13,8 +13,8 @@ model:
   text_hidden_dim: 128
   projector_hidden_dim: 128
   dropout: 0.1
-  freeze_image_backbone: false
-  freeze_text_backbone: false
+  freeze_image_backbone: true
+  freeze_text_backbone: true
   pretrained_image: true
 
 federated:

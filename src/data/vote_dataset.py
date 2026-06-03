@@ -4,8 +4,8 @@
 #   1. json_path input
 #   2. Python list input
 #   3. image / text / both modality modes
-#   4. ResNet18 image tensor format
-#   5. DistilBERT tokenizer output
+#   4. CLIP image pixel_values format
+#   5. RoBERTa / BERT tokenizer output
 #   6. old imports: MVSAVoteDataset, load_mvsa_datasets
 # ============================================================
 
@@ -16,21 +16,11 @@ from PIL import Image
 
 import torch
 from torch.utils.data import Dataset
-import torchvision.transforms as T
 
-
-# ============================================================
-# Image Transform
-# ============================================================
-
-image_transform = T.Compose([
-    T.Resize((224, 224)),
-    T.ToTensor(),
-    T.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225],
-    ),
-])
+try:
+    from transformers import CLIPImageProcessor
+except Exception:
+    CLIPImageProcessor = None
 
 
 # ============================================================
@@ -54,6 +44,13 @@ class MVSAStrongDataset(Dataset):
         data=list
         json_path=str
         first positional argument as either list or json_path
+
+    Output keys:
+        input_ids
+        attention_mask
+        pixel_values
+        image              # kept for backward compatibility
+        label
     """
 
     def __init__(
@@ -62,9 +59,11 @@ class MVSAStrongDataset(Dataset):
         tokenizer=None,
         mode="both",
         max_text_len=64,
-        image_transform=None,
         json_path=None,
+        image_model_name="openai/clip-vit-base-patch32",
+        image_processor=None,
         transform=None,
+        image_transform=None,
         max_len=None,
         max_length=None,
         **kwargs,
@@ -110,14 +109,21 @@ class MVSAStrongDataset(Dataset):
 
         self.max_text_len = int(max_text_len)
 
-        # compatible names: image_transform / transform
-        if image_transform is None and transform is not None:
-            image_transform = transform
+        # ------------------------------------------------------------
+        # CLIP image processor
+        # ------------------------------------------------------------
+        if image_processor is not None:
+            self.image_processor = image_processor
+        else:
+            if CLIPImageProcessor is None:
+                raise ImportError(
+                    "CLIPImageProcessor is not available. "
+                    "Please install transformers: pip install transformers"
+                )
 
-        if image_transform is None:
-            image_transform = globals()["image_transform"]
-
-        self.image_transform = image_transform
+            self.image_processor = CLIPImageProcessor.from_pretrained(
+                image_model_name
+            )
 
     def __len__(self):
         return len(self.data)
@@ -148,6 +154,7 @@ class MVSAStrongDataset(Dataset):
             Path.cwd() / "data" / "raw" / image_path,
             Path.cwd() / "data" / "processed" / image_path,
             Path.cwd() / "data" / "images" / image_path,
+            Path.cwd() / "data" / "MVSA" / image_path,
         ]
 
         for c in candidates:
@@ -158,7 +165,7 @@ class MVSAStrongDataset(Dataset):
 
     def _load_image(self, image_path):
         """
-        Load image and return tensor [3, 224, 224].
+        Load image and return CLIP pixel_values tensor [3, 224, 224].
         If loading fails, return zero tensor.
         """
         try:
@@ -169,13 +176,12 @@ class MVSAStrongDataset(Dataset):
 
             image = Image.open(resolved_path).convert("RGB")
 
-            if self.image_transform is not None:
-                image = self.image_transform(image)
+            pixel_values = self.image_processor(
+                images=image,
+                return_tensors="pt",
+            )["pixel_values"].squeeze(0)
 
-            if isinstance(image, Image.Image):
-                image = globals()["image_transform"](image)
-
-            return image
+            return pixel_values
 
         except Exception:
             return torch.zeros(3, 224, 224)
@@ -228,9 +234,9 @@ class MVSAStrongDataset(Dataset):
         # Modality control
         # ------------------------------------------------------------
         if self.mode in ["image", "both"]:
-            image = self._load_image(image_path)
+            pixel_values = self._load_image(image_path)
         else:
-            image = torch.zeros(3, 224, 224)
+            pixel_values = torch.zeros(3, 224, 224)
 
         if self.mode in ["text", "both"]:
             input_ids, attention_mask = self._encode_text(text)
@@ -239,7 +245,12 @@ class MVSAStrongDataset(Dataset):
             attention_mask = torch.zeros(self.max_text_len, dtype=torch.long)
 
         return {
-            "image": image,
+            "pixel_values": pixel_values,
+
+            # Keep old key for compatibility.
+            # Later in model/train code, prefer using batch["pixel_values"].
+            "image": pixel_values,
+
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "label": torch.tensor(label, dtype=torch.long),
@@ -267,7 +278,8 @@ def load_mvsa_datasets(
     tokenizer=None,
     mode="both",
     max_text_len=64,
-    image_transform=image_transform,
+    image_model_name="openai/clip-vit-base-patch32",
+    image_processor=None,
     **kwargs,
 ):
     """
@@ -312,7 +324,8 @@ def load_mvsa_datasets(
                     tokenizer=tokenizer,
                     mode=mode,
                     max_text_len=max_text_len,
-                    image_transform=image_transform,
+                    image_model_name=image_model_name,
+                    image_processor=image_processor,
                 )
             )
 

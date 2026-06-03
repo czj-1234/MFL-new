@@ -6,6 +6,7 @@
 #   3. image_only / text_only / modality_exclusive / full_multimodal
 #   4. utility metrics: acc, macro-F1, precision, recall, balanced acc
 #   5. structure / attack metrics
+#   6. RoBERTa + CLIP-ViT-B/32 model input
 # ============================================================
 
 import os
@@ -82,6 +83,7 @@ def build_mvsa_dataset(
     mode,
     max_text_len,
     cache_dir=None,
+    image_model_name="openai/clip-vit-base-patch32",
 ):
     """
     Build MVSA dataset while being compatible with different constructor styles.
@@ -90,8 +92,7 @@ def build_mvsa_dataset(
     1) Dataset(data=<list>, tokenizer=...) or Dataset(samples=<list>, tokenizer=...)
     2) Dataset(json_path=<path>, tokenizer=...) or Dataset(<json_path>, tokenizer=...)
 
-    Your current MVSAVoteDataset expects a JSON path, so when samples is already
-    a Python list, this function writes it to a temporary JSON file first.
+    For CLIP-ViT image encoder, pass image_model_name to the Dataset when supported.
     """
     init_signature = inspect.signature(MVSAStrongDataset.__init__)
     params = init_signature.parameters
@@ -120,6 +121,10 @@ def build_mvsa_dataset(
     if "max_length" in valid_args:
         kwargs["max_length"] = max_text_len
 
+    if "image_model_name" in valid_args:
+        kwargs["image_model_name"] = image_model_name
+
+    # Keep old compatibility. New CLIP dataset may ignore these.
     if "image_transform" in valid_args:
         kwargs["image_transform"] = image_transform
 
@@ -190,6 +195,7 @@ def build_mvsa_dataset(
                 kwargs["ann_file"] = json_path
             else:
                 positional_arg = json_path
+
         else:
             # Last-resort fallback for Dataset(list, ...).
             positional_arg = samples
@@ -201,6 +207,7 @@ def build_mvsa_dataset(
         return MVSAStrongDataset(positional_arg, **kwargs)
 
     return MVSAStrongDataset(**kwargs)
+
 
 # ============================================================
 # Label Mapping
@@ -262,8 +269,15 @@ def build_model(args):
             f"Available names: {available}"
         )
 
+    image_model_name = getattr(
+        args,
+        "image_model_name",
+        "openai/clip-vit-base-patch32",
+    )
+
     return model_cls(
         text_model_name=args.text_model_name,
+        image_model_name=image_model_name,
         num_classes=args.num_classes,
         image_hidden_dim=args.image_hidden_dim,
         text_hidden_dim=args.text_hidden_dim,
@@ -271,8 +285,9 @@ def build_model(args):
         dropout=args.dropout,
         freeze_image_backbone=args.freeze_image_backbone,
         freeze_text_backbone=args.freeze_text_backbone,
-        pretrained_image=args.pretrained_image,
+        pretrained_image=getattr(args, "pretrained_image", True),
     )
+
 
 # ============================================================
 # Client Modality / Label Assignment
@@ -620,6 +635,11 @@ def build_dataloader(samples, tokenizer, args, mode, shuffle=True):
         mode=mode,
         max_text_len=args.max_text_len,
         cache_dir=os.path.join(args.out_dir, "_dataset_cache"),
+        image_model_name=getattr(
+            args,
+            "image_model_name",
+            "openai/clip-vit-base-patch32",
+        ),
     )
 
     loader = DataLoader(
@@ -639,25 +659,33 @@ def apply_modality_mask(batch, mode, device):
     image:
         keep image, mask text into a constant empty-text input
     text:
-        keep text, mask image into a zero image
+        keep text, mask image into a zero CLIP pixel_values tensor
     both:
         keep both modalities
 
-    This makes image_only / text_only / modality_exclusive effective even when
-    the Dataset class itself does not support a mode argument.
+    Compatible with both old Dataset output:
+        batch["image"]
+
+    and new CLIP Dataset output:
+        batch["pixel_values"]
     """
-    image = batch["image"].to(device)
+
+    if "pixel_values" in batch:
+        image = batch["pixel_values"].to(device)
+    else:
+        image = batch["image"].to(device)
+
     input_ids = batch["input_ids"].to(device)
     attention_mask = batch["attention_mask"].to(device)
     labels = batch["label"].to(device)
 
     if mode == "image":
-        # Keep image branch. Make text branch receive a constant empty input.
+        # Keep image branch. Mask text branch.
         input_ids = torch.zeros_like(input_ids)
         attention_mask = torch.zeros_like(attention_mask)
 
     elif mode == "text":
-        # Keep text branch. Make image branch receive a constant empty image.
+        # Keep text branch. Mask image branch.
         image = torch.zeros_like(image)
 
     elif mode == "both":
@@ -724,7 +752,13 @@ def local_train(
                 device=device,
             )
 
-            logits = local_model(image, input_ids, attention_mask)
+            logits = local_model(
+                image=image,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                setting=mode,
+            )
+
             class_weights = torch.tensor(
                 args.class_weights,
                 dtype=torch.float,
@@ -868,6 +902,11 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
         mode=mode,
         max_text_len=args.max_text_len,
         cache_dir=os.path.join(args.out_dir, "_dataset_cache"),
+        image_model_name=getattr(
+            args,
+            "image_model_name",
+            "openai/clip-vit-base-patch32",
+        ),
     )
 
     loader = DataLoader(
@@ -891,7 +930,13 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             device=args.device,
         )
 
-        logits = model(image, input_ids, attention_mask)
+        logits = model(
+            image=image,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            setting=mode,
+        )
+
         loss = F.cross_entropy(logits, labels)
 
         preds = torch.argmax(logits, dim=1)
@@ -1023,6 +1068,7 @@ def run_experiment(args):
     print("Train:", len(train_data), Counter([x["label_name"] for x in train_data]))
     print("Val:  ", len(val_data), Counter([x["label_name"] for x in val_data]))
     print("Test: ", len(test_data), Counter([x["label_name"] for x in test_data]))
+
     label_counts = Counter([int(x["label"]) for x in train_data])
 
     class_weights = []
@@ -1034,6 +1080,7 @@ def run_experiment(args):
     args.class_weights = class_weights
 
     print("Class weights:", args.class_weights)
+
     # ------------------------------------------------------------
     # 2. Load tokenizer and model
     # ------------------------------------------------------------
@@ -1265,7 +1312,7 @@ def run_experiment(args):
         "local_epochs": args.local_epochs,
         "lr": args.lr,
         "seed": args.seed,
-        "model": "ResNet18+DistilBERT",
+        "model": "CLIP-ViT-B32+RoBERTa-base",
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
