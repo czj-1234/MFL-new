@@ -21,6 +21,7 @@ def run_one_experiment(args):
     print("Model: ResNet18 + DistilBERT")
     print("SETTING_NAME:", args.setting_name)
     print("ASSOCIATION:", args.association)
+    print("PARTITION_MODE:", getattr(args, "partition_mode", "fixed"))
     print("DEVICE:", args.device)
     print("TRAIN_JSON:", args.train_json)
     print("VAL_JSON:", args.val_json)
@@ -81,6 +82,7 @@ def run_all_experiments(cfg, cli_args):
         "association",
         "num_clients",
         "samples_per_client",
+        "partition_mode",
         "allow_overlap",
         "rounds",
         "local_epochs",

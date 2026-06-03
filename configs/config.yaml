@@ -20,12 +20,15 @@ model:
 federated:
   num_clients: 6
 
-  # 先用 20 测试流程；正式实验可以改成 100 或更大
-  samples_per_client: 20
-  allow_overlap: false
+  # fixed = use samples_per_client
+  # full  = use all training samples
+  partition_mode: full
 
-  # 先用 1 测试流程；正式实验可以改成 100 或 200
-  rounds: 1
+  # ignored when partition_mode is full
+  samples_per_client: null
+
+  allow_overlap: false
+  rounds: 250
   local_epochs: 1
   lr: 0.0005
   batch_size: 32
@@ -33,20 +36,17 @@ federated:
 
 evaluation:
   eval_batch_size: 64
-
-  # 先用小样本快速测试；正式实验可以改成 null
-  max_train_eval_samples: 100
-  max_val_eval_samples: 100
-  max_test_eval_samples: 100
-
+  max_train_eval_samples: 300
+  max_val_eval_samples: null
+  max_test_eval_samples: null
   max_text_len: 64
-  num_workers: 0
+  num_workers: 4
 
 experiment:
   setting_name: modality_exclusive
   association: iid
   output_root: results/structure_baseline
-  analysis_rounds: [1]
+  analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100, 150, 200, 250]
 
 update:
   target_patterns:

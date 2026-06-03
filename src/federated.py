@@ -1,17 +1,29 @@
 # ============================================================
 # Federated Learning Pipeline
+# Supports:
+#   1. fixed-size client sampling
+#   2. full-data client partitioning
+#   3. image_only / text_only / modality_exclusive / full_multimodal
+#   4. utility metrics: acc, macro-F1, precision, recall, balanced acc
+#   5. structure / attack metrics
 # ============================================================
 
 import os
 import copy
+import json
 import random
+import inspect
+import tempfile
 from collections import Counter, defaultdict
 
+import numpy as np
 import pandas as pd
 
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+
+from transformers import AutoTokenizer
 
 from sklearn.metrics import (
     f1_score,
@@ -20,24 +32,178 @@ from sklearn.metrics import (
     balanced_accuracy_score,
 )
 
-import torchvision.transforms as T
-from transformers import AutoTokenizer
+import src.data.vote_dataset as vote_dataset
 
-from src.model import build_model
 from src.metrics import compute_structure_metrics
-from src.utils import (
-    set_seed,
-    load_json,
-    save_json,
-    label_distribution,
-)
+from src.utils import load_json
 
 
 # ============================================================
-# 1. Label mapping
+# Dataset Compatibility
 # ============================================================
 
-NUM_CLASSES = 6
+_DATASET_CANDIDATES = [
+    "MVSAStrongDataset",
+    "MVSADataset",
+    "MVSAVoteDataset",
+    "MVSA6ClassDataset",
+    "VoteDataset",
+]
+
+MVSAStrongDataset = None
+
+for _name in _DATASET_CANDIDATES:
+    if hasattr(vote_dataset, _name):
+        MVSAStrongDataset = getattr(vote_dataset, _name)
+        break
+
+if MVSAStrongDataset is None:
+    dataset_like_names = [
+        name for name in dir(vote_dataset)
+        if "Dataset" in name
+    ]
+
+    if len(dataset_like_names) == 1:
+        MVSAStrongDataset = getattr(vote_dataset, dataset_like_names[0])
+    else:
+        raise ImportError(
+            "Cannot find a dataset class in src.data.vote_dataset. "
+            f"Available Dataset-like names: {dataset_like_names}"
+        )
+
+
+image_transform = getattr(vote_dataset, "image_transform", None)
+
+
+def build_mvsa_dataset(
+    samples,
+    tokenizer,
+    mode,
+    max_text_len,
+    cache_dir=None,
+):
+    """
+    Build MVSA dataset while being compatible with different constructor styles.
+
+    Supports both styles:
+    1) Dataset(data=<list>, tokenizer=...) or Dataset(samples=<list>, tokenizer=...)
+    2) Dataset(json_path=<path>, tokenizer=...) or Dataset(<json_path>, tokenizer=...)
+
+    Your current MVSAVoteDataset expects a JSON path, so when samples is already
+    a Python list, this function writes it to a temporary JSON file first.
+    """
+    init_signature = inspect.signature(MVSAStrongDataset.__init__)
+    params = init_signature.parameters
+    valid_args = set(params.keys())
+    param_names = [name for name in params.keys() if name != "self"]
+    first_param = param_names[0] if len(param_names) > 0 else None
+
+    kwargs = {}
+    positional_arg = None
+
+    # ------------------------------------------------------------
+    # Optional arguments, only if supported by the Dataset class
+    # ------------------------------------------------------------
+    if "tokenizer" in valid_args:
+        kwargs["tokenizer"] = tokenizer
+
+    if "mode" in valid_args:
+        kwargs["mode"] = mode
+
+    if "max_text_len" in valid_args:
+        kwargs["max_text_len"] = max_text_len
+
+    if "max_len" in valid_args:
+        kwargs["max_len"] = max_text_len
+
+    if "max_length" in valid_args:
+        kwargs["max_length"] = max_text_len
+
+    if "image_transform" in valid_args:
+        kwargs["image_transform"] = image_transform
+
+    if "transform" in valid_args:
+        kwargs["transform"] = image_transform
+
+    # ------------------------------------------------------------
+    # Data input compatibility
+    # ------------------------------------------------------------
+    if "data" in valid_args:
+        kwargs["data"] = samples
+
+    elif "samples" in valid_args:
+        kwargs["samples"] = samples
+
+    else:
+        # Many older Dataset classes expect json_path as the first argument
+        # and immediately call open(json_path). If samples is a list, create
+        # a temporary JSON file and pass its path instead.
+        path_like_names = {
+            "json_path",
+            "data_path",
+            "file_path",
+            "path",
+            "json_file",
+            "annotation_file",
+            "ann_file",
+        }
+
+        expects_path = (
+            first_param in path_like_names
+            or any(name in valid_args for name in path_like_names)
+        )
+
+        if expects_path:
+            if isinstance(samples, (str, bytes, os.PathLike)):
+                json_path = samples
+            else:
+                if cache_dir is None:
+                    cache_dir = tempfile.gettempdir()
+                os.makedirs(cache_dir, exist_ok=True)
+
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w",
+                    suffix=".json",
+                    prefix="mvsa_subset_",
+                    dir=cache_dir,
+                    delete=False,
+                    encoding="utf-8",
+                )
+                with tmp:
+                    json.dump(samples, tmp, ensure_ascii=False)
+                json_path = tmp.name
+
+            if "json_path" in valid_args:
+                kwargs["json_path"] = json_path
+            elif "data_path" in valid_args:
+                kwargs["data_path"] = json_path
+            elif "file_path" in valid_args:
+                kwargs["file_path"] = json_path
+            elif "path" in valid_args:
+                kwargs["path"] = json_path
+            elif "json_file" in valid_args:
+                kwargs["json_file"] = json_path
+            elif "annotation_file" in valid_args:
+                kwargs["annotation_file"] = json_path
+            elif "ann_file" in valid_args:
+                kwargs["ann_file"] = json_path
+            else:
+                positional_arg = json_path
+        else:
+            # Last-resort fallback for Dataset(list, ...).
+            positional_arg = samples
+
+    # ------------------------------------------------------------
+    # Constructor call
+    # ------------------------------------------------------------
+    if positional_arg is not None:
+        return MVSAStrongDataset(positional_arg, **kwargs)
+
+    return MVSAStrongDataset(**kwargs)
+
+# ============================================================
+# Label Mapping
+# ============================================================
 
 id_to_label_name = {
     0: "strong_negative",
@@ -48,115 +214,92 @@ id_to_label_name = {
     5: "strong_positive",
 }
 
-label_name_to_id = {v: k for k, v in id_to_label_name.items()}
-
 
 # ============================================================
-# 2. Image transform
+# Model Builder
 # ============================================================
 
-image_transform = T.Compose([
-    T.Resize((224, 224)),
-    T.ToTensor(),
-    T.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225],
-    ),
-])
-
-
-# ============================================================
-# 3. Dataset for FL training
-# ============================================================
-
-class MVSAStrongDataset(torch.utils.data.Dataset):
+def build_model(args):
     """
-    Dataset used in federated training.
+    Build model from src.model.
 
-    mode:
-        image: image-only client
-        text : text-only client
-        both : both modalities for evaluation
+    The project model.py already defines build_model(args), so we should use it
+    directly. Do NOT call StrongMultimodalNet(args), because its first argument
+    is text_model_name, not the whole args object.
     """
+    import src.model as model_module
 
-    def __init__(
-        self,
-        data,
-        tokenizer,
-        mode="both",
-        max_text_len=64,
-        image_transform=None,
-    ):
-        self.data = data
-        self.tokenizer = tokenizer
-        self.mode = mode
-        self.max_text_len = max_text_len
-        self.image_transform = image_transform
+    if hasattr(model_module, "build_model"):
+        return model_module.build_model(args)
 
-    def __len__(self):
-        return len(self.data)
+    candidate_names = [
+        "StrongMultimodalNet",
+        "MVSAStrongModel",
+        "StrongMultimodalModel",
+        "MVSAFusionModel",
+        "MultimodalFusionModel",
+        "MultimodalSentimentModel",
+        "MVSAClassifier",
+        "MultimodalClassifier",
+    ]
 
-    def _load_image(self, path):
-        from PIL import Image
+    model_cls = None
 
-        try:
-            image = Image.open(path).convert("RGB")
+    for name in candidate_names:
+        if hasattr(model_module, name):
+            model_cls = getattr(model_module, name)
+            break
 
-            if self.image_transform is not None:
-                image = self.image_transform(image)
+    if model_cls is None:
+        available = [
+            name for name in dir(model_module)
+            if not name.startswith("_")
+        ]
+        raise ImportError(
+            "Could not find a supported model class in src/model.py. "
+            f"Tried: {candidate_names}. "
+            f"Available names: {available}"
+        )
 
-            return image
-
-        except Exception:
-            return torch.zeros(3, 224, 224)
-
-    def __getitem__(self, idx):
-        item = self.data[idx]
-
-        label = int(item["label"])
-        image_path = item.get("image", "")
-        text = str(item.get("text", ""))
-
-        if self.mode in ["image", "both"]:
-            image = self._load_image(image_path)
-        else:
-            image = torch.zeros(3, 224, 224)
-
-        if self.mode in ["text", "both"]:
-            encoded = self.tokenizer(
-                text,
-                padding="max_length",
-                truncation=True,
-                max_length=self.max_text_len,
-                return_tensors="pt",
-            )
-
-            input_ids = encoded["input_ids"].squeeze(0)
-            attention_mask = encoded["attention_mask"].squeeze(0)
-
-        else:
-            input_ids = torch.zeros(self.max_text_len, dtype=torch.long)
-            attention_mask = torch.zeros(self.max_text_len, dtype=torch.long)
-
-        return {
-            "image": image,
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "label": torch.tensor(label, dtype=torch.long),
-        }
-
+    return model_cls(
+        text_model_name=args.text_model_name,
+        num_classes=args.num_classes,
+        image_hidden_dim=args.image_hidden_dim,
+        text_hidden_dim=args.text_hidden_dim,
+        projector_hidden_dim=args.projector_hidden_dim,
+        dropout=args.dropout,
+        freeze_image_backbone=args.freeze_image_backbone,
+        freeze_text_backbone=args.freeze_text_backbone,
+        pretrained_image=args.pretrained_image,
+    )
 
 # ============================================================
-# 4. Client partition
+# Client Modality / Label Assignment
 # ============================================================
 
 def get_client_modality(client_id, setting_name):
     """
-    setting_name:
-        image_only: all clients are image-only
-        text_only: all clients are text-only
-        modality_exclusive: even clients image-only, odd clients text-only
+    Return the modality available to each client.
+
+    full_multimodal:
+        all clients have both image and text
+
+    image_only:
+        all clients are image-only
+
+    text_only:
+        all clients are text-only
+
+    modality_exclusive:
+        even clients are image-only
+        odd clients are text-only
+
+    Important:
+        The label space is always the same global 6-class task.
+        Labels are not split by modality.
     """
+    if setting_name == "full_multimodal":
+        return "both"
 
     if setting_name == "image_only":
         return "image"
@@ -171,8 +314,151 @@ def get_client_modality(client_id, setting_name):
 
 
 def get_client_dominant_label(client_id, num_classes=6):
+    """
+    Assign one reference label to each client.
+
+    In associated settings, this is the dominant label.
+    In iid settings, this is only an assigned reference label.
+    """
     return client_id % num_classes
 
+
+# ============================================================
+# Client Partitioning: Full-data Mode
+# ============================================================
+
+def build_full_client_partitions(
+    train_data,
+    setting_name,
+    association,
+    num_clients=6,
+    num_classes=6,
+    seed=42,
+):
+    """
+    Build client partitions using the full training dataset.
+
+    This mode uses every training sample exactly once.
+
+    association:
+        iid:
+            Randomly split all training samples into clients.
+
+        0.3 / 0.7 / 1.0:
+            For each label, samples are assigned to the corresponding
+            target client with probability equal to association.
+            Remaining samples are distributed to other clients.
+
+    Important:
+        All settings still share the same global 6-class classification task.
+        The label space is not split by modality.
+    """
+    rng = random.Random(seed)
+    np_rng = np.random.default_rng(seed)
+
+    labels = list(range(num_classes))
+
+    client_data = {
+        client_id: []
+        for client_id in range(num_clients)
+    }
+
+    # ------------------------------------------------------------
+    # Full-data IID split
+    # ------------------------------------------------------------
+    if association == "iid":
+        all_samples = list(train_data)
+        rng.shuffle(all_samples)
+
+        splits = np.array_split(all_samples, num_clients)
+
+        for client_id, split_samples in enumerate(splits):
+            split_samples = list(split_samples)
+            client_data[client_id] = split_samples
+
+            modality = get_client_modality(client_id, setting_name)
+            assigned_label = get_client_dominant_label(client_id, num_classes)
+
+            print(
+                f"Client {client_id} | "
+                f"setting={setting_name} | "
+                f"modality={modality} | "
+                f"assigned_label={assigned_label} "
+                f"({id_to_label_name.get(assigned_label, assigned_label)}) | "
+                f"num_samples={len(split_samples)} | "
+                f"label_dist={Counter([x['label_name'] for x in split_samples])}"
+            )
+
+        print("\nFull-data IID partition summary:")
+        print("Total train samples:", len(train_data))
+        print("Total assigned samples:", sum(len(v) for v in client_data.values()))
+
+        return client_data
+
+    # ------------------------------------------------------------
+    # Full-data associated split
+    # ------------------------------------------------------------
+    association_strength = float(association)
+
+    label_buckets = defaultdict(list)
+
+    for item in train_data:
+        label = int(item["label"])
+        label_buckets[label].append(item)
+
+    for label in labels:
+        samples = label_buckets[label]
+        rng.shuffle(samples)
+
+        target_client = label % num_clients
+
+        if association_strength >= 1.0:
+            probs = np.zeros(num_clients, dtype=np.float64)
+            probs[target_client] = 1.0
+        else:
+            probs = np.ones(num_clients, dtype=np.float64)
+            probs[:] = (1.0 - association_strength) / (num_clients - 1)
+            probs[target_client] = association_strength
+
+        probs = probs / probs.sum()
+
+        assigned_clients = np_rng.choice(
+            np.arange(num_clients),
+            size=len(samples),
+            replace=True,
+            p=probs,
+        )
+
+        for sample, client_id in zip(samples, assigned_clients):
+            client_data[int(client_id)].append(sample)
+
+    for client_id in range(num_clients):
+        rng.shuffle(client_data[client_id])
+
+        modality = get_client_modality(client_id, setting_name)
+        dominant_label = get_client_dominant_label(client_id, num_classes)
+
+        print(
+            f"Client {client_id} | "
+            f"setting={setting_name} | "
+            f"modality={modality} | "
+            f"dominant_label={dominant_label} "
+            f"({id_to_label_name.get(dominant_label, dominant_label)}) | "
+            f"num_samples={len(client_data[client_id])} | "
+            f"label_dist={Counter([x['label_name'] for x in client_data[client_id]])}"
+        )
+
+    print("\nFull-data associated partition summary:")
+    print("Total train samples:", len(train_data))
+    print("Total assigned samples:", sum(len(v) for v in client_data.values()))
+    print("Association:", association)
+
+    return client_data
+
+
+# ============================================================
+# Client Partitioning: Fixed-size Mode
+# ============================================================
 
 def build_client_partitions(
     train_data,
@@ -183,17 +469,37 @@ def build_client_partitions(
     samples_per_client=None,
     allow_overlap=False,
     seed=42,
+    partition_mode="fixed",
 ):
     """
     Build client local datasets.
 
-    association:
-        "iid": balanced label distribution for each client
-        "0.3", "0.7", "1.0": dominant-label association strength
+    partition_mode:
+        fixed:
+            Use fixed samples_per_client for each client.
+            This is the old controlled experimental setting.
 
-    samples_per_client:
-        None means automatically use all train samples approximately evenly.
+        full:
+            Use the full training dataset exactly once.
+            This is the full-data experimental setting.
+
+    association:
+        iid:
+            balanced/fair split depending on partition mode
+
+        0.3 / 0.7 / 1.0:
+            dominant-label association strength
     """
+
+    if partition_mode == "full":
+        return build_full_client_partitions(
+            train_data=train_data,
+            setting_name=setting_name,
+            association=association,
+            num_clients=num_clients,
+            num_classes=num_classes,
+            seed=seed,
+        )
 
     rng = random.Random(seed)
 
@@ -293,7 +599,9 @@ def build_client_partitions(
             f"Client {client_id} | "
             f"setting={setting_name} | "
             f"modality={get_client_modality(client_id, setting_name)} | "
-            f"dominant_label={dominant_label} ({id_to_label_name[dominant_label]}) | "
+            f"dominant_label={dominant_label} "
+            f"({id_to_label_name.get(dominant_label, dominant_label)}) | "
+            f"num_samples={len(selected_samples)} | "
             f"label_dist={Counter([x['label_name'] for x in selected_samples])}"
         )
 
@@ -301,27 +609,100 @@ def build_client_partitions(
 
 
 # ============================================================
-# 5. Training and evaluation
+# DataLoader Helpers
 # ============================================================
 
-def train_one_client(global_model, local_data, tokenizer, args, client_modality):
-    local_model = copy.deepcopy(global_model)
-    local_model.to(args.device)
-    local_model.train()
-
-    dataset = MVSAStrongDataset(
-        local_data,
+def build_dataloader(samples, tokenizer, args, mode, shuffle=True):
+    dataset = build_mvsa_dataset(
+        samples=samples,
         tokenizer=tokenizer,
-        mode=client_modality,
+        mode=mode,
         max_text_len=args.max_text_len,
-        image_transform=image_transform,
+        cache_dir=os.path.join(args.out_dir, "_dataset_cache"),
     )
 
     loader = DataLoader(
         dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=shuffle,
         num_workers=args.num_workers,
+    )
+
+    return loader
+
+
+def apply_modality_mask(batch, mode, device):
+    """
+    Apply modality masking at batch level.
+
+    image:
+        keep image, mask text into a constant empty-text input
+    text:
+        keep text, mask image into a zero image
+    both:
+        keep both modalities
+
+    This makes image_only / text_only / modality_exclusive effective even when
+    the Dataset class itself does not support a mode argument.
+    """
+    image = batch["image"].to(device)
+    input_ids = batch["input_ids"].to(device)
+    attention_mask = batch["attention_mask"].to(device)
+    labels = batch["label"].to(device)
+
+    if mode == "image":
+        # Keep image branch. Make text branch receive a constant empty input.
+        input_ids = torch.zeros_like(input_ids)
+        attention_mask = torch.zeros_like(attention_mask)
+
+    elif mode == "text":
+        # Keep text branch. Make image branch receive a constant empty image.
+        image = torch.zeros_like(image)
+
+    elif mode == "both":
+        pass
+
+    else:
+        raise ValueError(f"Unknown modality mode: {mode}")
+
+    return image, input_ids, attention_mask, labels
+
+
+# ============================================================
+# Local Training
+# ============================================================
+
+def local_train(
+    global_model,
+    client_samples,
+    tokenizer,
+    args,
+    mode,
+):
+    """
+    Train one local client and return:
+        local_state_dict
+        update_vector
+        local_loss
+        local_acc
+    """
+    device = args.device
+
+    local_model = copy.deepcopy(global_model)
+    local_model.to(device)
+    local_model.train()
+
+    before_state = {
+        k: v.detach().cpu().clone()
+        for k, v in local_model.state_dict().items()
+    }
+
+    loader = build_dataloader(
+        samples=client_samples,
+        tokenizer=tokenizer,
+        args=args,
+        mode=mode,
+        shuffle=True,
     )
 
     optimizer = torch.optim.AdamW(
@@ -329,51 +710,125 @@ def train_one_client(global_model, local_data, tokenizer, args, client_modality)
         lr=args.lr,
     )
 
+    total_loss = 0.0
+    total = 0
+    correct = 0
     step_count = 0
 
     for _ in range(args.local_epochs):
         for batch in loader:
-            image = batch["image"].to(args.device)
-            input_ids = batch["input_ids"].to(args.device)
-            attention_mask = batch["attention_mask"].to(args.device)
-            labels = batch["label"].to(args.device)
-
-            optimizer.zero_grad()
+            image, input_ids, attention_mask, labels = apply_modality_mask(
+                batch=batch,
+                mode=mode,
+                device=device,
+            )
 
             logits = local_model(image, input_ids, attention_mask)
             loss = F.cross_entropy(logits, labels)
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
+            preds = torch.argmax(logits, dim=1)
+
+            total_loss += loss.item() * labels.size(0)
+            total += labels.size(0)
+            correct += (preds == labels).sum().item()
+
             step_count += 1
 
-            if args.max_local_steps is not None and step_count >= args.max_local_steps:
+            if args.max_local_steps is not None:
+                if step_count >= args.max_local_steps:
+                    break
+
+        if args.max_local_steps is not None:
+            if step_count >= args.max_local_steps:
                 break
 
-        if args.max_local_steps is not None and step_count >= args.max_local_steps:
-            break
+    after_state = {
+        k: v.detach().cpu().clone()
+        for k, v in local_model.state_dict().items()
+    }
 
-    return local_model
+    update_vector = extract_update_vector(
+        before_state=before_state,
+        after_state=after_state,
+        target_patterns=args.target_patterns,
+    )
+
+    avg_loss = total_loss / total if total > 0 else 0.0
+    acc = correct / total if total > 0 else 0.0
+
+    return after_state, update_vector, avg_loss, acc
 
 
-def fedavg(global_model, local_models, client_sizes):
-    global_state = global_model.state_dict()
-    total_size = sum(client_sizes)
+# ============================================================
+# Update Extraction
+# ============================================================
 
-    new_state = {}
+def match_target_parameter(name, target_patterns):
+    for pattern in target_patterns:
+        if pattern in name:
+            return True
 
-    for key in global_state.keys():
-        new_state[key] = sum(
-            local_models[i].state_dict()[key].detach().cpu()
-            * (client_sizes[i] / total_size)
-            for i in range(len(local_models))
+    return False
+
+
+def extract_update_vector(before_state, after_state, target_patterns):
+    """
+    Extract flattened parameter update vector for selected parameters.
+    """
+    vectors = []
+
+    for name in before_state.keys():
+        if match_target_parameter(name, target_patterns):
+            diff = after_state[name] - before_state[name]
+            vectors.append(diff.reshape(-1))
+
+    if len(vectors) == 0:
+        raise ValueError(
+            "No parameters matched target_patterns. "
+            f"target_patterns={target_patterns}"
         )
 
-    global_model.load_state_dict(new_state)
+    return torch.cat(vectors).numpy()
 
-    return global_model
 
+# ============================================================
+# FedAvg
+# ============================================================
+
+def fedavg_state_dicts(state_dicts, weights):
+    """
+    Weighted FedAvg over local state dicts.
+    """
+    total_weight = float(sum(weights))
+
+    if total_weight <= 0:
+        raise ValueError("Total FedAvg weight must be positive.")
+
+    avg_state = {}
+
+    for key in state_dicts[0].keys():
+        avg_tensor = None
+
+        for state, weight in zip(state_dicts, weights):
+            tensor = state[key].float() * (weight / total_weight)
+
+            if avg_tensor is None:
+                avg_tensor = tensor
+            else:
+                avg_tensor += tensor
+
+        avg_state[key] = avg_tensor
+
+    return avg_state
+
+
+# ============================================================
+# Evaluation
+# ============================================================
 
 @torch.no_grad()
 def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
@@ -389,10 +844,6 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             "macro_recall": float,
             "balanced_acc": float,
         }
-
-    Note:
-        All settings share the same global 6-class label space.
-        The label space is not split by modality.
     """
     model.eval()
     model.to(args.device)
@@ -400,12 +851,12 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     if max_samples is not None and len(data) > max_samples:
         data = random.sample(data, max_samples)
 
-    dataset = MVSAStrongDataset(
-        data,
+    dataset = build_mvsa_dataset(
+        samples=data,
         tokenizer=tokenizer,
         mode=mode,
         max_text_len=args.max_text_len,
-        image_transform=image_transform,
+        cache_dir=os.path.join(args.out_dir, "_dataset_cache"),
     )
 
     loader = DataLoader(
@@ -423,10 +874,11 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     all_preds = []
 
     for batch in loader:
-        image = batch["image"].to(args.device)
-        input_ids = batch["input_ids"].to(args.device)
-        attention_mask = batch["attention_mask"].to(args.device)
-        labels = batch["label"].to(args.device)
+        image, input_ids, attention_mask, labels = apply_modality_mask(
+            batch=batch,
+            mode=mode,
+            device=args.device,
+        )
 
         logits = model(image, input_ids, attention_mask)
         loss = F.cross_entropy(logits, labels)
@@ -486,50 +938,94 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
 
 
 # ============================================================
-# 6. Update extraction
+# JSON Helper
 # ============================================================
 
-def extract_update_vector(global_before, local_after, target_patterns):
-    before_state = global_before.state_dict()
-    after_state = local_after.state_dict()
+def make_json_serializable(obj):
+    """
+    Convert numpy / torch objects to JSON-serializable objects.
+    """
+    if isinstance(obj, dict):
+        return {
+            k: make_json_serializable(v)
+            for k, v in obj.items()
+        }
 
-    vecs = []
+    if isinstance(obj, list):
+        return [
+            make_json_serializable(v)
+            for v in obj
+        ]
 
-    for name in before_state.keys():
-        if any(pattern in name for pattern in target_patterns):
-            delta = (
-                after_state[name].detach().cpu().float()
-                - before_state[name].detach().cpu().float()
-            )
-            vecs.append(delta.reshape(-1))
+    if isinstance(obj, tuple):
+        return tuple(
+            make_json_serializable(v)
+            for v in obj
+        )
 
-    if len(vecs) == 0:
-        raise ValueError(f"No parameters matched target_patterns: {target_patterns}")
+    if isinstance(obj, np.integer):
+        return int(obj)
 
-    return torch.cat(vecs).numpy()
+    if isinstance(obj, np.floating):
+        return float(obj)
+
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+
+    if isinstance(obj, torch.Tensor):
+        return obj.detach().cpu().tolist()
+
+    return obj
+
+
+def save_summary_json(summary, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(
+            make_json_serializable(summary),
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
 
 # ============================================================
-# 7. Main experiment function
+# Main Experiment
 # ============================================================
 
 def run_experiment(args):
+    """
+    Run one federated learning experiment.
+    """
     os.makedirs(args.out_dir, exist_ok=True)
 
-    set_seed(args.seed)
-
+    # ------------------------------------------------------------
+    # 1. Load data
+    # ------------------------------------------------------------
     print("\nLoading data...")
+
     train_data = load_json(args.train_json)
     val_data = load_json(args.val_json)
     test_data = load_json(args.test_json)
 
-    print("Train:", len(train_data), label_distribution(train_data))
-    print("Val:  ", len(val_data), label_distribution(val_data))
-    print("Test: ", len(test_data), label_distribution(test_data))
+    print("Train:", len(train_data), Counter([x["label_name"] for x in train_data]))
+    print("Val:  ", len(val_data), Counter([x["label_name"] for x in val_data]))
+    print("Test: ", len(test_data), Counter([x["label_name"] for x in test_data]))
 
+    # ------------------------------------------------------------
+    # 2. Load tokenizer and model
+    # ------------------------------------------------------------
     print("\nLoading tokenizer and model...")
+
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name)
 
+    global_model = build_model(args)
+    global_model.to(args.device)
+
+    # ------------------------------------------------------------
+    # 3. Build client partitions
+    # ------------------------------------------------------------
     client_data = build_client_partitions(
         train_data=train_data,
         setting_name=args.setting_name,
@@ -539,53 +1035,71 @@ def run_experiment(args):
         samples_per_client=args.samples_per_client,
         allow_overlap=args.allow_overlap,
         seed=args.seed,
+        partition_mode=getattr(args, "partition_mode", "fixed"),
     )
 
-    global_model = build_model(args).to(args.device)
-
-    update_records = []
+    # ------------------------------------------------------------
+    # 4. Federated training
+    # ------------------------------------------------------------
     round_logs = []
+    update_records = []
+    update_metadata = []
 
     for round_id in range(1, args.rounds + 1):
-        global_before = copy.deepcopy(global_model).cpu()
-
-        local_models = []
-        client_sizes = []
+        local_states = []
+        local_weights = []
 
         for client_id in range(args.num_clients):
+            samples = client_data[client_id]
             modality = get_client_modality(client_id, args.setting_name)
-            dominant_label = get_client_dominant_label(client_id, args.num_classes)
+            dominant_label = get_client_dominant_label(
+                client_id,
+                args.num_classes,
+            )
 
-            local_model = train_one_client(
+            local_state, update_vector, local_loss, local_acc = local_train(
                 global_model=global_model,
-                local_data=client_data[client_id],
+                client_samples=samples,
                 tokenizer=tokenizer,
                 args=args,
-                client_modality=modality,
+                mode=modality,
             )
 
-            update_vec = extract_update_vector(
-                global_before=global_before,
-                local_after=local_model.cpu(),
-                target_patterns=args.target_patterns,
-            )
+            local_states.append(local_state)
+            local_weights.append(len(samples))
 
             update_records.append({
-                "round": round_id,
-                "client_id": client_id,
-                "modality": modality,
+                "update": update_vector,
                 "dominant_label": dominant_label,
-                "update": update_vec,
             })
 
-            local_models.append(local_model.to(args.device))
-            client_sizes.append(len(client_data[client_id]))
+            update_metadata.append({
+                "round": round_id,
+                "client_id": client_id,
+                "setting_name": args.setting_name,
+                "association": args.association,
+                "partition_mode": getattr(args, "partition_mode", "fixed"),
+                "modality": modality,
+                "dominant_label": dominant_label,
+                "dominant_label_name": id_to_label_name.get(
+                    dominant_label,
+                    str(dominant_label),
+                ),
+                "num_samples": len(samples),
+                "local_loss": local_loss,
+                "local_acc": local_acc,
+                "update_norm": float(np.linalg.norm(update_vector)),
+            })
 
-        global_model = fedavg(global_model, local_models, client_sizes)
-        global_model.to(args.device)
+        avg_state = fedavg_state_dicts(
+            state_dicts=local_states,
+            weights=local_weights,
+        )
+
+        global_model.load_state_dict(avg_state, strict=True)
 
         if round_id in args.analysis_rounds or round_id == args.rounds:
-                        train_metrics = evaluate(
+            train_metrics = evaluate(
                 global_model,
                 train_data,
                 tokenizer,
@@ -594,7 +1108,7 @@ def run_experiment(args):
                 max_samples=args.max_train_eval_samples,
             )
 
-        val_metrics = evaluate(
+            val_metrics = evaluate(
                 global_model,
                 val_data,
                 tokenizer,
@@ -603,7 +1117,7 @@ def run_experiment(args):
                 max_samples=args.max_val_eval_samples,
             )
 
-        test_metrics = evaluate(
+            test_metrics = evaluate(
                 global_model,
                 test_data,
                 tokenizer,
@@ -612,7 +1126,7 @@ def run_experiment(args):
                 max_samples=args.max_test_eval_samples,
             )
 
-        print(
+            print(
                 f"Round {round_id:03d} | "
                 f"Train Acc: {train_metrics['acc']:.4f} | "
                 f"Val Acc: {val_metrics['acc']:.4f} | "
@@ -620,7 +1134,7 @@ def run_experiment(args):
                 f"Test Macro-F1: {test_metrics['macro_f1']:.4f}"
             )
 
-        round_logs.append({
+            round_logs.append({
                 "round": round_id,
 
                 "train_loss": train_metrics["loss"],
@@ -645,7 +1159,10 @@ def run_experiment(args):
                 "test_balanced_acc": test_metrics["balanced_acc"],
             })
 
-        final_train_metrics = evaluate(
+    # ------------------------------------------------------------
+    # 5. Final evaluation
+    # ------------------------------------------------------------
+    final_train_metrics = evaluate(
         global_model,
         train_data,
         tokenizer,
@@ -672,11 +1189,17 @@ def run_experiment(args):
         max_samples=args.max_test_eval_samples,
     )
 
+    # ------------------------------------------------------------
+    # 6. Structure and attack metrics
+    # ------------------------------------------------------------
     structure_metrics, all_mat = compute_structure_metrics(
         update_records,
         seed=args.seed,
     )
 
+    # ------------------------------------------------------------
+    # 7. Summary
+    # ------------------------------------------------------------
     global_num_classes = args.num_classes
     random_chance_acc = 1.0 / global_num_classes
 
@@ -685,6 +1208,7 @@ def run_experiment(args):
         "association": args.association,
         "num_clients": args.num_clients,
         "samples_per_client": args.samples_per_client,
+        "partition_mode": getattr(args, "partition_mode", "fixed"),
         "allow_overlap": args.allow_overlap,
         "rounds": args.rounds,
         "local_epochs": args.local_epochs,
@@ -716,8 +1240,7 @@ def run_experiment(args):
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
 
-        # global_acc is kept for compatibility with previous result tables.
-        # Here it means validation accuracy on the shared global 6-class task.
+        # global means validation on the shared global 6-class task
         "global_acc": final_val_metrics["acc"],
         "global_macro_f1": final_val_metrics["macro_f1"],
         "global_macro_precision": final_val_metrics["macro_precision"],
@@ -741,32 +1264,23 @@ def run_experiment(args):
 
     summary.update(structure_metrics)
 
-    # Save round logs
-    pd.DataFrame(round_logs).to_csv(
-        os.path.join(args.out_dir, "round_logs.csv"),
-        index=False,
-    )
+    # ------------------------------------------------------------
+    # 8. Save results
+    # ------------------------------------------------------------
+    summary_path = os.path.join(args.out_dir, "summary.json")
+    round_logs_path = os.path.join(args.out_dir, "round_logs.csv")
+    update_metadata_path = os.path.join(args.out_dir, "update_metadata.csv")
+    update_matrix_path = os.path.join(args.out_dir, "update_matrix.npy")
 
-    save_json(
-        summary,
-        os.path.join(args.out_dir, "summary.json"),
-    )
+    save_summary_json(summary, summary_path)
+    pd.DataFrame(round_logs).to_csv(round_logs_path, index=False)
+    pd.DataFrame(update_metadata).to_csv(update_metadata_path, index=False)
+    np.save(update_matrix_path, all_mat)
 
-    # Save update metadata
-    meta_records = []
-
-    for r in update_records:
-        meta_records.append({
-            "round": r["round"],
-            "client_id": r["client_id"],
-            "modality": r["modality"],
-            "dominant_label": r["dominant_label"],
-            "dominant_label_name": id_to_label_name[r["dominant_label"]],
-        })
-
-    pd.DataFrame(meta_records).to_csv(
-        os.path.join(args.out_dir, "update_metadata.csv"),
-        index=False,
-    )
+    print("\nSaved results:")
+    print("summary:", summary_path)
+    print("round_logs:", round_logs_path)
+    print("update_metadata:", update_metadata_path)
+    print("update_matrix:", update_matrix_path)
 
     return summary, round_logs, all_mat

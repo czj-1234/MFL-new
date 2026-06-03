@@ -46,6 +46,7 @@ class ExperimentArgs:
 
         # federated
         self.num_clients = cfg["federated"]["num_clients"]
+        self.partition_mode = cfg["federated"].get("partition_mode", "fixed")
         self.samples_per_client = cfg["federated"]["samples_per_client"]
         self.allow_overlap = cfg["federated"]["allow_overlap"]
         self.rounds = cfg["federated"]["rounds"]
@@ -82,8 +83,11 @@ class ExperimentArgs:
             self.rounds = rounds
             self.analysis_rounds = {1, self.rounds}
 
+        # If samples_per_client is manually provided from CLI,
+        # switch back to fixed-size client sampling.
         if samples_per_client is not None:
             self.samples_per_client = samples_per_client
+            self.partition_mode = "fixed"
 
         if output_root is not None:
             self.output_root = output_root
@@ -112,7 +116,7 @@ def parse_cli_args():
         "--setting",
         type=str,
         default=None,
-        choices=["image_only", "text_only", "modality_exclusive"],
+        choices=["image_only", "text_only", "modality_exclusive", "full_multimodal"],
         help="Structural setting.",
     )
 
@@ -135,7 +139,7 @@ def parse_cli_args():
         "--samples_per_client",
         type=int,
         default=None,
-        help="Override samples per client.",
+        help="Override samples per client. If provided, partition_mode becomes fixed.",
     )
 
     parser.add_argument(
@@ -148,7 +152,7 @@ def parse_cli_args():
     parser.add_argument(
         "--run_all",
         action="store_true",
-        help="Run all 12 experiments.",
+        help="Run all experiments.",
     )
 
     return parser.parse_args()
