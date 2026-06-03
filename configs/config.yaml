@@ -13,8 +13,8 @@ model:
   text_hidden_dim: 128
   projector_hidden_dim: 128
   dropout: 0.1
-  freeze_image_backbone: true
-  freeze_text_backbone: true
+  freeze_image_backbone: false
+  freeze_text_backbone: false
   pretrained_image: true
 
 federated:
@@ -28,9 +28,9 @@ federated:
   samples_per_client: null
 
   allow_overlap: false
-  rounds: 250
-  local_epochs: 1
-  lr: 0.0005
+  rounds: 100
+  local_epochs: 2
+  lr: 0.00001
   batch_size: 32
   max_local_steps: null
 
@@ -46,7 +46,7 @@ experiment:
   setting_name: modality_exclusive
   association: iid
   output_root: results/structure_baseline
-  analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100, 150, 200, 250]
+  analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100]
 
 update:
   target_patterns:

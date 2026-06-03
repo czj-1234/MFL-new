@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # ============================================================
-# Run 12 MVSA full-data structural baseline experiments
+# Run 12 MVSA structural baseline experiments
 # 3 settings × 4 association levels
 # ============================================================
 
-cd /data/deli/MFL-new/MFL-new || exit 1
+source ~/anaconda3/etc/profile.d/conda.sh
+conda activate mfl
 
-SETTINGS=( "image_only" "text_only" "modality_exclusive" )
+SETTINGS=("image_only" "text_only" "modality_exclusive")
 ASSOCIATIONS=("iid" "0.3" "0.7" "1.0")
 
 for setting in "${SETTINGS[@]}"; do
@@ -19,10 +20,11 @@ for setting in "${SETTINGS[@]}"; do
     echo "============================================================"
     echo ""
 
-    CUDA_VISIBLE_DEVICES=1 /home/deli/Data/miniconda3/envs/mfl/bin/python -m src.main \
+    python -m src.main \
       --setting "${setting}" \
       --association "${association}" \
-      --rounds 100
+      --rounds 100 \
+      --samples_per_client 100
 
     if [ $? -ne 0 ]; then
       echo ""

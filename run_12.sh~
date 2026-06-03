@@ -5,9 +5,9 @@
 # 3 settings × 4 association levels
 # ============================================================
 
-cd /data/deli/MFL-new/MFL-new || exit 1
+cd /data/deli/MFL-new/MFL-new
 
-SETTINGS=( "image_only" "text_only" "modality_exclusive" )
+SETTINGS=("image_only" "text_only" )
 ASSOCIATIONS=("iid" "0.3" "0.7" "1.0")
 
 for setting in "${SETTINGS[@]}"; do
@@ -22,7 +22,7 @@ for setting in "${SETTINGS[@]}"; do
     CUDA_VISIBLE_DEVICES=1 /home/deli/Data/miniconda3/envs/mfl/bin/python -m src.main \
       --setting "${setting}" \
       --association "${association}" \
-      --rounds 100
+      --rounds 250
 
     if [ $? -ne 0 ]; then
       echo ""

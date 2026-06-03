@@ -725,7 +725,17 @@ def local_train(
             )
 
             logits = local_model(image, input_ids, attention_mask)
-            loss = F.cross_entropy(logits, labels)
+            class_weights = torch.tensor(
+                args.class_weights,
+                dtype=torch.float,
+                device=device,
+            )
+
+            loss = F.cross_entropy(
+                logits,
+                labels,
+                weight=class_weights,
+            )
 
             optimizer.zero_grad()
             loss.backward()
@@ -1013,7 +1023,17 @@ def run_experiment(args):
     print("Train:", len(train_data), Counter([x["label_name"] for x in train_data]))
     print("Val:  ", len(val_data), Counter([x["label_name"] for x in val_data]))
     print("Test: ", len(test_data), Counter([x["label_name"] for x in test_data]))
+    label_counts = Counter([int(x["label"]) for x in train_data])
 
+    class_weights = []
+    for label_id in range(args.num_classes):
+        count = label_counts.get(label_id, 1)
+        weight = len(train_data) / (args.num_classes * count)
+        class_weights.append(weight)
+
+    args.class_weights = class_weights
+
+    print("Class weights:", args.class_weights)
     # ------------------------------------------------------------
     # 2. Load tokenizer and model
     # ------------------------------------------------------------
