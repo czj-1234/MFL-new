@@ -22,6 +22,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from transformers import AutoTokenizer
 
@@ -1045,9 +1046,19 @@ def run_experiment(args):
     update_records = []
     update_metadata = []
 
-    for round_id in range(1, args.rounds + 1):
+    round_pbar = tqdm(
+        range(1, args.rounds + 1),
+        total=args.rounds,
+        desc=f"{args.setting_name}-{args.association}",
+        unit="round",
+        dynamic_ncols=True,
+    )
+
+    for round_id in round_pbar:
         local_states = []
         local_weights = []
+        round_local_losses = []
+        round_local_accs = []
 
         for client_id in range(args.num_clients):
             samples = client_data[client_id]
@@ -1064,6 +1075,9 @@ def run_experiment(args):
                 args=args,
                 mode=modality,
             )
+
+            round_local_losses.append(local_loss)
+            round_local_accs.append(local_acc)
 
             local_states.append(local_state)
             local_weights.append(len(samples))
@@ -1097,6 +1111,23 @@ def run_experiment(args):
         )
 
         global_model.load_state_dict(avg_state, strict=True)
+
+        avg_local_loss = (
+            float(np.mean(round_local_losses))
+            if len(round_local_losses) > 0
+            else 0.0
+        )
+
+        avg_local_acc = (
+            float(np.mean(round_local_accs))
+            if len(round_local_accs) > 0
+            else 0.0
+        )
+
+        round_pbar.set_postfix({
+            "loss": f"{avg_local_loss:.4f}",
+            "acc": f"{avg_local_acc:.4f}",
+        })
 
         if round_id in args.analysis_rounds or round_id == args.rounds:
             train_metrics = evaluate(
