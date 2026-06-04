@@ -32,14 +32,28 @@ def run_one_experiment(args):
     print("OUT_DIR:", args.out_dir)
 
     if args.setting_name == "text_only":
+        print("CLIENT_MODALITIES: all clients=text")
         print("LABEL_SOURCE: text_label")
+
     elif args.setting_name == "image_only":
+        print("CLIENT_MODALITIES: all clients=image")
         print("LABEL_SOURCE: image_label")
+
     elif args.setting_name == "modality_exclusive":
-        print("CLIENT_MODALITIES: client0=text, client1=text, client2=image")
+        print("CLIENT_MODALITIES: even clients=image, odd clients=text")
+        print("CLIENT DESIGN:")
+        print("  client 0: image, negative-dominant")
+        print("  client 1: text,  neutral-dominant")
+        print("  client 2: image, positive-dominant")
+        print("  client 3: text,  negative-dominant")
+        print("  client 4: image, neutral-dominant")
+        print("  client 5: text,  positive-dominant")
         print("LABEL_SOURCE: text clients use text_label; image clients use image_label")
+
     elif args.setting_name == "full_multimodal":
+        print("CLIENT_MODALITIES: all clients=both")
         print("LABEL_SOURCE: auto / fixed label if available")
+
     else:
         print("LABEL_SOURCE: unknown")
 

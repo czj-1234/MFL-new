@@ -9,21 +9,28 @@
 #   6. RoBERTa + CLIP-ViT-B/32 model input
 #   7. MVSA original 3-class classification
 #
-# Important for your current setting:
+# Current 3-class setting:
+#   num_classes = 3
+#   labels = negative / neutral / positive
+#
+# Client design:
 #   text_only:
-#       client 0/1/2 = text, label = text_label
+#       all clients = text, label = text_label
 #
 #   image_only:
-#       client 0/1/2 = image, label = image_label
+#       all clients = image, label = image_label
 #
 #   modality_exclusive:
-#       client 0 = text,  dominant_label = negative
+#       client 0 = image, dominant_label = negative
 #       client 1 = text,  dominant_label = neutral
 #       client 2 = image, dominant_label = positive
+#       client 3 = text,  dominant_label = negative
+#       client 4 = image, dominant_label = neutral
+#       client 5 = text,  dominant_label = positive
 #
-#   association is constructed using the label of the client's modality:
-#       text client  -> text_label
-#       image client -> image_label
+# Association is constructed using the label of the client's modality:
+#   text client  -> text_label
+#   image client -> image_label
 # ============================================================
 
 import os
@@ -112,7 +119,7 @@ def build_mvsa_dataset(
     1) Dataset(data=<list>, tokenizer=...)
     2) Dataset(json_path=<path>, tokenizer=...)
 
-    For the new 3-class data:
+    For the 3-class data:
         label_source="text"  -> use text_label
         label_source="image" -> use image_label
         label_source="auto"  -> use item["label"] if already fixed
@@ -126,9 +133,6 @@ def build_mvsa_dataset(
     kwargs = {}
     positional_arg = None
 
-    # ------------------------------------------------------------
-    # Optional arguments
-    # ------------------------------------------------------------
     if "tokenizer" in valid_args:
         kwargs["tokenizer"] = tokenizer
 
@@ -156,9 +160,6 @@ def build_mvsa_dataset(
     if "transform" in valid_args:
         kwargs["transform"] = image_transform
 
-    # ------------------------------------------------------------
-    # Data input compatibility
-    # ------------------------------------------------------------
     if "data" in valid_args:
         kwargs["data"] = samples
 
@@ -315,10 +316,15 @@ def get_client_modality(client_id, setting_name):
         all clients are text-only
 
     modality_exclusive:
-        fixed as:
-            client 0 -> text
+        image and text clients are balanced.
+
+        For 6 clients:
+            client 0 -> image
             client 1 -> text
             client 2 -> image
+            client 3 -> text
+            client 4 -> image
+            client 5 -> text
 
     full_multimodal:
         all clients have both image and text
@@ -333,13 +339,7 @@ def get_client_modality(client_id, setting_name):
         return "text"
 
     if setting_name == "modality_exclusive":
-        if client_id in [0, 1]:
-            return "text"
-        if client_id == 2:
-            return "image"
-
-        # Fallback if you later use more than 3 clients.
-        return "text" if client_id % 3 in [0, 1] else "image"
+        return "image" if client_id % 2 == 0 else "text"
 
     raise ValueError(f"Unknown setting_name: {setting_name}")
 
@@ -348,10 +348,13 @@ def get_client_dominant_label(client_id, num_classes=3):
     """
     Assign one dominant label to each client.
 
-    For 3 clients and 3 classes:
+    For 6 clients and 3 classes:
         client 0 -> 0 negative
         client 1 -> 1 neutral
         client 2 -> 2 positive
+        client 3 -> 0 negative
+        client 4 -> 1 neutral
+        client 5 -> 2 positive
     """
     return client_id % num_classes
 
@@ -406,9 +409,8 @@ def convert_to_client_sample(item, modality):
     Convert original MVSA sample into a single-modality client sample
     with a fixed key: item["label"].
 
-    This avoids confusion:
-        text-view sample  -> label = text_label
-        image-view sample -> label = image_label
+    text-view sample  -> label = text_label
+    image-view sample -> label = image_label
     """
     label = get_sample_label_for_modality(item, modality)
     label_name = id_to_label_name.get(label, str(label))
@@ -419,15 +421,9 @@ def convert_to_client_sample(item, modality):
     new_item["label_name"] = label_name
 
     if modality == "text":
-        # Text client should not use image.
-        # Keep image path for compatibility, but Dataset mode="text"
-        # will mask image anyway.
         new_item["client_label_source"] = "text_label"
 
     elif modality == "image":
-        # Image client should not use text.
-        # Keep text for compatibility, but Dataset mode="image"
-        # will mask text anyway.
         new_item["client_label_source"] = "image_label"
 
     elif modality == "both":
@@ -443,20 +439,18 @@ def get_eval_mode_and_label_source(setting_name):
     """
     Evaluation mode for a setting.
 
-    For text_only:
+    text_only:
         evaluate text branch with text_label
 
-    For image_only:
+    image_only:
         evaluate image branch with image_label
 
-    For full_multimodal:
+    full_multimodal:
         evaluate both branches. If no unified label exists, Dataset falls back
         to text_label.
 
-    For modality_exclusive:
-        there is no single natural unified label because text clients and image
-        clients use different modality-specific labels. We handle it separately
-        in evaluate_for_setting().
+    modality_exclusive:
+        evaluated separately in evaluate_for_setting().
     """
     if setting_name == "text_only":
         return "text", "text"
@@ -480,11 +474,6 @@ def get_eval_mode_and_label_source(setting_name):
 def compute_class_weights_from_client_data(client_data, num_classes, device):
     """
     Compute class weights from the actually used client samples.
-
-    Since client samples already have a fixed key "label", this works for:
-        text_only
-        image_only
-        modality_exclusive
     """
     labels = []
 
@@ -505,7 +494,6 @@ def compute_class_weights_from_client_data(client_data, num_classes, device):
         else:
             weights.append(total / (num_classes * count))
 
-    # Avoid zero class weight if a class is missing in a rare partition.
     non_zero = [w for w in weights if w > 0]
     fallback = float(np.mean(non_zero)) if len(non_zero) > 0 else 1.0
     weights = [w if w > 0 else fallback for w in weights]
@@ -521,32 +509,27 @@ def build_full_client_partitions(
     train_data,
     setting_name,
     association,
-    num_clients=3,
+    num_clients=6,
     num_classes=3,
     seed=42,
 ):
     """
     Build client partitions using the full training dataset.
 
-    This function returns client samples with a fixed "label" key.
+    Output:
+        client_data[client_id] is a list of samples with fixed:
+            item["label"]
+            item["label_name"]
+            item["modality"]
 
-    For association:
+    association:
         iid:
             Randomly split all raw samples into clients, then convert each
             sample according to that client's modality.
 
         0.3 / 0.7 / 1.0:
-            For each raw sample, calculate which clients are label-matched
-            according to their own modality label.
-
-            Example for modality_exclusive:
-                client 0: text  + dominant negative
-                client 1: text  + dominant neutral
-                client 2: image + dominant positive
-
-            A sample is more likely to be assigned to a client if:
-                sample[text_label]  == client dominant label for text clients
-                sample[image_label] == client dominant label for image clients
+            Each sample is assigned with higher probability to clients whose
+            dominant label matches the sample label under that client's modality.
     """
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
@@ -623,20 +606,17 @@ def build_full_client_partitions(
             probs = np.ones(num_clients, dtype=np.float64) / num_clients
 
         else:
-            probs = np.ones(num_clients, dtype=np.float64)
-
             non_matched = [
                 cid for cid in range(num_clients)
                 if cid not in matched_clients
             ]
 
+            probs = np.zeros(num_clients, dtype=np.float64)
+
             if association_strength >= 1.0:
-                probs[:] = 0.0
                 for cid in matched_clients:
                     probs[cid] = 1.0 / len(matched_clients)
             else:
-                probs[:] = 0.0
-
                 matched_mass = association_strength
                 other_mass = 1.0 - association_strength
 
@@ -647,7 +627,6 @@ def build_full_client_partitions(
                     for cid in non_matched:
                         probs[cid] = other_mass / len(non_matched)
                 else:
-                    # If every client is matched, distribute uniformly.
                     probs[:] = 1.0 / num_clients
 
         probs = probs / probs.sum()
@@ -697,7 +676,7 @@ def build_client_partitions(
     train_data,
     setting_name,
     association,
-    num_clients=3,
+    num_clients=6,
     num_classes=3,
     samples_per_client=None,
     allow_overlap=False,
@@ -706,19 +685,6 @@ def build_client_partitions(
 ):
     """
     Build client local datasets.
-
-    partition_mode:
-        full:
-            Use the full training dataset exactly once.
-
-        fixed:
-            Use fixed samples_per_client for each client.
-
-    Output:
-        client_data[client_id] is a list of samples with fixed:
-            item["label"]
-            item["label_name"]
-            item["modality"]
     """
 
     if partition_mode == "full":
@@ -738,8 +704,6 @@ def build_client_partitions(
 
     client_data = {}
 
-    # For fixed mode, sample independently per client according to
-    # that client's modality-specific label buckets.
     for client_id in range(num_clients):
         modality = get_client_modality(client_id, setting_name)
         dominant_label = get_client_dominant_label(client_id, num_classes)
@@ -882,17 +846,7 @@ def build_dataloader(samples, tokenizer, args, mode, shuffle=True):
 def apply_modality_mask(batch, mode, device):
     """
     Apply modality masking at batch level.
-
-    image:
-        keep image, mask text
-
-    text:
-        keep text, mask image
-
-    both:
-        keep both modalities
     """
-
     if "pixel_values" in batch:
         image = batch["pixel_values"].to(device)
     else:
@@ -1114,16 +1068,6 @@ def evaluate(
 ):
     """
     Evaluate classification task.
-
-    For 3-class MVSA:
-        text evaluation:
-            mode="text", label_source="text"
-
-        image evaluation:
-            mode="image", label_source="image"
-
-        converted client samples:
-            label_source="auto"
     """
     model.eval()
     model.to(args.device)
@@ -1185,7 +1129,6 @@ def evaluate(
         )
 
         loss = F.cross_entropy(logits, labels, weight=class_weights_tensor)
-
         preds = torch.argmax(logits, dim=1)
 
         total += labels.size(0)
@@ -1254,11 +1197,18 @@ def average_metric_dicts(metric_dicts):
             "balanced_acc": 0.0,
         }
 
-    keys = metric_dicts[0].keys()
+    base_keys = [
+        "loss",
+        "acc",
+        "macro_f1",
+        "macro_precision",
+        "macro_recall",
+        "balanced_acc",
+    ]
 
     return {
         key: float(np.mean([m[key] for m in metric_dicts]))
-        for key in keys
+        for key in base_keys
     }
 
 
@@ -1283,7 +1233,6 @@ def evaluate_for_setting(
 
     modality_exclusive:
         evaluate both text-view and image-view, then average metrics.
-        This avoids pretending that each raw MVSA pair has one fixed unified label.
     """
     setting_name = args.setting_name
 
@@ -1343,7 +1292,6 @@ def evaluate_for_setting(
 
         avg_metrics = average_metric_dicts([text_metrics, image_metrics])
 
-        # Keep extra detail for logs if needed.
         avg_metrics["text_acc"] = text_metrics["acc"]
         avg_metrics["image_acc"] = image_metrics["acc"]
         avg_metrics["text_macro_f1"] = text_metrics["macro_f1"]
@@ -1466,10 +1414,6 @@ def run_experiment(args):
     # ------------------------------------------------------------
     # Class imbalance handling
     # ------------------------------------------------------------
-    # Compute class weights from the actually used client samples.
-    # This is important because:
-    #   text clients use text_label
-    #   image clients use image_label
     args.class_weights_tensor = compute_class_weights_from_client_data(
         client_data=client_data,
         num_classes=args.num_classes,
@@ -1655,7 +1599,6 @@ def run_experiment(args):
                 "test_balanced_acc": test_metrics["balanced_acc"],
             }
 
-            # Save modality-specific details when available.
             for key in [
                 "text_acc",
                 "image_acc",
@@ -1728,7 +1671,6 @@ def run_experiment(args):
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
-        # task definition
         "task_type": "mvsa_original_3class_modality_specific_classification",
         "global_num_classes": global_num_classes,
         "random_chance_acc": random_chance_acc,
@@ -1737,7 +1679,6 @@ def run_experiment(args):
         "text_client_label_source": "text_label",
         "image_client_label_source": "image_label",
 
-        # train utility metrics
         "train_loss": final_train_metrics["loss"],
         "train_acc": final_train_metrics["acc"],
         "train_macro_f1": final_train_metrics["macro_f1"],
@@ -1745,7 +1686,6 @@ def run_experiment(args):
         "train_macro_recall": final_train_metrics["macro_recall"],
         "train_balanced_acc": final_train_metrics["balanced_acc"],
 
-        # validation utility metrics
         "val_loss": final_val_metrics["loss"],
         "val_acc": final_val_metrics["acc"],
         "val_macro_f1": final_val_metrics["macro_f1"],
@@ -1753,14 +1693,12 @@ def run_experiment(args):
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
 
-        # global means validation metric
         "global_acc": final_val_metrics["acc"],
         "global_macro_f1": final_val_metrics["macro_f1"],
         "global_macro_precision": final_val_metrics["macro_precision"],
         "global_macro_recall": final_val_metrics["macro_recall"],
         "global_balanced_acc": final_val_metrics["balanced_acc"],
 
-        # test utility metrics
         "test_loss": final_test_metrics["loss"],
         "test_acc": final_test_metrics["acc"],
         "test_macro_f1": final_test_metrics["macro_f1"],
@@ -1768,14 +1706,12 @@ def run_experiment(args):
         "test_macro_recall": final_test_metrics["macro_recall"],
         "test_balanced_acc": final_test_metrics["balanced_acc"],
 
-        # accuracy above random chance
         "train_acc_above_chance": final_train_metrics["acc"] - random_chance_acc,
         "val_acc_above_chance": final_val_metrics["acc"] - random_chance_acc,
         "global_acc_above_chance": final_val_metrics["acc"] - random_chance_acc,
         "test_acc_above_chance": final_test_metrics["acc"] - random_chance_acc,
     }
 
-    # Add modality-specific summary metrics when available.
     for key in [
         "text_acc",
         "image_acc",
