@@ -17,8 +17,11 @@ def run_one_experiment(args):
     """
     set_seed(args.seed)
 
-    print("Running MVSA Clean FL Structural Baseline")
-    print("Model: ResNet18 + DistilBERT")
+    print("Running MVSA 4-Class FL Structural Baseline")
+    print("Model: CLIP-ViT-B/32 + RoBERTa-base")
+    print("TASK:", "4-class classification")
+    print("NUM_CLASSES:", args.num_classes)
+    print("NUM_CLIENTS:", args.num_clients)
     print("SETTING_NAME:", args.setting_name)
     print("ASSOCIATION:", args.association)
     print("PARTITION_MODE:", getattr(args, "partition_mode", "fixed"))
@@ -60,7 +63,7 @@ def run_all_experiments(cfg, cli_args):
     for setting_name in setting_list:
         for association in association_list:
             print("\n" + "=" * 80)
-            print(f"Running setting={setting_name}, association={association}")
+            print(f"Running 4-class setting={setting_name}, association={association}")
             print("=" * 80)
 
             args = ExperimentArgs(
@@ -87,6 +90,7 @@ def run_all_experiments(cfg, cli_args):
         "rounds",
         "local_epochs",
         "lr",
+        "weight_decay",
         "seed",
         "model",
         "freeze_image_backbone",
@@ -97,6 +101,11 @@ def run_all_experiments(cfg, cli_args):
         "global_num_classes",
         "random_chance_acc",
         "label_space_split_by_modality",
+
+        # train utility metrics
+        "train_acc",
+        "train_macro_f1",
+        "train_balanced_acc",
 
         # validation/global utility metrics
         "global_acc",
@@ -147,7 +156,7 @@ def run_all_experiments(cfg, cli_args):
     os.makedirs(os.path.dirname(summary_csv), exist_ok=True)
     summary_df.to_csv(summary_csv, index=False)
 
-    print("\nAll experiments done.")
+    print("\nAll 4-class experiments done.")
     print("Saved summary CSV to:", summary_csv)
     print(summary_df)
 

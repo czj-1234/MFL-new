@@ -1,6 +1,7 @@
 # ============================================================
 # Structure and Privacy Leakage Metrics
 # Attackers: Random Forest + MLP + XGBoost
+# Compatible with MVSA 4-class classification
 # ============================================================
 
 import numpy as np
@@ -78,6 +79,54 @@ def clustering_acc(y_true, y_pred):
     return matched / len(y_true)
 
 
+def _safe_train_test_split(X, y, seed=42):
+    """
+    Stratified split when possible.
+    If some classes are too small, fall back to non-stratified split.
+    """
+    unique_labels, counts = np.unique(y, return_counts=True)
+
+    can_stratify = (
+        len(unique_labels) >= 2
+        and np.min(counts) >= 2
+        and len(y) >= len(unique_labels) * 2
+    )
+
+    if can_stratify:
+        return train_test_split(
+            X,
+            y,
+            test_size=0.3,
+            random_state=seed,
+            stratify=y,
+        )
+
+    print(
+        "[Warning] Not enough samples per class for stratified attack split. "
+        "Using non-stratified split."
+    )
+
+    return train_test_split(
+        X,
+        y,
+        test_size=0.3,
+        random_state=seed,
+        stratify=None,
+    )
+
+
+def _remap_labels_to_contiguous(y):
+    """
+    Remap labels to 0..C-1 for XGBoost compatibility.
+    """
+    y = np.asarray(y)
+    unique_labels = np.unique(y)
+    mapping = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
+    y_new = np.array([mapping[v] for v in y], dtype=np.int64)
+
+    return y_new, mapping
+
+
 def compute_attack_success_rates(X, y, seed=42):
     """
     Compute label-inference attack success rates.
@@ -102,17 +151,21 @@ def compute_attack_success_rates(X, y, seed=42):
             "attack_success_rate_mean": np.nan,
         }
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.3,
-        random_state=seed,
-        stratify=y,
+    X_train, X_test, y_train, y_test = _safe_train_test_split(
+        X=X,
+        y=y,
+        seed=seed,
     )
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
+
+    # XGBoost prefers labels to be contiguous: 0, 1, ..., C-1
+    y_train_xgb, label_mapping = _remap_labels_to_contiguous(y_train)
+    y_test_xgb = np.array([label_mapping[v] for v in y_test], dtype=np.int64)
+
+    num_attack_classes = len(np.unique(y_train_xgb))
 
     attackers = {
         "rf": RandomForestClassifier(
@@ -140,7 +193,7 @@ def compute_attack_success_rates(X, y, seed=42):
             subsample=0.9,
             colsample_bytree=0.9,
             objective="multi:softmax",
-            num_class=len(np.unique(y)),
+            num_class=num_attack_classes,
             eval_metric="mlogloss",
             random_state=seed,
             n_jobs=-1,
@@ -151,9 +204,14 @@ def compute_attack_success_rates(X, y, seed=42):
 
     for name, attacker in attackers.items():
         try:
-            attacker.fit(X_train_scaled, y_train)
-            pred = attacker.predict(X_test_scaled)
-            acc = accuracy_score(y_test, pred)
+            if name == "xgb":
+                attacker.fit(X_train_scaled, y_train_xgb)
+                pred = attacker.predict(X_test_scaled)
+                acc = accuracy_score(y_test_xgb, pred)
+            else:
+                attacker.fit(X_train_scaled, y_train)
+                pred = attacker.predict(X_test_scaled)
+                acc = accuracy_score(y_test, pred)
 
             results[f"attack_success_rate_{name}"] = float(acc)
 
@@ -183,6 +241,9 @@ def compute_structure_metrics(update_records, seed=42):
             "dominant_label": int
         }
     """
+    if len(update_records) == 0:
+        raise ValueError("update_records is empty. Cannot compute structure metrics.")
+
     X = np.stack([r["update"] for r in update_records], axis=0)
     y = np.array([r["dominant_label"] for r in update_records])
 
@@ -202,7 +263,7 @@ def compute_structure_metrics(update_records, seed=42):
     n_samples = X_scaled.shape[0]
     n_clusters = len(np.unique(y))
 
-    if n_clusters >= n_samples:
+    if n_clusters < 2 or n_clusters >= n_samples:
         metrics["kmeans_acc"] = np.nan
         metrics["Silhouette"] = np.nan
         metrics["DBI"] = np.nan

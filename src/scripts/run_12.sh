@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # ============================================================
-# Run 12 MVSA full-data structural baseline experiments
+# Run 12 MVSA 4-class full-data structural baseline experiments
 # 3 settings × 4 association levels
 # ============================================================
 
 cd /data/deli/MFL-new/MFL-new || exit 1
 
-SETTINGS=( "text_only" "modality_exclusive" "image_only"  )
+SETTINGS=("text_only" "modality_exclusive" "image_only")
 ASSOCIATIONS=("iid" "0.3" "0.7" "1.0")
 
 for setting in "${SETTINGS[@]}"; do
@@ -15,7 +15,7 @@ for setting in "${SETTINGS[@]}"; do
 
     echo ""
     echo "============================================================"
-    echo "Running setting=${setting}, association=${association}"
+    echo "Running 4-class experiment: setting=${setting}, association=${association}"
     echo "============================================================"
     echo ""
 
@@ -34,4 +34,4 @@ for setting in "${SETTINGS[@]}"; do
 done
 
 echo ""
-echo "All 12 experiments completed."
+echo "All 12 4-class experiments completed."

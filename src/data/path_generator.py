@@ -1,10 +1,10 @@
 # ============================================================
-# MVSA-Multiple Data Processing for 6-Class Sentiment Strength
+# MVSA-Multiple Data Processing for 4-Class Sentiment Classification
 # Generate:
-#   1. mvsa_6class_all.json
-#   2. mvsa_6class_train.json
-#   3. mvsa_6class_val.json
-#   4. mvsa_6class_test.json
+#   1. mvsa_4class_all.json
+#   2. mvsa_4class_train.json
+#   3. mvsa_4class_val.json
+#   4. mvsa_4class_test.json
 # ============================================================
 
 import os
@@ -25,7 +25,7 @@ random.seed(SEED)
 
 # 项目内相对路径
 # 你的原始 MVSA 数据应该放在：
-# data/raw/MVSA/
+# data/MVSA/
 DATA_ROOT = "data/MVSA"
 
 LABEL_FILE = os.path.join(DATA_ROOT, "labelResultAll.txt")
@@ -34,29 +34,25 @@ LABEL_FILE = os.path.join(DATA_ROOT, "labelResultAll.txt")
 OUT_DIR = "data/processed"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-ALL_JSON = os.path.join(OUT_DIR, "mvsa_6class_all.json")
-TRAIN_JSON = os.path.join(OUT_DIR, "mvsa_6class_train.json")
-VAL_JSON = os.path.join(OUT_DIR, "mvsa_6class_val.json")
-TEST_JSON = os.path.join(OUT_DIR, "mvsa_6class_test.json")
+ALL_JSON = os.path.join(OUT_DIR, "mvsa_4class_all.json")
+TRAIN_JSON = os.path.join(OUT_DIR, "mvsa_4class_train.json")
+VAL_JSON = os.path.join(OUT_DIR, "mvsa_4class_val.json")
+TEST_JSON = os.path.join(OUT_DIR, "mvsa_4class_test.json")
 
 
-# 6-class sentiment-strength labels
+# 4-class sentiment labels
 label_map = {
-    "strong_negative": 0,
-    "weak_negative": 1,
-    "neutral_mixed": 2,
-    "weak_positive": 3,
-    "medium_positive": 4,
-    "strong_positive": 5,
+    "negative": 0,
+    "neutral_mixed": 1,
+    "positive": 2,
+    "strong_positive": 3,
 }
 
 id_to_label_name = {
-    0: "strong_negative",
-    1: "weak_negative",
-    2: "neutral_mixed",
-    3: "weak_positive",
-    4: "medium_positive",
-    5: "strong_positive",
+    0: "negative",
+    1: "neutral_mixed",
+    2: "positive",
+    3: "strong_positive",
 }
 
 valid_sentiments = {"positive", "neutral", "negative"}
@@ -121,9 +117,9 @@ def label_distribution(data):
     return Counter([x["label_name"] for x in data])
 
 
-def sentiment_strength_label(votes):
+def sentiment_strength_label_4class(votes):
     """
-    Convert multiple sentiment votes into a 6-class sentiment-strength label.
+    Convert multiple sentiment votes into a 4-class sentiment label.
 
     Each MVSA-Multiple sample has up to 6 votes:
         annotator 1: text_label, image_label
@@ -133,13 +129,19 @@ def sentiment_strength_label(votes):
     We compute:
         score = positive_count - negative_count
 
-    Label mapping:
-        score <= -3        -> 0 strong_negative
-        score -2 or -1     -> 1 weak_negative
-        score == 0         -> 2 neutral_mixed
-        score 1 or 2       -> 3 weak_positive
-        score 3 or 4       -> 4 medium_positive
-        score 5 or 6       -> 5 strong_positive
+    First obtain the original sentiment-strength meaning:
+        score <= -3        -> strong_negative
+        score -2 or -1     -> weak_negative
+        score == 0         -> neutral_mixed
+        score 1 or 2       -> weak_positive
+        score 3 or 4       -> medium_positive
+        score 5 or 6       -> strong_positive
+
+    Then merge into 4 classes:
+        strong_negative + weak_negative  -> 0 negative
+        neutral_mixed                    -> 1 neutral_mixed
+        weak_positive + medium_positive  -> 2 positive
+        strong_positive                  -> 3 strong_positive
     """
     valid_votes = [v for v in votes if v in valid_sentiments]
 
@@ -154,30 +156,29 @@ def sentiment_strength_label(votes):
 
     score = positive_count - negative_count
 
-    if score <= -3:
+    if score <= -1:
         class_id = 0
-        class_name = "strong_negative"
-    elif score in [-2, -1]:
-        class_id = 1
-        class_name = "weak_negative"
+        class_name = "negative"
+        original_label_name = "strong_negative" if score <= -3 else "weak_negative"
     elif score == 0:
-        class_id = 2
+        class_id = 1
         class_name = "neutral_mixed"
-    elif score in [1, 2]:
-        class_id = 3
-        class_name = "weak_positive"
-    elif score in [3, 4]:
-        class_id = 4
-        class_name = "medium_positive"
+        original_label_name = "neutral_mixed"
+    elif score in [1, 2, 3, 4]:
+        class_id = 2
+        class_name = "positive"
+        original_label_name = "weak_positive" if score in [1, 2] else "medium_positive"
     elif score in [5, 6]:
-        class_id = 5
+        class_id = 3
         class_name = "strong_positive"
+        original_label_name = "strong_positive"
     else:
         return None
 
     return {
         "label": class_id,
         "label_name": class_name,
+        "original_label_name": original_label_name,
         "positive_count": positive_count,
         "neutral_count": neutral_count,
         "negative_count": negative_count,
@@ -207,28 +208,28 @@ def read_label_file(label_file):
 # 3. Main Processing Function
 # ============================================================
 
-def generate_mvsa_6class_dataset(
+def generate_mvsa_4class_dataset(
     data_root=DATA_ROOT,
     label_file=LABEL_FILE,
     out_dir=OUT_DIR,
     seed=SEED,
 ):
     """
-    Generate full MVSA 6-class JSON files.
+    Generate full MVSA 4-class JSON files.
 
     Outputs:
-        mvsa_6class_all.json
-        mvsa_6class_train.json
-        mvsa_6class_val.json
-        mvsa_6class_test.json
+        mvsa_4class_all.json
+        mvsa_4class_train.json
+        mvsa_4class_val.json
+        mvsa_4class_test.json
     """
 
     random.seed(seed)
 
-    all_json = os.path.join(out_dir, "mvsa_6class_all.json")
-    train_json = os.path.join(out_dir, "mvsa_6class_train.json")
-    val_json = os.path.join(out_dir, "mvsa_6class_val.json")
-    test_json = os.path.join(out_dir, "mvsa_6class_test.json")
+    all_json = os.path.join(out_dir, "mvsa_4class_all.json")
+    train_json = os.path.join(out_dir, "mvsa_4class_train.json")
+    val_json = os.path.join(out_dir, "mvsa_4class_val.json")
+    test_json = os.path.join(out_dir, "mvsa_4class_test.json")
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -276,13 +277,13 @@ def generate_mvsa_6class_dataset(
         )
 
     # -----------------------------
-    # Build 6-class sentiment labels
+    # Build 4-class sentiment labels
     # -----------------------------
     clean_label_items = []
 
     stats = {
         "raw_rows": len(df),
-        "valid_6class_labels": 0,
+        "valid_4class_labels": 0,
         "invalid_or_empty_votes": 0,
         "missing_image": 0,
         "missing_text": 0,
@@ -318,18 +319,19 @@ def generate_mvsa_6class_dataset(
             if image_label in valid_sentiments:
                 votes.append(image_label)
 
-        label_info = sentiment_strength_label(votes)
+        label_info = sentiment_strength_label_4class(votes)
 
         if label_info is None:
             stats["invalid_or_empty_votes"] += 1
             continue
 
-        stats["valid_6class_labels"] += 1
+        stats["valid_4class_labels"] += 1
 
         clean_label_items.append({
             "id": sample_id,
             "label": label_info["label"],
             "label_name": label_info["label_name"],
+            "original_label_name": label_info["original_label_name"],
             "positive_count": label_info["positive_count"],
             "neutral_count": label_info["neutral_count"],
             "negative_count": label_info["negative_count"],
@@ -338,12 +340,15 @@ def generate_mvsa_6class_dataset(
             "raw_votes": label_info["raw_votes"],
         })
 
-    print("\n6-class label construction stats:")
+    print("\n4-class label construction stats:")
     for k, v in stats.items():
         print(f"{k}: {v}")
 
-    print("\n6-class label distribution before matching files:")
+    print("\n4-class label distribution before matching files:")
     print(Counter([x["label_name"] for x in clean_label_items]))
+
+    print("\nOriginal 6-class label distribution before matching files:")
+    print(Counter([x["original_label_name"] for x in clean_label_items]))
 
     print("\nScore distribution before matching files:")
     print(Counter([x["score"] for x in clean_label_items]))
@@ -379,6 +384,7 @@ def generate_mvsa_6class_dataset(
             "text": text,
             "label": item["label"],
             "label_name": item["label_name"],
+            "original_label_name": item["original_label_name"],
             "positive_count": item["positive_count"],
             "neutral_count": item["neutral_count"],
             "negative_count": item["negative_count"],
@@ -393,8 +399,11 @@ def generate_mvsa_6class_dataset(
     print("Missing text:", stats["missing_text"])
     print("Empty text:", stats["empty_text"])
 
-    print("\nFinal 6-class label distribution:")
+    print("\nFinal 4-class label distribution:")
     print(label_distribution(clean_samples))
+
+    print("\nFinal original 6-class label distribution:")
+    print(Counter([x["original_label_name"] for x in clean_samples]))
 
     print("\nFinal score distribution:")
     print(Counter([x["score"] for x in clean_samples]))
@@ -490,4 +499,4 @@ def generate_mvsa_6class_dataset(
 # ============================================================
 
 if __name__ == "__main__":
-    generate_mvsa_6class_dataset()
+    generate_mvsa_4class_dataset()

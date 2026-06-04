@@ -7,6 +7,7 @@
 #   4. utility metrics: acc, macro-F1, precision, recall, balanced acc
 #   5. structure / attack metrics
 #   6. RoBERTa + CLIP-ViT-B/32 model input
+#   7. MVSA 4-class classification
 # ============================================================
 
 import os
@@ -48,7 +49,8 @@ _DATASET_CANDIDATES = [
     "MVSAStrongDataset",
     "MVSADataset",
     "MVSAVoteDataset",
-    "MVSA6ClassDataset",
+    "MVSA4ClassDataset",
+    "MVSA6ClassDataset",  # keep old alias compatibility
     "VoteDataset",
 ]
 
@@ -214,12 +216,10 @@ def build_mvsa_dataset(
 # ============================================================
 
 id_to_label_name = {
-    0: "strong_negative",
-    1: "weak_negative",
-    2: "neutral_mixed",
-    3: "weak_positive",
-    4: "medium_positive",
-    5: "strong_positive",
+    0: "negative",
+    1: "neutral_mixed",
+    2: "positive",
+    3: "strong_positive",
 }
 
 
@@ -311,7 +311,7 @@ def get_client_modality(client_id, setting_name):
         odd clients are text-only
 
     Important:
-        The label space is always the same global 6-class task.
+        The label space is always the same global 4-class task.
         Labels are not split by modality.
     """
     if setting_name == "full_multimodal":
@@ -329,7 +329,7 @@ def get_client_modality(client_id, setting_name):
     raise ValueError(f"Unknown setting_name: {setting_name}")
 
 
-def get_client_dominant_label(client_id, num_classes=6):
+def get_client_dominant_label(client_id, num_classes=4):
     """
     Assign one reference label to each client.
 
@@ -347,8 +347,8 @@ def build_full_client_partitions(
     train_data,
     setting_name,
     association,
-    num_clients=6,
-    num_classes=6,
+    num_clients=4,
+    num_classes=4,
     seed=42,
 ):
     """
@@ -366,7 +366,7 @@ def build_full_client_partitions(
             Remaining samples are distributed to other clients.
 
     Important:
-        All settings still share the same global 6-class classification task.
+        All settings still share the same global 4-class classification task.
         The label space is not split by modality.
     """
     rng = random.Random(seed)
@@ -480,8 +480,8 @@ def build_client_partitions(
     train_data,
     setting_name,
     association,
-    num_clients=6,
-    num_classes=6,
+    num_clients=4,
+    num_classes=4,
     samples_per_client=None,
     allow_overlap=False,
     seed=42,
@@ -737,6 +737,7 @@ def local_train(
     optimizer = torch.optim.AdamW(
         [p for p in local_model.parameters() if p.requires_grad],
         lr=args.lr,
+        weight_decay=getattr(args, "weight_decay", 0.0),
     )
 
     # Global class weights are computed once from the full training set
@@ -885,7 +886,7 @@ def fedavg_state_dicts(state_dicts, weights):
 @torch.no_grad()
 def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     """
-    Evaluate the global 6-class classification task.
+    Evaluate the global 4-class classification task.
 
     Returns:
         {
@@ -1345,13 +1346,14 @@ def run_experiment(args):
         "rounds": args.rounds,
         "local_epochs": args.local_epochs,
         "lr": args.lr,
+        "weight_decay": getattr(args, "weight_decay", 0.0),
         "seed": args.seed,
         "model": "CLIP-ViT-B32+RoBERTa-base",
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
         # task definition
-        "task_type": "global_6class_classification",
+        "task_type": "global_4class_classification",
         "global_num_classes": global_num_classes,
         "random_chance_acc": random_chance_acc,
         "label_space_split_by_modality": False,
@@ -1372,7 +1374,7 @@ def run_experiment(args):
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
 
-        # global means validation on the shared global 6-class task
+        # global means validation on the shared global 4-class task
         "global_acc": final_val_metrics["acc"],
         "global_macro_f1": final_val_metrics["macro_f1"],
         "global_macro_precision": final_val_metrics["macro_precision"],

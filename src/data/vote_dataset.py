@@ -1,5 +1,5 @@
 # ============================================================
-# MVSA Dataset for 6-Class Multimodal Federated Learning
+# MVSA Dataset for 4-Class Multimodal Federated Learning
 # Compatible with:
 #   1. json_path input
 #   2. Python list input
@@ -38,7 +38,7 @@ def load_json(path):
 
 class MVSAStrongDataset(Dataset):
     """
-    MVSA 6-class dataset.
+    MVSA 4-class dataset.
 
     Supports:
         data=list
@@ -133,7 +133,7 @@ class MVSAStrongDataset(Dataset):
             return None
 
         image_path = str(image_path).strip()
-        image_path = image_path.replace("\\" , "/")
+        image_path = image_path.replace("\\", "/")
 
         if image_path == "":
             return None
@@ -264,7 +264,7 @@ class MVSAStrongDataset(Dataset):
 
 MVSADataset = MVSAStrongDataset
 MVSAVoteDataset = MVSAStrongDataset
-MVSA6ClassDataset = MVSAStrongDataset
+MVSA4ClassDataset = MVSAStrongDataset
 VoteDataset = MVSAStrongDataset
 
 

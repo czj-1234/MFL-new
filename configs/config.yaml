@@ -1,10 +1,10 @@
 seed: 42
 
 data:
-  train_json: data/processed/mvsa_6class_train.json
-  val_json: data/processed/mvsa_6class_val.json
-  test_json: data/processed/mvsa_6class_test.json
-  num_classes: 6
+  train_json: data/processed/mvsa_4class_train.json
+  val_json: data/processed/mvsa_4class_val.json
+  test_json: data/processed/mvsa_4class_test.json
+  num_classes: 4
 
 model:
   tokenizer_name: roberta-base
@@ -14,14 +14,17 @@ model:
   image_hidden_dim: 256
   text_hidden_dim: 256
   projector_hidden_dim: 256
-  dropout: 0.4
+  dropout: 0.3
 
-  freeze_image_backbone: false
+  # 4-class classification version:
+  # Freeze CLIP image backbone first for stability.
+  # Fine-tune RoBERTa text backbone.
+  freeze_image_backbone: true
   freeze_text_backbone: false
   pretrained_image: true
 
 federated:
-  num_clients: 6
+  num_clients: 4
 
   # fixed = use samples_per_client
   # full  = use all training samples
@@ -33,7 +36,13 @@ federated:
   allow_overlap: false
   rounds: 100
   local_epochs: 1
-  lr: 0.000001
+
+  # Start with 1e-5. If overfitting appears, reduce to 5e-6.
+  lr: 0.00001
+
+  # AdamW regularization
+  weight_decay: 0.01
+
   batch_size: 32
   max_local_steps: null
 
@@ -48,7 +57,10 @@ evaluation:
 experiment:
   setting_name: modality_exclusive
   association: iid
-  output_root: results/structure_baseline
+
+  # Use a separate output folder for 4-class experiments
+  output_root: results/4class_baseline
+
   analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100]
 
 update:
