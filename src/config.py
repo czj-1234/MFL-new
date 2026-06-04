@@ -36,13 +36,20 @@ class ExperimentArgs:
         # model
         self.tokenizer_name = cfg["model"]["tokenizer_name"]
         self.text_model_name = cfg["model"]["text_model_name"]
+
+        # Important for CLIP image encoder
+        self.image_model_name = cfg["model"].get(
+            "image_model_name",
+            "openai/clip-vit-base-patch32",
+        )
+
         self.image_hidden_dim = cfg["model"]["image_hidden_dim"]
         self.text_hidden_dim = cfg["model"]["text_hidden_dim"]
         self.projector_hidden_dim = cfg["model"]["projector_hidden_dim"]
         self.dropout = cfg["model"]["dropout"]
         self.freeze_image_backbone = cfg["model"]["freeze_image_backbone"]
         self.freeze_text_backbone = cfg["model"]["freeze_text_backbone"]
-        self.pretrained_image = cfg["model"]["pretrained_image"]
+        self.pretrained_image = cfg["model"].get("pretrained_image", True)
 
         # federated
         self.num_clients = cfg["federated"]["num_clients"]
@@ -54,6 +61,9 @@ class ExperimentArgs:
         self.lr = cfg["federated"]["lr"]
         self.batch_size = cfg["federated"]["batch_size"]
         self.max_local_steps = cfg["federated"]["max_local_steps"]
+
+        # Optional optimizer regularization
+        self.weight_decay = cfg["federated"].get("weight_decay", 0.01)
 
         # evaluation
         self.eval_batch_size = cfg["evaluation"]["eval_batch_size"]
@@ -116,7 +126,12 @@ def parse_cli_args():
         "--setting",
         type=str,
         default=None,
-        choices=["image_only", "text_only", "modality_exclusive", "full_multimodal"],
+        choices=[
+            "image_only",
+            "text_only",
+            "modality_exclusive",
+            "full_multimodal",
+        ],
         help="Structural setting.",
     )
 

@@ -17,8 +17,9 @@ def run_one_experiment(args):
     """
     set_seed(args.seed)
 
-    print("Running MVSA Clean FL Structural Baseline")
-    print("Model: ResNet18 + DistilBERT")
+    print("Running MVSA Federated Multimodal Regression Experiment")
+    print("Model: CLIP-ViT-B/32 + RoBERTa-base")
+    print("Task: Sentiment score regression -> 6-class prediction")
     print("SETTING_NAME:", args.setting_name)
     print("ASSOCIATION:", args.association)
     print("PARTITION_MODE:", getattr(args, "partition_mode", "fixed"))

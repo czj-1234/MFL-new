@@ -1,5 +1,5 @@
 # ============================================================
-# Federated Learning Pipeline
+# Federated Learning Pipeline - Score Regression Variant
 # Supports:
 #   1. fixed-size client sampling
 #   2. full-data client partitioning
@@ -37,7 +37,7 @@ from sklearn.metrics import (
 import src.data.vote_dataset as vote_dataset
 
 from src.metrics import compute_structure_metrics
-from src.utils import load_json, compute_class_weights_from_dataset
+from src.utils import load_json
 
 
 # ============================================================
@@ -221,6 +221,59 @@ id_to_label_name = {
     4: "medium_positive",
     5: "strong_positive",
 }
+
+
+# ============================================================
+# Regression Label Mapping
+# ============================================================
+
+label_id_to_score = {
+    0: -2.5,  # strong_negative
+    1: -1.5,  # weak_negative
+    2:  0.0,  # neutral_mixed
+    3:  1.0,  # weak_positive
+    4:  1.8,  # medium_positive
+    5:  2.5,  # strong_positive
+}
+
+
+def labels_to_scores(labels):
+    """
+    Convert class labels [0, 5] to continuous sentiment scores.
+    """
+    score_values = torch.tensor(
+        [
+            label_id_to_score[0],
+            label_id_to_score[1],
+            label_id_to_score[2],
+            label_id_to_score[3],
+            label_id_to_score[4],
+            label_id_to_score[5],
+        ],
+        dtype=torch.float32,
+        device=labels.device,
+    )
+
+    return score_values[labels.long()]
+
+
+def scores_to_labels(scores):
+    """
+    Convert predicted sentiment scores back to 6-class labels.
+
+    Thresholds are midpoints between neighboring sentiment scores:
+        -2.5, -1.5, 0.0, 1.0, 1.8, 2.5
+    """
+
+    preds = torch.zeros_like(scores, dtype=torch.long)
+
+    preds[(scores >= -2.0) & (scores < -0.75)] = 1
+    preds[(scores >= -0.75) & (scores < 0.5)] = 2
+    preds[(scores >= 0.5) & (scores < 1.4)] = 3
+    preds[(scores >= 1.4) & (scores < 2.15)] = 4
+    preds[scores >= 2.15] = 5
+
+    return preds
 
 
 # ============================================================
@@ -737,20 +790,8 @@ def local_train(
     optimizer = torch.optim.AdamW(
         [p for p in local_model.parameters() if p.requires_grad],
         lr=args.lr,
+        weight_decay=getattr(args, "weight_decay", 0.01),
     )
-
-    # Global class weights are computed once from the full training set
-    # in run_experiment(), then reused by every client.
-    if hasattr(args, "class_weights_tensor"):
-        class_weights_tensor = args.class_weights_tensor.to(device)
-    elif hasattr(args, "class_weights"):
-        class_weights_tensor = torch.tensor(
-            args.class_weights,
-            dtype=torch.float32,
-            device=device,
-        )
-    else:
-        class_weights_tensor = None
 
     total_loss = 0.0
     total = 0
@@ -772,17 +813,19 @@ def local_train(
                 setting=mode,
             )
 
-            loss = F.cross_entropy(
-                logits,
-                labels,
-                weight=class_weights_tensor,
+            scores = logits.squeeze(-1)
+            target_scores = labels_to_scores(labels)
+
+            loss = F.smooth_l1_loss(
+                scores,
+                target_scores,
             )
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            preds = torch.argmax(logits, dim=1)
+            preds = scores_to_labels(scores)
 
             total_loss += loss.item() * labels.size(0)
             total += labels.size(0)
@@ -885,7 +928,7 @@ def fedavg_state_dicts(state_dicts, weights):
 @torch.no_grad()
 def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     """
-    Evaluate the global 6-class classification task.
+    Evaluate score regression and convert scores back to 6-class labels.
 
     Returns:
         {
@@ -927,19 +970,6 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     correct = 0
     total_loss = 0.0
 
-    # Use the same global class weights for evaluation loss when available.
-    # Metrics such as acc / macro-F1 are not affected by this.
-    if hasattr(args, "class_weights_tensor"):
-        class_weights_tensor = args.class_weights_tensor.to(args.device)
-    elif hasattr(args, "class_weights"):
-        class_weights_tensor = torch.tensor(
-            args.class_weights,
-            dtype=torch.float32,
-            device=args.device,
-        )
-    else:
-        class_weights_tensor = None
-
     all_labels = []
     all_preds = []
 
@@ -957,9 +987,15 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             setting=mode,
         )
 
-        loss = F.cross_entropy(logits, labels, weight=class_weights_tensor)
+        scores = logits.squeeze(-1)
+        target_scores = labels_to_scores(labels)
 
-        preds = torch.argmax(logits, dim=1)
+        loss = F.smooth_l1_loss(
+            scores,
+            target_scores,
+        )
+
+        preds = scores_to_labels(scores)
 
         total += labels.size(0)
         correct += (preds == labels).sum().item()
@@ -1090,20 +1126,6 @@ def run_experiment(args):
     print("Test: ", len(test_data), Counter([x["label_name"] for x in test_data]))
 
     # ------------------------------------------------------------
-    # Class imbalance handling
-    # ------------------------------------------------------------
-    # Compute one global set of class weights from the full training set.
-    # All clients share the same weights during local training.
-    args.class_weights_tensor = compute_class_weights_from_dataset(
-        dataset=train_data,
-        num_classes=args.num_classes,
-        device=args.device,
-    )
-
-    # Also keep a CPU-list copy for JSON/config compatibility.
-    args.class_weights = args.class_weights_tensor.detach().cpu().tolist()
-
-    # ------------------------------------------------------------
     # 2. Load tokenizer and model
     # ------------------------------------------------------------
     print("\nLoading tokenizer and model...")
@@ -1127,6 +1149,18 @@ def run_experiment(args):
         seed=args.seed,
         partition_mode=getattr(args, "partition_mode", "fixed"),
     )
+
+    # ------------------------------------------------------------
+    # Evaluation modality
+    # ------------------------------------------------------------
+    if args.setting_name == "image_only":
+        eval_mode = "image"
+    elif args.setting_name == "text_only":
+        eval_mode = "text"
+    else:
+        eval_mode = "both"
+
+    print(f"Evaluation mode: {eval_mode}")
 
     # ------------------------------------------------------------
     # 4. Federated training
@@ -1228,7 +1262,7 @@ def run_experiment(args):
                 train_data,
                 tokenizer,
                 args,
-                mode="both",
+                mode=eval_mode,
                 max_samples=args.max_train_eval_samples,
             )
 
@@ -1237,7 +1271,7 @@ def run_experiment(args):
                 val_data,
                 tokenizer,
                 args,
-                mode="both",
+                mode=eval_mode,
                 max_samples=args.max_val_eval_samples,
             )
 
@@ -1246,7 +1280,7 @@ def run_experiment(args):
                 test_data,
                 tokenizer,
                 args,
-                mode="both",
+                mode=eval_mode,
                 max_samples=args.max_test_eval_samples,
             )
 
@@ -1299,7 +1333,7 @@ def run_experiment(args):
         train_data,
         tokenizer,
         args,
-        mode="both",
+        mode=eval_mode,
         max_samples=args.max_train_eval_samples,
     )
 
@@ -1308,7 +1342,7 @@ def run_experiment(args):
         val_data,
         tokenizer,
         args,
-        mode="both",
+        mode=eval_mode,
         max_samples=args.max_val_eval_samples,
     )
 
@@ -1317,7 +1351,7 @@ def run_experiment(args):
         test_data,
         tokenizer,
         args,
-        mode="both",
+        mode=eval_mode,
         max_samples=args.max_test_eval_samples,
     )
 
@@ -1346,15 +1380,23 @@ def run_experiment(args):
         "local_epochs": args.local_epochs,
         "lr": args.lr,
         "seed": args.seed,
-        "model": "CLIP-ViT-B32+RoBERTa-base",
+        "model": "CLIP-ViT-B32+RoBERTa-base-regression",
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
         # task definition
-        "task_type": "global_6class_classification",
+        "task_type": "score_regression_then_6class_classification",
         "global_num_classes": global_num_classes,
         "random_chance_acc": random_chance_acc,
         "label_space_split_by_modality": False,
+        "regression_score_mapping": {
+            "strong_negative": -2.5,
+            "weak_negative": -1.5,
+            "neutral_mixed": 0.0,
+            "weak_positive": 1.0,
+            "medium_positive": 1.8,
+            "strong_positive": 2.5,
+        },
 
         # train utility metrics
         "train_loss": final_train_metrics["loss"],
