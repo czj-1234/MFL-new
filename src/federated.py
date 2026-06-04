@@ -37,7 +37,7 @@ from sklearn.metrics import (
 import src.data.vote_dataset as vote_dataset
 
 from src.metrics import compute_structure_metrics
-from src.utils import load_json
+from src.utils import load_json, compute_class_weights_from_dataset
 
 
 # ============================================================
@@ -739,6 +739,19 @@ def local_train(
         lr=args.lr,
     )
 
+    # Global class weights are computed once from the full training set
+    # in run_experiment(), then reused by every client.
+    if hasattr(args, "class_weights_tensor"):
+        class_weights_tensor = args.class_weights_tensor.to(device)
+    elif hasattr(args, "class_weights"):
+        class_weights_tensor = torch.tensor(
+            args.class_weights,
+            dtype=torch.float32,
+            device=device,
+        )
+    else:
+        class_weights_tensor = None
+
     total_loss = 0.0
     total = 0
     correct = 0
@@ -759,16 +772,10 @@ def local_train(
                 setting=mode,
             )
 
-            class_weights = torch.tensor(
-                args.class_weights,
-                dtype=torch.float,
-                device=device,
-            )
-
             loss = F.cross_entropy(
                 logits,
                 labels,
-                weight=class_weights,
+                weight=class_weights_tensor,
             )
 
             optimizer.zero_grad()
@@ -920,6 +927,19 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     correct = 0
     total_loss = 0.0
 
+    # Use the same global class weights for evaluation loss when available.
+    # Metrics such as acc / macro-F1 are not affected by this.
+    if hasattr(args, "class_weights_tensor"):
+        class_weights_tensor = args.class_weights_tensor.to(args.device)
+    elif hasattr(args, "class_weights"):
+        class_weights_tensor = torch.tensor(
+            args.class_weights,
+            dtype=torch.float32,
+            device=args.device,
+        )
+    else:
+        class_weights_tensor = None
+
     all_labels = []
     all_preds = []
 
@@ -937,7 +957,7 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             setting=mode,
         )
 
-        loss = F.cross_entropy(logits, labels)
+        loss = F.cross_entropy(logits, labels, weight=class_weights_tensor)
 
         preds = torch.argmax(logits, dim=1)
 
@@ -1069,17 +1089,19 @@ def run_experiment(args):
     print("Val:  ", len(val_data), Counter([x["label_name"] for x in val_data]))
     print("Test: ", len(test_data), Counter([x["label_name"] for x in test_data]))
 
-    label_counts = Counter([int(x["label"]) for x in train_data])
+    # ------------------------------------------------------------
+    # Class imbalance handling
+    # ------------------------------------------------------------
+    # Compute one global set of class weights from the full training set.
+    # All clients share the same weights during local training.
+    args.class_weights_tensor = compute_class_weights_from_dataset(
+        dataset=train_data,
+        num_classes=args.num_classes,
+        device=args.device,
+    )
 
-    class_weights = []
-    for label_id in range(args.num_classes):
-        count = label_counts.get(label_id, 1)
-        weight = len(train_data) / (args.num_classes * count)
-        class_weights.append(weight)
-
-    args.class_weights = class_weights
-
-    print("Class weights:", args.class_weights)
+    # Also keep a CPU-list copy for JSON/config compatibility.
+    args.class_weights = args.class_weights_tensor.detach().cpu().tolist()
 
     # ------------------------------------------------------------
     # 2. Load tokenizer and model
@@ -1191,12 +1213,16 @@ def run_experiment(args):
             else 0.0
         )
 
+        # This is local client training performance for the current round.
         round_pbar.set_postfix({
-            "loss": f"{avg_local_loss:.4f}",
-            "acc": f"{avg_local_acc:.4f}",
+            "local_loss": f"{avg_local_loss:.4f}",
+            "local_acc": f"{avg_local_acc:.4f}",
         })
 
-        if round_id in args.analysis_rounds or round_id == args.rounds:
+        # ------------------------------------------------------------
+        # Global evaluation every 10 rounds
+        # ------------------------------------------------------------
+        if round_id == 1 or round_id % 10 == 0 or round_id == args.rounds:
             train_metrics = evaluate(
                 global_model,
                 train_data,
@@ -1224,12 +1250,20 @@ def run_experiment(args):
                 max_samples=args.max_test_eval_samples,
             )
 
-            print(
-                f"Round {round_id:03d} | "
-                f"Train Acc: {train_metrics['acc']:.4f} | "
-                f"Val Acc: {val_metrics['acc']:.4f} | "
-                f"Test Acc: {test_metrics['acc']:.4f} | "
-                f"Test Macro-F1: {test_metrics['macro_f1']:.4f}"
+            tqdm.write(
+                f"\nRound {round_id:03d} Global Evaluation\n"
+                f"Train | "
+                f"Loss: {train_metrics['loss']:.4f} | "
+                f"Acc: {train_metrics['acc']:.4f} | "
+                f"Macro-F1: {train_metrics['macro_f1']:.4f}\n"
+                f"Val   | "
+                f"Loss: {val_metrics['loss']:.4f} | "
+                f"Acc: {val_metrics['acc']:.4f} | "
+                f"Macro-F1: {val_metrics['macro_f1']:.4f}\n"
+                f"Test  | "
+                f"Loss: {test_metrics['loss']:.4f} | "
+                f"Acc: {test_metrics['acc']:.4f} | "
+                f"Macro-F1: {test_metrics['macro_f1']:.4f}\n"
             )
 
             round_logs.append({

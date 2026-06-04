@@ -133,6 +133,7 @@ class MVSAStrongDataset(Dataset):
             return None
 
         image_path = str(image_path).strip()
+        image_path = image_path.replace("\\" , "/")
 
         if image_path == "":
             return None

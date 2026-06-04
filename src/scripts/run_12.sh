@@ -7,7 +7,7 @@
 
 cd /data/deli/MFL-new/MFL-new || exit 1
 
-SETTINGS=( "image_only" "text_only" "modality_exclusive" )
+SETTINGS=( "text_only" "modality_exclusive" "image_only"  )
 ASSOCIATIONS=("iid" "0.3" "0.7" "1.0")
 
 for setting in "${SETTINGS[@]}"; do

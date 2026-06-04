@@ -14,7 +14,7 @@ model:
   image_hidden_dim: 256
   text_hidden_dim: 256
   projector_hidden_dim: 256
-  dropout: 0.3
+  dropout: 0.4
 
   freeze_image_backbone: false
   freeze_text_backbone: false
@@ -33,13 +33,13 @@ federated:
   allow_overlap: false
   rounds: 100
   local_epochs: 1
-  lr: 0.00001
+  lr: 0.000001
   batch_size: 32
   max_local_steps: null
 
 evaluation:
   eval_batch_size: 64
-  max_train_eval_samples: 300
+  max_train_eval_samples: null
   max_val_eval_samples: null
   max_test_eval_samples: null
   max_text_len: 64
