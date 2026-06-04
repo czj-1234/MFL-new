@@ -17,9 +17,9 @@ def run_one_experiment(args):
     """
     set_seed(args.seed)
 
-    print("Running MVSA 4-Class FL Structural Baseline")
+    print("Running MVSA Original 3-Class FL Structural Baseline")
     print("Model: CLIP-ViT-B/32 + RoBERTa-base")
-    print("TASK:", "4-class classification")
+    print("TASK:", "original 3-class modality-specific sentiment classification")
     print("NUM_CLASSES:", args.num_classes)
     print("NUM_CLIENTS:", args.num_clients)
     print("SETTING_NAME:", args.setting_name)
@@ -30,6 +30,18 @@ def run_one_experiment(args):
     print("VAL_JSON:", args.val_json)
     print("TEST_JSON:", args.test_json)
     print("OUT_DIR:", args.out_dir)
+
+    if args.setting_name == "text_only":
+        print("LABEL_SOURCE: text_label")
+    elif args.setting_name == "image_only":
+        print("LABEL_SOURCE: image_label")
+    elif args.setting_name == "modality_exclusive":
+        print("CLIENT_MODALITIES: client0=text, client1=text, client2=image")
+        print("LABEL_SOURCE: text clients use text_label; image clients use image_label")
+    elif args.setting_name == "full_multimodal":
+        print("LABEL_SOURCE: auto / fixed label if available")
+    else:
+        print("LABEL_SOURCE: unknown")
 
     summary, round_logs, all_mat = run_experiment(args)
 
@@ -63,7 +75,7 @@ def run_all_experiments(cfg, cli_args):
     for setting_name in setting_list:
         for association in association_list:
             print("\n" + "=" * 80)
-            print(f"Running 4-class setting={setting_name}, association={association}")
+            print(f"Running 3-class setting={setting_name}, association={association}")
             print("=" * 80)
 
             args = ExperimentArgs(
@@ -101,6 +113,9 @@ def run_all_experiments(cfg, cli_args):
         "global_num_classes",
         "random_chance_acc",
         "label_space_split_by_modality",
+        "uses_modality_specific_labels",
+        "text_client_label_source",
+        "image_client_label_source",
 
         # train utility metrics
         "train_acc",
@@ -120,6 +135,20 @@ def run_all_experiments(cfg, cli_args):
         "test_macro_precision",
         "test_macro_recall",
         "test_balanced_acc",
+
+        # modality-specific metrics, mainly for modality_exclusive
+        "train_text_acc",
+        "train_image_acc",
+        "train_text_macro_f1",
+        "train_image_macro_f1",
+        "val_text_acc",
+        "val_image_acc",
+        "val_text_macro_f1",
+        "val_image_macro_f1",
+        "test_text_acc",
+        "test_image_acc",
+        "test_text_macro_f1",
+        "test_image_macro_f1",
 
         # accuracy above random chance
         "global_acc_above_chance",
@@ -156,7 +185,7 @@ def run_all_experiments(cfg, cli_args):
     os.makedirs(os.path.dirname(summary_csv), exist_ok=True)
     summary_df.to_csv(summary_csv, index=False)
 
-    print("\nAll 4-class experiments done.")
+    print("\nAll 3-class experiments done.")
     print("Saved summary CSV to:", summary_csv)
     print(summary_df)
 

@@ -1,10 +1,10 @@
 seed: 42
 
 data:
-  train_json: data/processed/mvsa_4class_train.json
-  val_json: data/processed/mvsa_4class_val.json
-  test_json: data/processed/mvsa_4class_test.json
-  num_classes: 4
+  train_json: data/processed/mvsa_3class_train.json
+  val_json: data/processed/mvsa_3class_val.json
+  test_json: data/processed/mvsa_3class_test.json
+  num_classes: 3
 
 model:
   tokenizer_name: roberta-base
@@ -16,56 +16,39 @@ model:
   projector_hidden_dim: 256
   dropout: 0.3
 
-  # 4-class classification version:
-  # Freeze CLIP image backbone first for stability.
-  # Fine-tune RoBERTa text backbone.
-  freeze_image_backbone: true
+  freeze_image_backbone: false
   freeze_text_backbone: false
   pretrained_image: true
 
 federated:
-  num_clients: 4
+  num_clients: 3
 
-  # fixed = use samples_per_client
-  # full  = use all training samples
   partition_mode: full
-
-  # ignored when partition_mode is full
   samples_per_client: null
-
   allow_overlap: false
+
   rounds: 100
   local_epochs: 1
-
-  # Start with 1e-5. If overfitting appears, reduce to 5e-6.
   lr: 0.00001
-
-  # AdamW regularization
   weight_decay: 0.01
-
   batch_size: 32
   max_local_steps: null
 
 evaluation:
   eval_batch_size: 64
-  max_train_eval_samples: null
+  max_train_eval_samples: 3000
   max_val_eval_samples: null
   max_test_eval_samples: null
   max_text_len: 64
-  num_workers: 4
+  num_workers: 2
 
 experiment:
   setting_name: modality_exclusive
   association: iid
-
-  # Use a separate output folder for 4-class experiments
-  output_root: results/4class_baseline
-
+  output_root: results/mvsa_3class
   analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100]
 
 update:
   target_patterns:
-    - image_proj
-    - text_proj
-    - multi_modal_projector
     - classifier
+    - multi_modal_projector

@@ -1,5 +1,6 @@
 # ============================================================
-# Model: CLIP-ViT + RoBERTa for MVSA 4-Class Classification
+# Model: CLIP-ViT + RoBERTa for MVSA Sentiment Classification
+# Supports 3-class / 4-class / 6-class via args.num_classes
 # ============================================================
 
 import torch
@@ -14,27 +15,24 @@ class StrongMultimodalNet(nn.Module):
         Image encoder: CLIP-ViT
         Text encoder: RoBERTa / BERT
         Fusion: MLP projector
-        Classifier: 4-class sentiment classification
+        Classifier: sentiment classification with configurable num_classes
     """
 
     def __init__(
         self,
         text_model_name="roberta-base",
         image_model_name="openai/clip-vit-base-patch32",
-        num_classes=4,
+        num_classes=3,
         image_hidden_dim=256,
         text_hidden_dim=256,
         projector_hidden_dim=256,
         dropout=0.3,
         freeze_image_backbone=True,
         freeze_text_backbone=True,
-        pretrained_image=True,  # kept for old config compatibility, not used by CLIP
+        pretrained_image=True,
     ):
         super().__init__()
 
-        # -------------------------
-        # Image encoder: CLIP-ViT
-        # -------------------------
         self.image_backbone = CLIPVisionModel.from_pretrained(image_model_name)
         clip_hidden = self.image_backbone.config.hidden_size
         self.image_proj = nn.Linear(clip_hidden, image_hidden_dim)
@@ -43,9 +41,6 @@ class StrongMultimodalNet(nn.Module):
             for p in self.image_backbone.parameters():
                 p.requires_grad = False
 
-        # -------------------------
-        # Text encoder: RoBERTa / BERT
-        # -------------------------
         self.text_backbone = AutoModel.from_pretrained(text_model_name)
         text_backbone_hidden = self.text_backbone.config.hidden_size
         self.text_proj = nn.Linear(text_backbone_hidden, text_hidden_dim)
@@ -54,9 +49,6 @@ class StrongMultimodalNet(nn.Module):
             for p in self.text_backbone.parameters():
                 p.requires_grad = False
 
-        # -------------------------
-        # Fusion + classifier
-        # -------------------------
         fusion_input_dim = image_hidden_dim + text_hidden_dim
 
         self.multi_modal_projector = nn.Sequential(
@@ -78,21 +70,6 @@ class StrongMultimodalNet(nn.Module):
         pixel_values=None,
         setting="both",
     ):
-        """
-        Compatible with old training code:
-            model(image, input_ids, attention_mask)
-
-        Also compatible with new training code:
-            model(pixel_values=pixel_values, input_ids=..., attention_mask=...)
-
-        setting:
-            image_only / image
-            text_only / text
-            both / multimodal / modality_exclusive
-        """
-
-        # Old code passes image as first positional argument.
-        # For CLIP, this image tensor is actually pixel_values.
         if pixel_values is None:
             pixel_values = image
 
@@ -133,32 +110,19 @@ class StrongMultimodalNet(nn.Module):
             "modality_exclusive",
         ]
 
-        # -------------------------
-        # Image branch
-        # -------------------------
         if use_image and pixel_values is not None:
             image_outputs = self.image_backbone(pixel_values=pixel_values)
-
-            # CLIPVisionModel provides pooler_output: [batch, hidden_size]
             image_cls = image_outputs.pooler_output
             image_feat = self.image_proj(image_cls)
 
-        # -------------------------
-        # Text branch
-        # -------------------------
         if use_text and input_ids is not None and attention_mask is not None:
             text_outputs = self.text_backbone(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
             )
-
-            # Works for BERT, RoBERTa, DistilBERT
             text_cls = text_outputs.last_hidden_state[:, 0, :]
             text_feat = self.text_proj(text_cls)
 
-        # -------------------------
-        # Fusion
-        # -------------------------
         fused = torch.cat([image_feat, text_feat], dim=1)
 
         h = self.multi_modal_projector(fused)
@@ -170,10 +134,6 @@ class StrongMultimodalNet(nn.Module):
 
 
 def build_model(args):
-    """
-    Build model from args/config.
-    """
-
     image_model_name = getattr(
         args,
         "image_model_name",

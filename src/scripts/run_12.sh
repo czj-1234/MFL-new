@@ -1,8 +1,23 @@
 #!/bin/bash
 
 # ============================================================
-# Run 12 MVSA 4-class full-data structural baseline experiments
-# 3 settings × 4 association levels
+# Run 12 MVSA original 3-class full-data structural baseline experiments
+#
+# 3 settings × 4 association levels:
+#   1. text_only
+#   2. modality_exclusive
+#   3. image_only
+#
+# For modality_exclusive:
+#   - 3 clients
+#   - client 0: text
+#   - client 1: text
+#   - client 2: image
+#
+# Make sure configs/config.yaml uses:
+#   data.num_classes: 3
+#   federated.num_clients: 3
+#   data.train_json: data/processed/mvsa_3class_train.json
 # ============================================================
 
 cd /data/deli/MFL-new/MFL-new || exit 1
@@ -15,7 +30,7 @@ for setting in "${SETTINGS[@]}"; do
 
     echo ""
     echo "============================================================"
-    echo "Running 4-class experiment: setting=${setting}, association=${association}"
+    echo "Running 3-class experiment: setting=${setting}, association=${association}"
     echo "============================================================"
     echo ""
 
@@ -34,4 +49,4 @@ for setting in "${SETTINGS[@]}"; do
 done
 
 echo ""
-echo "All 12 4-class experiments completed."
+echo "All 12 MVSA original 3-class experiments completed."
