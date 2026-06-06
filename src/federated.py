@@ -7,6 +7,30 @@
 #   4. utility metrics: acc, macro-F1, precision, recall, balanced acc
 #   5. structure / attack metrics
 #   6. RoBERTa + CLIP-ViT-B/32 model input
+#   7. MVSA original 3-class classification
+#
+# Current 3-class setting:
+#   num_classes = 3
+#   labels = negative / neutral / positive
+#
+# Client design:
+#   text_only:
+#       all clients = text, label = text_label
+#
+#   image_only:
+#       all clients = image, label = image_label
+#
+#   modality_exclusive:
+#       client 0 = image, dominant_label = negative
+#       client 1 = text,  dominant_label = neutral
+#       client 2 = image, dominant_label = positive
+#       client 3 = text,  dominant_label = negative
+#       client 4 = image, dominant_label = neutral
+#       client 5 = text,  dominant_label = positive
+#
+# Association is constructed using the label of the client's modality:
+#   text client  -> text_label
+#   image client -> image_label
 # ============================================================
 
 import os
@@ -37,7 +61,7 @@ from sklearn.metrics import (
 import src.data.vote_dataset as vote_dataset
 
 from src.metrics import compute_structure_metrics
-from src.utils import load_json, compute_class_weights_from_dataset
+from src.utils import load_json
 
 
 # ============================================================
@@ -48,6 +72,8 @@ _DATASET_CANDIDATES = [
     "MVSAStrongDataset",
     "MVSADataset",
     "MVSAVoteDataset",
+    "MVSA3ClassDataset",
+    "MVSA4ClassDataset",
     "MVSA6ClassDataset",
     "VoteDataset",
 ]
@@ -84,15 +110,19 @@ def build_mvsa_dataset(
     max_text_len,
     cache_dir=None,
     image_model_name="openai/clip-vit-base-patch32",
+    label_source="auto",
 ):
     """
     Build MVSA dataset while being compatible with different constructor styles.
 
-    Supports both styles:
-    1) Dataset(data=<list>, tokenizer=...) or Dataset(samples=<list>, tokenizer=...)
-    2) Dataset(json_path=<path>, tokenizer=...) or Dataset(<json_path>, tokenizer=...)
+    Supports both:
+    1) Dataset(data=<list>, tokenizer=...)
+    2) Dataset(json_path=<path>, tokenizer=...)
 
-    For CLIP-ViT image encoder, pass image_model_name to the Dataset when supported.
+    For the 3-class data:
+        label_source="text"  -> use text_label
+        label_source="image" -> use image_label
+        label_source="auto"  -> use item["label"] if already fixed
     """
     init_signature = inspect.signature(MVSAStrongDataset.__init__)
     params = init_signature.parameters
@@ -103,9 +133,6 @@ def build_mvsa_dataset(
     kwargs = {}
     positional_arg = None
 
-    # ------------------------------------------------------------
-    # Optional arguments, only if supported by the Dataset class
-    # ------------------------------------------------------------
     if "tokenizer" in valid_args:
         kwargs["tokenizer"] = tokenizer
 
@@ -124,16 +151,15 @@ def build_mvsa_dataset(
     if "image_model_name" in valid_args:
         kwargs["image_model_name"] = image_model_name
 
-    # Keep old compatibility. New CLIP dataset may ignore these.
+    if "label_source" in valid_args:
+        kwargs["label_source"] = label_source
+
     if "image_transform" in valid_args:
         kwargs["image_transform"] = image_transform
 
     if "transform" in valid_args:
         kwargs["transform"] = image_transform
 
-    # ------------------------------------------------------------
-    # Data input compatibility
-    # ------------------------------------------------------------
     if "data" in valid_args:
         kwargs["data"] = samples
 
@@ -141,9 +167,6 @@ def build_mvsa_dataset(
         kwargs["samples"] = samples
 
     else:
-        # Many older Dataset classes expect json_path as the first argument
-        # and immediately call open(json_path). If samples is a list, create
-        # a temporary JSON file and pass its path instead.
         path_like_names = {
             "json_path",
             "data_path",
@@ -197,12 +220,8 @@ def build_mvsa_dataset(
                 positional_arg = json_path
 
         else:
-            # Last-resort fallback for Dataset(list, ...).
             positional_arg = samples
 
-    # ------------------------------------------------------------
-    # Constructor call
-    # ------------------------------------------------------------
     if positional_arg is not None:
         return MVSAStrongDataset(positional_arg, **kwargs)
 
@@ -214,12 +233,9 @@ def build_mvsa_dataset(
 # ============================================================
 
 id_to_label_name = {
-    0: "strong_negative",
-    1: "weak_negative",
-    2: "neutral_mixed",
-    3: "weak_positive",
-    4: "medium_positive",
-    5: "strong_positive",
+    0: "negative",
+    1: "neutral",
+    2: "positive",
 }
 
 
@@ -230,10 +246,6 @@ id_to_label_name = {
 def build_model(args):
     """
     Build model from src.model.
-
-    The project model.py already defines build_model(args), so we should use it
-    directly. Do NOT call StrongMultimodalNet(args), because its first argument
-    is text_model_name, not the whole args object.
     """
     import src.model as model_module
 
@@ -297,9 +309,6 @@ def get_client_modality(client_id, setting_name):
     """
     Return the modality available to each client.
 
-    full_multimodal:
-        all clients have both image and text
-
     image_only:
         all clients are image-only
 
@@ -307,12 +316,18 @@ def get_client_modality(client_id, setting_name):
         all clients are text-only
 
     modality_exclusive:
-        even clients are image-only
-        odd clients are text-only
+        image and text clients are balanced.
 
-    Important:
-        The label space is always the same global 6-class task.
-        Labels are not split by modality.
+        For 6 clients:
+            client 0 -> image
+            client 1 -> text
+            client 2 -> image
+            client 3 -> text
+            client 4 -> image
+            client 5 -> text
+
+    full_multimodal:
+        all clients have both image and text
     """
     if setting_name == "full_multimodal":
         return "both"
@@ -329,14 +344,180 @@ def get_client_modality(client_id, setting_name):
     raise ValueError(f"Unknown setting_name: {setting_name}")
 
 
-def get_client_dominant_label(client_id, num_classes=6):
+def get_client_dominant_label(client_id, num_classes=3):
     """
-    Assign one reference label to each client.
+    Assign one dominant label to each client.
 
-    In associated settings, this is the dominant label.
-    In iid settings, this is only an assigned reference label.
+    For 6 clients and 3 classes:
+        client 0 -> 0 negative
+        client 1 -> 1 neutral
+        client 2 -> 2 positive
+        client 3 -> 0 negative
+        client 4 -> 1 neutral
+        client 5 -> 2 positive
     """
     return client_id % num_classes
+
+
+def get_sample_label_for_modality(item, modality):
+    """
+    Get the label used by a specific modality.
+
+    text client:
+        use text_label
+
+    image client:
+        use image_label
+
+    both:
+        if item has fixed label, use it.
+        otherwise use text_label by default.
+    """
+    if modality == "text":
+        if "text_label" in item:
+            return int(item["text_label"])
+        if "label" in item:
+            return int(item["label"])
+        raise KeyError("Text sample has neither text_label nor label.")
+
+    if modality == "image":
+        if "image_label" in item:
+            return int(item["image_label"])
+        if "label" in item:
+            return int(item["label"])
+        raise KeyError("Image sample has neither image_label nor label.")
+
+    if modality == "both":
+        if "label" in item:
+            return int(item["label"])
+        if "text_label" in item:
+            return int(item["text_label"])
+        if "image_label" in item:
+            return int(item["image_label"])
+        raise KeyError("Both-modality sample has no valid label.")
+
+    raise ValueError(f"Unknown modality: {modality}")
+
+
+def get_sample_label_name_for_modality(item, modality):
+    label = get_sample_label_for_modality(item, modality)
+    return id_to_label_name.get(label, str(label))
+
+
+def convert_to_client_sample(item, modality):
+    """
+    Convert original MVSA sample into a single-modality client sample
+    with a fixed key: item["label"].
+
+    text-view sample  -> label = text_label
+    image-view sample -> label = image_label
+    """
+    label = get_sample_label_for_modality(item, modality)
+    label_name = id_to_label_name.get(label, str(label))
+
+    new_item = dict(item)
+    new_item["modality"] = modality
+    new_item["label"] = int(label)
+    new_item["label_name"] = label_name
+
+    if modality == "text":
+        new_item["client_label_source"] = "text_label"
+
+    elif modality == "image":
+        new_item["client_label_source"] = "image_label"
+
+    elif modality == "both":
+        new_item["client_label_source"] = "label_or_text_label"
+
+    else:
+        raise ValueError(f"Unknown modality: {modality}")
+
+    return new_item
+
+
+def get_eval_mode_and_label_source(setting_name):
+    """
+    Evaluation mode for a setting.
+
+    text_only:
+        evaluate text branch with text_label
+
+    image_only:
+        evaluate image branch with image_label
+
+    full_multimodal:
+        evaluate both branches. If no unified label exists, Dataset falls back
+        to text_label.
+
+    modality_exclusive:
+        evaluated separately in evaluate_for_setting().
+    """
+    if setting_name == "text_only":
+        return "text", "text"
+
+    if setting_name == "image_only":
+        return "image", "image"
+
+    if setting_name == "full_multimodal":
+        return "both", "auto"
+
+    if setting_name == "modality_exclusive":
+        return None, None
+
+    raise ValueError(f"Unknown setting_name: {setting_name}")
+
+
+# ============================================================
+# Class Weight Helper
+# ============================================================
+
+def compute_class_weights_from_client_data(client_data, num_classes, device):
+    """
+    Compute class weights from the actually used client samples.
+    """
+    labels = []
+
+    for samples in client_data.values():
+        for item in samples:
+            labels.append(int(item["label"]))
+
+    counts = Counter(labels)
+    total = sum(counts.values())
+
+    weights = []
+
+    for label in range(num_classes):
+        count = counts.get(label, 0)
+
+        if count <= 0:
+            weights.append(0.0)
+        else:
+            weights.append(total / (num_classes * count))
+
+    non_zero = [w for w in weights if w > 0]
+    fallback = float(np.mean(non_zero)) if len(non_zero) > 0 else 1.0
+    weights = [w if w > 0 else fallback for w in weights]
+    
+    return torch.tensor(weights, dtype=torch.float32, device=device)
+
+
+def focal_loss(logits, labels, weight=None, gamma=2.0):
+    """
+    Focal Loss for imbalanced classification.
+
+    It reduces the contribution of easy examples and focuses more on hard examples.
+    """
+    ce_loss = F.cross_entropy(
+        logits,
+        labels,
+        weight=weight,
+        reduction="none",
+    )
+
+    pt = torch.exp(-ce_loss)
+    loss = ((1.0 - pt) ** gamma) * ce_loss
+
+    return loss.mean()
 
 
 # ============================================================
@@ -348,39 +529,47 @@ def build_full_client_partitions(
     setting_name,
     association,
     num_clients=6,
-    num_classes=6,
+    num_classes=3,
     seed=42,
 ):
     """
     Build client partitions using the full training dataset.
 
-    This mode uses every training sample exactly once.
+    Output:
+        client_data[client_id] is a list of samples with fixed:
+            item["label"]
+            item["label_name"]
+            item["modality"]
 
     association:
         iid:
-            Randomly split all training samples into clients.
+            Randomly split all raw samples into clients, then convert each
+            sample according to that client's modality.
 
         0.3 / 0.7 / 1.0:
-            For each label, samples are assigned to the corresponding
-            target client with probability equal to association.
-            Remaining samples are distributed to other clients.
-
-    Important:
-        All settings still share the same global 6-class classification task.
-        The label space is not split by modality.
+            Each sample is assigned with higher probability to clients whose
+            dominant label matches the sample label under that client's modality.
     """
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
-
-    labels = list(range(num_classes))
 
     client_data = {
         client_id: []
         for client_id in range(num_clients)
     }
 
+    client_modalities = {
+        client_id: get_client_modality(client_id, setting_name)
+        for client_id in range(num_clients)
+    }
+
+    client_dominant_labels = {
+        client_id: get_client_dominant_label(client_id, num_classes)
+        for client_id in range(num_clients)
+    }
+
     # ------------------------------------------------------------
-    # Full-data IID split
+    # IID split
     # ------------------------------------------------------------
     if association == "iid":
         all_samples = list(train_data)
@@ -389,11 +578,16 @@ def build_full_client_partitions(
         splits = np.array_split(all_samples, num_clients)
 
         for client_id, split_samples in enumerate(splits):
-            split_samples = list(split_samples)
-            client_data[client_id] = split_samples
+            modality = client_modalities[client_id]
 
-            modality = get_client_modality(client_id, setting_name)
-            assigned_label = get_client_dominant_label(client_id, num_classes)
+            converted = [
+                convert_to_client_sample(item, modality)
+                for item in list(split_samples)
+            ]
+
+            client_data[client_id] = converted
+
+            assigned_label = client_dominant_labels[client_id]
 
             print(
                 f"Client {client_id} | "
@@ -401,8 +595,8 @@ def build_full_client_partitions(
                 f"modality={modality} | "
                 f"assigned_label={assigned_label} "
                 f"({id_to_label_name.get(assigned_label, assigned_label)}) | "
-                f"num_samples={len(split_samples)} | "
-                f"label_dist={Counter([x['label_name'] for x in split_samples])}"
+                f"num_samples={len(converted)} | "
+                f"label_dist={Counter([x['label_name'] for x in converted])}"
             )
 
         print("\nFull-data IID partition summary:")
@@ -412,47 +606,68 @@ def build_full_client_partitions(
         return client_data
 
     # ------------------------------------------------------------
-    # Full-data associated split
+    # Associated split
     # ------------------------------------------------------------
     association_strength = float(association)
 
-    label_buckets = defaultdict(list)
-
     for item in train_data:
-        label = int(item["label"])
-        label_buckets[label].append(item)
+        matched_clients = []
 
-    for label in labels:
-        samples = label_buckets[label]
-        rng.shuffle(samples)
+        for client_id in range(num_clients):
+            modality = client_modalities[client_id]
+            dominant_label = client_dominant_labels[client_id]
+            sample_label = get_sample_label_for_modality(item, modality)
 
-        target_client = label % num_clients
+            if sample_label == dominant_label:
+                matched_clients.append(client_id)
 
-        if association_strength >= 1.0:
-            probs = np.zeros(num_clients, dtype=np.float64)
-            probs[target_client] = 1.0
+        if len(matched_clients) == 0:
+            probs = np.ones(num_clients, dtype=np.float64) / num_clients
+
         else:
-            probs = np.ones(num_clients, dtype=np.float64)
-            probs[:] = (1.0 - association_strength) / (num_clients - 1)
-            probs[target_client] = association_strength
+            non_matched = [
+                cid for cid in range(num_clients)
+                if cid not in matched_clients
+            ]
+
+            probs = np.zeros(num_clients, dtype=np.float64)
+
+            if association_strength >= 1.0:
+                for cid in matched_clients:
+                    probs[cid] = 1.0 / len(matched_clients)
+            else:
+                matched_mass = association_strength
+                other_mass = 1.0 - association_strength
+
+                for cid in matched_clients:
+                    probs[cid] = matched_mass / len(matched_clients)
+
+                if len(non_matched) > 0:
+                    for cid in non_matched:
+                        probs[cid] = other_mass / len(non_matched)
+                else:
+                    probs[:] = 1.0 / num_clients
 
         probs = probs / probs.sum()
 
-        assigned_clients = np_rng.choice(
-            np.arange(num_clients),
-            size=len(samples),
-            replace=True,
-            p=probs,
+        selected_client = int(
+            np_rng.choice(
+                np.arange(num_clients),
+                size=1,
+                replace=True,
+                p=probs,
+            )[0]
         )
 
-        for sample, client_id in zip(samples, assigned_clients):
-            client_data[int(client_id)].append(sample)
+        modality = client_modalities[selected_client]
+        client_sample = convert_to_client_sample(item, modality)
+        client_data[selected_client].append(client_sample)
 
     for client_id in range(num_clients):
         rng.shuffle(client_data[client_id])
 
-        modality = get_client_modality(client_id, setting_name)
-        dominant_label = get_client_dominant_label(client_id, num_classes)
+        modality = client_modalities[client_id]
+        dominant_label = client_dominant_labels[client_id]
 
         print(
             f"Client {client_id} | "
@@ -481,7 +696,7 @@ def build_client_partitions(
     setting_name,
     association,
     num_clients=6,
-    num_classes=6,
+    num_classes=3,
     samples_per_client=None,
     allow_overlap=False,
     seed=42,
@@ -489,22 +704,6 @@ def build_client_partitions(
 ):
     """
     Build client local datasets.
-
-    partition_mode:
-        fixed:
-            Use fixed samples_per_client for each client.
-            This is the old controlled experimental setting.
-
-        full:
-            Use the full training dataset exactly once.
-            This is the full-data experimental setting.
-
-    association:
-        iid:
-            balanced/fair split depending on partition mode
-
-        0.3 / 0.7 / 1.0:
-            dominant-label association strength
     """
 
     if partition_mode == "full":
@@ -522,48 +721,52 @@ def build_client_partitions(
     if samples_per_client is None:
         samples_per_client = len(train_data) // num_clients
 
-    label_buckets = defaultdict(list)
-
-    for item in train_data:
-        label = int(item["label"])
-        label_buckets[label].append(item)
-
-    for label in range(num_classes):
-        rng.shuffle(label_buckets[label])
-
-    available_buckets = {
-        label: list(items)
-        for label, items in label_buckets.items()
-    }
-
-    def sample_from_label(label, n):
-        bucket = available_buckets[label]
-
-        if len(bucket) == 0:
-            raise ValueError(f"No samples available for label {label}.")
-
-        if allow_overlap:
-            if len(bucket) >= n:
-                return rng.sample(bucket, n)
-
-            return [rng.choice(bucket) for _ in range(n)]
-
-        if len(bucket) < n:
-            raise ValueError(
-                f"Not enough samples for label {label}. "
-                f"Need {n}, only {len(bucket)} available. "
-                f"Set allow_overlap=True or reduce samples_per_client."
-            )
-
-        selected = bucket[:n]
-        del bucket[:n]
-
-        return selected
-
     client_data = {}
 
     for client_id in range(num_clients):
+        modality = get_client_modality(client_id, setting_name)
         dominant_label = get_client_dominant_label(client_id, num_classes)
+
+        label_buckets = defaultdict(list)
+
+        for item in train_data:
+            label = get_sample_label_for_modality(item, modality)
+            label_buckets[label].append(item)
+
+        for label in range(num_classes):
+            rng.shuffle(label_buckets[label])
+
+        available_buckets = {
+            label: list(items)
+            for label, items in label_buckets.items()
+        }
+
+        def sample_from_label(label, n):
+            bucket = available_buckets[label]
+
+            if len(bucket) == 0:
+                raise ValueError(
+                    f"No samples available for label {label} "
+                    f"under modality={modality}."
+                )
+
+            if allow_overlap:
+                if len(bucket) >= n:
+                    return rng.sample(bucket, n)
+
+                return [rng.choice(bucket) for _ in range(n)]
+
+            if len(bucket) < n:
+                raise ValueError(
+                    f"Not enough samples for label {label} "
+                    f"under modality={modality}. "
+                    f"Need {n}, only {len(bucket)} available. "
+                    f"Set allow_overlap=True or reduce samples_per_client."
+                )
+
+            selected = bucket[:n]
+            del bucket[:n]
+            return selected
 
         if association == "iid":
             base = samples_per_client // num_classes
@@ -602,19 +805,25 @@ def build_client_partitions(
             for label in other_labels[:remainder]:
                 label_counts[label] += 1
 
-        selected_samples = []
+        selected_raw_samples = []
 
         for label, count in label_counts.items():
             if count > 0:
-                selected_samples.extend(sample_from_label(label, count))
+                selected_raw_samples.extend(sample_from_label(label, count))
 
-        rng.shuffle(selected_samples)
+        rng.shuffle(selected_raw_samples)
+
+        selected_samples = [
+            convert_to_client_sample(item, modality)
+            for item in selected_raw_samples
+        ]
+
         client_data[client_id] = selected_samples
 
         print(
             f"Client {client_id} | "
             f"setting={setting_name} | "
-            f"modality={get_client_modality(client_id, setting_name)} | "
+            f"modality={modality} | "
             f"dominant_label={dominant_label} "
             f"({id_to_label_name.get(dominant_label, dominant_label)}) | "
             f"num_samples={len(selected_samples)} | "
@@ -640,6 +849,7 @@ def build_dataloader(samples, tokenizer, args, mode, shuffle=True):
             "image_model_name",
             "openai/clip-vit-base-patch32",
         ),
+        label_source="auto",
     )
 
     loader = DataLoader(
@@ -655,21 +865,7 @@ def build_dataloader(samples, tokenizer, args, mode, shuffle=True):
 def apply_modality_mask(batch, mode, device):
     """
     Apply modality masking at batch level.
-
-    image:
-        keep image, mask text into a constant empty-text input
-    text:
-        keep text, mask image into a zero CLIP pixel_values tensor
-    both:
-        keep both modalities
-
-    Compatible with both old Dataset output:
-        batch["image"]
-
-    and new CLIP Dataset output:
-        batch["pixel_values"]
     """
-
     if "pixel_values" in batch:
         image = batch["pixel_values"].to(device)
     else:
@@ -680,12 +876,10 @@ def apply_modality_mask(batch, mode, device):
     labels = batch["label"].to(device)
 
     if mode == "image":
-        # Keep image branch. Mask text branch.
         input_ids = torch.zeros_like(input_ids)
         attention_mask = torch.zeros_like(attention_mask)
 
     elif mode == "text":
-        # Keep text branch. Mask image branch.
         image = torch.zeros_like(image)
 
     elif mode == "both":
@@ -737,10 +931,9 @@ def local_train(
     optimizer = torch.optim.AdamW(
         [p for p in local_model.parameters() if p.requires_grad],
         lr=args.lr,
+        weight_decay=getattr(args, "weight_decay", 0.0),
     )
 
-    # Global class weights are computed once from the full training set
-    # in run_experiment(), then reused by every client.
     if hasattr(args, "class_weights_tensor"):
         class_weights_tensor = args.class_weights_tensor.to(device)
     elif hasattr(args, "class_weights"):
@@ -883,19 +1076,24 @@ def fedavg_state_dicts(state_dicts, weights):
 # ============================================================
 
 @torch.no_grad()
-def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
+def evaluate(
+    model,
+    data,
+    tokenizer,
+    args,
+    mode="both",
+    max_samples=None,
+    label_source="auto",
+):
     """
-    Evaluate the global 6-class classification task.
+    Evaluate classification task.
 
     Returns:
-        {
-            "loss": float,
-            "acc": float,
-            "macro_f1": float,
-            "macro_precision": float,
-            "macro_recall": float,
-            "balanced_acc": float,
-        }
+        loss, acc, macro-F1, macro-precision, macro-recall,
+        balanced accuracy, and per-class F1 for:
+            label 0 = negative
+            label 1 = neutral
+            label 2 = positive
     """
     model.eval()
     model.to(args.device)
@@ -914,6 +1112,7 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             "image_model_name",
             "openai/clip-vit-base-patch32",
         ),
+        label_source=label_source,
     )
 
     loader = DataLoader(
@@ -927,8 +1126,6 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
     correct = 0
     total_loss = 0.0
 
-    # Use the same global class weights for evaluation loss when available.
-    # Metrics such as acc / macro-F1 are not affected by this.
     if hasattr(args, "class_weights_tensor"):
         class_weights_tensor = args.class_weights_tensor.to(args.device)
     elif hasattr(args, "class_weights"):
@@ -957,7 +1154,13 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             setting=mode,
         )
 
-        loss = F.cross_entropy(logits, labels, weight=class_weights_tensor)
+        # Keep evaluation loss as standard cross entropy for comparability.
+        # Training uses focal_loss() in local_train().
+        loss = F.cross_entropy(
+            logits,
+            labels,
+            weight=class_weights_tensor,
+        )
 
         preds = torch.argmax(logits, dim=1)
 
@@ -997,11 +1200,21 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
             all_labels,
             all_preds,
         )
+
+        per_class_f1 = f1_score(
+            all_labels,
+            all_preds,
+            average=None,
+            labels=list(range(args.num_classes)),
+            zero_division=0,
+        )
+
     else:
         macro_f1 = 0.0
         macro_precision = 0.0
         macro_recall = 0.0
         balanced_acc = 0.0
+        per_class_f1 = np.zeros(args.num_classes)
 
     return {
         "loss": float(avg_loss),
@@ -1010,7 +1223,154 @@ def evaluate(model, data, tokenizer, args, mode="both", max_samples=None):
         "macro_precision": float(macro_precision),
         "macro_recall": float(macro_recall),
         "balanced_acc": float(balanced_acc),
+
+        # Per-class F1:
+        # label 0 = negative
+        # label 1 = neutral
+        # label 2 = positive
+        "f1_negative": float(per_class_f1[0]) if len(per_class_f1) > 0 else 0.0,
+        "f1_neutral": float(per_class_f1[1]) if len(per_class_f1) > 1 else 0.0,
+        "f1_positive": float(per_class_f1[2]) if len(per_class_f1) > 2 else 0.0,
     }
+
+
+def average_metric_dicts(metric_dicts):
+    """
+    Average a list of metric dictionaries.
+
+    Used for modality_exclusive:
+        average text-view metrics and image-view metrics.
+    """
+    if len(metric_dicts) == 0:
+        return {
+            "loss": 0.0,
+            "acc": 0.0,
+            "macro_f1": 0.0,
+            "macro_precision": 0.0,
+            "macro_recall": 0.0,
+            "balanced_acc": 0.0,
+            "f1_negative": 0.0,
+            "f1_neutral": 0.0,
+            "f1_positive": 0.0,
+        }
+
+    keys = [
+        "loss",
+        "acc",
+        "macro_f1",
+        "macro_precision",
+        "macro_recall",
+        "balanced_acc",
+        "f1_negative",
+        "f1_neutral",
+        "f1_positive",
+    ]
+
+    out = {}
+
+    for key in keys:
+        values = [m[key] for m in metric_dicts if key in m]
+        out[key] = float(np.mean(values)) if len(values) > 0 else 0.0
+
+    return out
+
+
+def evaluate_for_setting(
+    model,
+    data,
+    tokenizer,
+    args,
+    max_samples=None,
+):
+    """
+    Evaluate according to the experiment setting.
+
+    text_only:
+        text input + text_label
+
+    image_only:
+        image input + image_label
+
+    full_multimodal:
+        both input. If no fixed label exists, Dataset falls back to text_label.
+
+    modality_exclusive:
+        evaluate both text-view and image-view, then average metrics.
+    """
+    setting_name = args.setting_name
+
+    if setting_name == "text_only":
+        return evaluate(
+            model=model,
+            data=data,
+            tokenizer=tokenizer,
+            args=args,
+            mode="text",
+            max_samples=max_samples,
+            label_source="text",
+        )
+
+    if setting_name == "image_only":
+        return evaluate(
+            model=model,
+            data=data,
+            tokenizer=tokenizer,
+            args=args,
+            mode="image",
+            max_samples=max_samples,
+            label_source="image",
+        )
+
+    if setting_name == "full_multimodal":
+        return evaluate(
+            model=model,
+            data=data,
+            tokenizer=tokenizer,
+            args=args,
+            mode="both",
+            max_samples=max_samples,
+            label_source="auto",
+        )
+
+    if setting_name == "modality_exclusive":
+        text_metrics = evaluate(
+            model=model,
+            data=data,
+            tokenizer=tokenizer,
+            args=args,
+            mode="text",
+            max_samples=max_samples,
+            label_source="text",
+        )
+
+        image_metrics = evaluate(
+            model=model,
+            data=data,
+            tokenizer=tokenizer,
+            args=args,
+            mode="image",
+            max_samples=max_samples,
+            label_source="image",
+        )
+
+        avg_metrics = average_metric_dicts([text_metrics, image_metrics])
+
+        avg_metrics["text_acc"] = text_metrics["acc"]
+        avg_metrics["image_acc"] = image_metrics["acc"]
+        avg_metrics["text_macro_f1"] = text_metrics["macro_f1"]
+        avg_metrics["image_macro_f1"] = image_metrics["macro_f1"]
+
+        avg_metrics["text_f1_negative"] = text_metrics.get("f1_negative", 0.0)
+        avg_metrics["text_f1_neutral"] = text_metrics.get("f1_neutral", 0.0)
+        avg_metrics["text_f1_positive"] = text_metrics.get("f1_positive", 0.0)
+
+        avg_metrics["image_f1_negative"] = image_metrics.get("f1_negative", 0.0)
+        avg_metrics["image_f1_neutral"] = image_metrics.get("f1_neutral", 0.0)
+        avg_metrics["image_f1_positive"] = image_metrics.get("f1_positive", 0.0)
+
+        return avg_metrics
+
+    raise ValueError(f"Unknown setting_name: {setting_name}")
 
 
 # ============================================================
@@ -1085,23 +1445,17 @@ def run_experiment(args):
     val_data = load_json(args.val_json)
     test_data = load_json(args.test_json)
 
-    print("Train:", len(train_data), Counter([x["label_name"] for x in train_data]))
-    print("Val:  ", len(val_data), Counter([x["label_name"] for x in val_data]))
-    print("Test: ", len(test_data), Counter([x["label_name"] for x in test_data]))
+    print("Train:", len(train_data))
+    print("  text :", Counter([x["text_label_name"] for x in train_data]))
+    print("  image:", Counter([x["image_label_name"] for x in train_data]))
 
-    # ------------------------------------------------------------
-    # Class imbalance handling
-    # ------------------------------------------------------------
-    # Compute one global set of class weights from the full training set.
-    # All clients share the same weights during local training.
-    args.class_weights_tensor = compute_class_weights_from_dataset(
-        dataset=train_data,
-        num_classes=args.num_classes,
-        device=args.device,
-    )
+    print("Val:  ", len(val_data))
+    print("  text :", Counter([x["text_label_name"] for x in val_data]))
+    print("  image:", Counter([x["image_label_name"] for x in val_data]))
 
-    # Also keep a CPU-list copy for JSON/config compatibility.
-    args.class_weights = args.class_weights_tensor.detach().cpu().tolist()
+    print("Test: ", len(test_data))
+    print("  text :", Counter([x["text_label_name"] for x in test_data]))
+    print("  image:", Counter([x["image_label_name"] for x in test_data]))
 
     # ------------------------------------------------------------
     # 2. Load tokenizer and model
@@ -1127,6 +1481,20 @@ def run_experiment(args):
         seed=args.seed,
         partition_mode=getattr(args, "partition_mode", "fixed"),
     )
+
+    # ------------------------------------------------------------
+    # Class imbalance handling
+    # ------------------------------------------------------------
+    args.class_weights_tensor = compute_class_weights_from_client_data(
+        client_data=client_data,
+        num_classes=args.num_classes,
+        device=args.device,
+    )
+
+    args.class_weights = args.class_weights_tensor.detach().cpu().tolist()
+
+    print("\nClass weights from actual client samples:")
+    print(args.class_weights)
 
     # ------------------------------------------------------------
     # 4. Federated training
@@ -1192,6 +1560,9 @@ def run_experiment(args):
                 "local_loss": local_loss,
                 "local_acc": local_acc,
                 "update_norm": float(np.linalg.norm(update_vector)),
+                "client_label_dist": dict(
+                    Counter([x["label_name"] for x in samples])
+                ),
             })
 
         avg_state = fedavg_state_dicts(
@@ -1213,7 +1584,6 @@ def run_experiment(args):
             else 0.0
         )
 
-        # This is local client training performance for the current round.
         round_pbar.set_postfix({
             "local_loss": f"{avg_local_loss:.4f}",
             "local_acc": f"{avg_local_acc:.4f}",
@@ -1223,32 +1593,40 @@ def run_experiment(args):
         # Global evaluation every 10 rounds
         # ------------------------------------------------------------
         if round_id == 1 or round_id % 10 == 0 or round_id == args.rounds:
-            train_metrics = evaluate(
+            train_metrics = evaluate_for_setting(
                 global_model,
                 train_data,
                 tokenizer,
                 args,
-                mode="both",
                 max_samples=args.max_train_eval_samples,
             )
 
-            val_metrics = evaluate(
+            val_metrics = evaluate_for_setting(
                 global_model,
                 val_data,
                 tokenizer,
                 args,
-                mode="both",
                 max_samples=args.max_val_eval_samples,
             )
 
-            test_metrics = evaluate(
+            test_metrics = evaluate_for_setting(
                 global_model,
                 test_data,
                 tokenizer,
                 args,
-                mode="both",
                 max_samples=args.max_test_eval_samples,
             )
+
+            extra_line = ""
+
+            if args.setting_name == "modality_exclusive":
+                extra_line = (
+                    f"Modality detail | "
+                    f"Val text Acc: {val_metrics.get('text_acc', 0.0):.4f} | "
+                    f"Val image Acc: {val_metrics.get('image_acc', 0.0):.4f} | "
+                    f"Test text Acc: {test_metrics.get('text_acc', 0.0):.4f} | "
+                    f"Test image Acc: {test_metrics.get('image_acc', 0.0):.4f}\n"
+                )
 
             tqdm.write(
                 f"\nRound {round_id:03d} Global Evaluation\n"
@@ -1264,9 +1642,10 @@ def run_experiment(args):
                 f"Loss: {test_metrics['loss']:.4f} | "
                 f"Acc: {test_metrics['acc']:.4f} | "
                 f"Macro-F1: {test_metrics['macro_f1']:.4f}\n"
+                f"{extra_line}"
             )
 
-            round_logs.append({
+            round_log = {
                 "round": round_id,
 
                 "train_loss": train_metrics["loss"],
@@ -1275,6 +1654,9 @@ def run_experiment(args):
                 "train_macro_precision": train_metrics["macro_precision"],
                 "train_macro_recall": train_metrics["macro_recall"],
                 "train_balanced_acc": train_metrics["balanced_acc"],
+                "train_f1_negative": train_metrics.get("f1_negative", 0.0),
+                "train_f1_neutral": train_metrics.get("f1_neutral", 0.0),
+                "train_f1_positive": train_metrics.get("f1_positive", 0.0),
 
                 "val_loss": val_metrics["loss"],
                 "val_acc": val_metrics["acc"],
@@ -1282,6 +1664,9 @@ def run_experiment(args):
                 "val_macro_precision": val_metrics["macro_precision"],
                 "val_macro_recall": val_metrics["macro_recall"],
                 "val_balanced_acc": val_metrics["balanced_acc"],
+                "val_f1_negative": val_metrics.get("f1_negative", 0.0),
+                "val_f1_neutral": val_metrics.get("f1_neutral", 0.0),
+                "val_f1_positive": val_metrics.get("f1_positive", 0.0),
 
                 "test_loss": test_metrics["loss"],
                 "test_acc": test_metrics["acc"],
@@ -1289,35 +1674,56 @@ def run_experiment(args):
                 "test_macro_precision": test_metrics["macro_precision"],
                 "test_macro_recall": test_metrics["macro_recall"],
                 "test_balanced_acc": test_metrics["balanced_acc"],
-            })
+                "test_f1_negative": test_metrics.get("f1_negative", 0.0),
+                "test_f1_neutral": test_metrics.get("f1_neutral", 0.0),
+                "test_f1_positive": test_metrics.get("f1_positive", 0.0),
+            }
+
+            for key in [
+                "text_acc",
+                "image_acc",
+                "text_macro_f1",
+                "image_macro_f1",
+                "text_f1_negative",
+                "text_f1_neutral",
+                "text_f1_positive",
+                "image_f1_negative",
+                "image_f1_neutral",
+                "image_f1_positive",
+            ]:
+                if key in train_metrics:
+                    round_log[f"train_{key}"] = train_metrics[key]
+                if key in val_metrics:
+                    round_log[f"val_{key}"] = val_metrics[key]
+                if key in test_metrics:
+                    round_log[f"test_{key}"] = test_metrics[key]
+
+            round_logs.append(round_log)
 
     # ------------------------------------------------------------
     # 5. Final evaluation
     # ------------------------------------------------------------
-    final_train_metrics = evaluate(
+    final_train_metrics = evaluate_for_setting(
         global_model,
         train_data,
         tokenizer,
         args,
-        mode="both",
         max_samples=args.max_train_eval_samples,
     )
 
-    final_val_metrics = evaluate(
+    final_val_metrics = evaluate_for_setting(
         global_model,
         val_data,
         tokenizer,
         args,
-        mode="both",
         max_samples=args.max_val_eval_samples,
     )
 
-    final_test_metrics = evaluate(
+    final_test_metrics = evaluate_for_setting(
         global_model,
         test_data,
         tokenizer,
         args,
-        mode="both",
         max_samples=args.max_test_eval_samples,
     )
 
@@ -1345,54 +1751,77 @@ def run_experiment(args):
         "rounds": args.rounds,
         "local_epochs": args.local_epochs,
         "lr": args.lr,
+        "weight_decay": getattr(args, "weight_decay", 0.0),
         "seed": args.seed,
         "model": "CLIP-ViT-B32+RoBERTa-base",
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
-        # task definition
-        "task_type": "global_6class_classification",
+        "task_type": "mvsa_original_3class_modality_specific_classification",
         "global_num_classes": global_num_classes,
         "random_chance_acc": random_chance_acc,
         "label_space_split_by_modality": False,
+        "uses_modality_specific_labels": True,
+        "text_client_label_source": "text_label",
+        "image_client_label_source": "image_label",
 
-        # train utility metrics
         "train_loss": final_train_metrics["loss"],
         "train_acc": final_train_metrics["acc"],
         "train_macro_f1": final_train_metrics["macro_f1"],
         "train_macro_precision": final_train_metrics["macro_precision"],
         "train_macro_recall": final_train_metrics["macro_recall"],
         "train_balanced_acc": final_train_metrics["balanced_acc"],
+        "train_f1_negative": final_train_metrics.get("f1_negative", 0.0),
+        "train_f1_neutral": final_train_metrics.get("f1_neutral", 0.0),
+        "train_f1_positive": final_train_metrics.get("f1_positive", 0.0),
 
-        # validation utility metrics
         "val_loss": final_val_metrics["loss"],
         "val_acc": final_val_metrics["acc"],
         "val_macro_f1": final_val_metrics["macro_f1"],
         "val_macro_precision": final_val_metrics["macro_precision"],
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
+        "val_f1_negative": final_val_metrics.get("f1_negative", 0.0),
+        "val_f1_neutral": final_val_metrics.get("f1_neutral", 0.0),
+        "val_f1_positive": final_val_metrics.get("f1_positive", 0.0),
 
-        # global means validation on the shared global 6-class task
         "global_acc": final_val_metrics["acc"],
         "global_macro_f1": final_val_metrics["macro_f1"],
         "global_macro_precision": final_val_metrics["macro_precision"],
         "global_macro_recall": final_val_metrics["macro_recall"],
         "global_balanced_acc": final_val_metrics["balanced_acc"],
+        "global_f1_negative": final_val_metrics.get("f1_negative", 0.0),
+        "global_f1_neutral": final_val_metrics.get("f1_neutral", 0.0),
+        "global_f1_positive": final_val_metrics.get("f1_positive", 0.0),
 
-        # test utility metrics
         "test_loss": final_test_metrics["loss"],
         "test_acc": final_test_metrics["acc"],
         "test_macro_f1": final_test_metrics["macro_f1"],
         "test_macro_precision": final_test_metrics["macro_precision"],
         "test_macro_recall": final_test_metrics["macro_recall"],
         "test_balanced_acc": final_test_metrics["balanced_acc"],
+        "test_f1_negative": final_test_metrics.get("f1_negative", 0.0),
+        "test_f1_neutral": final_test_metrics.get("f1_neutral", 0.0),
+        "test_f1_positive": final_test_metrics.get("f1_positive", 0.0),
 
-        # accuracy above random chance
         "train_acc_above_chance": final_train_metrics["acc"] - random_chance_acc,
         "val_acc_above_chance": final_val_metrics["acc"] - random_chance_acc,
         "global_acc_above_chance": final_val_metrics["acc"] - random_chance_acc,
         "test_acc_above_chance": final_test_metrics["acc"] - random_chance_acc,
     }
+
+    for key in [
+        "text_acc",
+        "image_acc",
+        "text_macro_f1",
+        "image_macro_f1",
+    ]:
+        if key in final_train_metrics:
+            summary[f"train_{key}"] = final_train_metrics[key]
+        if key in final_val_metrics:
+            summary[f"val_{key}"] = final_val_metrics[key]
+        if key in final_test_metrics:
+            summary[f"test_{key}"] = final_test_metrics[key]
 
     summary.update(structure_metrics)
 

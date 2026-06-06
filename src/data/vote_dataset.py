@@ -1,5 +1,7 @@
 # ============================================================
-# MVSA Dataset for 6-Class Multimodal Federated Learning
+# MVSA Dataset for Original 3-Class Modality-Exclusive
+# Heterogeneous Multimodal Federated Learning
+#
 # Compatible with:
 #   1. json_path input
 #   2. Python list input
@@ -7,6 +9,18 @@
 #   4. CLIP image pixel_values format
 #   5. RoBERTa / BERT tokenizer output
 #   6. old imports: MVSAVoteDataset, load_mvsa_datasets
+#
+# Important for 3-class MVSA:
+#   - If item["label"] exists, use item["label"] directly.
+#   - If item["label"] does not exist:
+#       mode="text"  -> use item["text_label"]
+#       mode="image" -> use item["image_label"]
+#       mode="both"  -> use item["text_label"] by default
+#
+# For your current setting:
+#   client 0: text  -> text_label
+#   client 1: text  -> text_label
+#   client 2: image -> image_label
 # ============================================================
 
 import json
@@ -38,7 +52,7 @@ def load_json(path):
 
 class MVSAStrongDataset(Dataset):
     """
-    MVSA 6-class dataset.
+    MVSA original 3-class dataset.
 
     Supports:
         data=list
@@ -46,11 +60,22 @@ class MVSAStrongDataset(Dataset):
         first positional argument as either list or json_path
 
     Output keys:
+        pixel_values
+        image
         input_ids
         attention_mask
-        pixel_values
-        image              # kept for backward compatibility
         label
+
+    Label logic:
+        1. If the sample already has "label", use it directly.
+        2. Otherwise:
+            mode="text"  -> use "text_label"
+            mode="image" -> use "image_label"
+            mode="both"  -> use "text_label" by default
+
+    This is designed for modality-exclusive FL:
+        text client  -> text_label
+        image client -> image_label
     """
 
     def __init__(
@@ -66,6 +91,7 @@ class MVSAStrongDataset(Dataset):
         image_transform=None,
         max_len=None,
         max_length=None,
+        label_source="auto",
         **kwargs,
     ):
         super().__init__()
@@ -101,6 +127,21 @@ class MVSAStrongDataset(Dataset):
 
         self.mode = mode
 
+        # ------------------------------------------------------------
+        # label_source:
+        #   auto  -> if item["label"] exists use it, otherwise infer from mode
+        #   label -> always use item["label"]
+        #   text  -> always use item["text_label"]
+        #   image -> always use item["image_label"]
+        # ------------------------------------------------------------
+        if label_source not in ["auto", "label", "text", "image"]:
+            raise ValueError(
+                f"Unknown label_source: {label_source}. "
+                "Expected auto, label, text, or image."
+            )
+
+        self.label_source = label_source
+
         # compatible names: max_text_len / max_len / max_length
         if max_len is not None:
             max_text_len = max_len
@@ -133,7 +174,7 @@ class MVSAStrongDataset(Dataset):
             return None
 
         image_path = str(image_path).strip()
-        image_path = image_path.replace("\\" , "/")
+        image_path = image_path.replace("\\", "/")
 
         if image_path == "":
             return None
@@ -210,10 +251,81 @@ class MVSAStrongDataset(Dataset):
 
         return input_ids, attention_mask
 
+    def _get_label(self, item):
+        """
+        Get label for the current sample.
+
+        Priority:
+            1. label_source="label": use item["label"]
+            2. label_source="text": use item["text_label"]
+            3. label_source="image": use item["image_label"]
+            4. label_source="auto":
+                - if item["label"] exists, use item["label"]
+                - else mode="text"  -> item["text_label"]
+                - else mode="image" -> item["image_label"]
+                - else mode="both"  -> item["text_label"]
+        """
+
+        if self.label_source == "label":
+            if "label" not in item:
+                raise KeyError(
+                    "label_source='label' but item does not contain key 'label'."
+                )
+            return int(item["label"])
+
+        if self.label_source == "text":
+            if "text_label" not in item:
+                raise KeyError(
+                    "label_source='text' but item does not contain key 'text_label'."
+                )
+            return int(item["text_label"])
+
+        if self.label_source == "image":
+            if "image_label" not in item:
+                raise KeyError(
+                    "label_source='image' but item does not contain key 'image_label'."
+                )
+            return int(item["image_label"])
+
+        # auto mode
+        if "label" in item:
+            return int(item["label"])
+
+        if self.mode == "text":
+            if "text_label" not in item:
+                raise KeyError(
+                    "mode='text' but item does not contain key 'text_label' "
+                    "and no fixed key 'label' exists."
+                )
+            return int(item["text_label"])
+
+        if self.mode == "image":
+            if "image_label" not in item:
+                raise KeyError(
+                    "mode='image' but item does not contain key 'image_label' "
+                    "and no fixed key 'label' exists."
+                )
+            return int(item["image_label"])
+
+        # mode == "both"
+        # For safety, use text_label by default if no fixed label exists.
+        # In your current modality_exclusive setting, mode should normally
+        # be either "text" or "image", not "both".
+        if "text_label" in item:
+            return int(item["text_label"])
+
+        if "image_label" in item:
+            return int(item["image_label"])
+
+        raise KeyError(
+            "Cannot find a valid label. Expected one of: "
+            "'label', 'text_label', or 'image_label'."
+        )
+
     def __getitem__(self, idx):
         item = self.data[idx]
 
-        label = int(item["label"])
+        label = self._get_label(item)
 
         image_path = (
             item.get("image", None)
@@ -264,7 +376,8 @@ class MVSAStrongDataset(Dataset):
 
 MVSADataset = MVSAStrongDataset
 MVSAVoteDataset = MVSAStrongDataset
-MVSA6ClassDataset = MVSAStrongDataset
+MVSA4ClassDataset = MVSAStrongDataset
+MVSA3ClassDataset = MVSAStrongDataset
 VoteDataset = MVSAStrongDataset
 
 
@@ -281,6 +394,7 @@ def load_mvsa_datasets(
     max_text_len=64,
     image_model_name="openai/clip-vit-base-patch32",
     image_processor=None,
+    label_source="auto",
     **kwargs,
 ):
     """
@@ -291,6 +405,15 @@ def load_mvsa_datasets(
     Supports both:
         load_mvsa_datasets(train_json, val_json, test_json, tokenizer=...)
     and keyword-style calls.
+
+    For your modality-exclusive setting:
+        text client:
+            mode="text", label_source="text"
+        image client:
+            mode="image", label_source="image"
+
+    If the input data has already been converted into single-modality samples
+    with a fixed key "label", then label_source="auto" is enough.
     """
 
     # Also support alternative keyword names
@@ -327,6 +450,7 @@ def load_mvsa_datasets(
                     max_text_len=max_text_len,
                     image_model_name=image_model_name,
                     image_processor=image_processor,
+                    label_source=label_source,
                 )
             )
 

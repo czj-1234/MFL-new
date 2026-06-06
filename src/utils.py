@@ -78,7 +78,7 @@ def compute_class_weights_from_dataset(dataset, num_classes, device):
     training dataset and shared across all clients.
 
     Args:
-        dataset: training dataset
+        dataset: training dataset or list of sample dictionaries
         num_classes: number of classes
         device: torch device
 
@@ -121,14 +121,19 @@ def compute_class_weights_from_dataset(dataset, num_classes, device):
     label_counts = Counter(labels)
     total_samples = len(labels)
 
+    if total_samples == 0:
+        raise ValueError("Cannot compute class weights from an empty dataset.")
+
     weights = []
 
     for c in range(num_classes):
         count = label_counts.get(c, 0)
 
         if count == 0:
-            # Avoid division by zero.
-            # This should not happen for the global training dataset.
+            print(
+                f"[Warning] Class {c} has 0 samples in the training dataset. "
+                "Its class weight will be set to 0.0."
+            )
             weights.append(0.0)
         else:
             weights.append(total_samples / (num_classes * count))

@@ -1,10 +1,10 @@
 seed: 42
 
 data:
-  train_json: data/processed/mvsa_6class_train.json
-  val_json: data/processed/mvsa_6class_val.json
-  test_json: data/processed/mvsa_6class_test.json
-  num_classes: 6
+  train_json: data/processed/mvsa_3class_train.json
+  val_json: data/processed/mvsa_3class_val.json
+  test_json: data/processed/mvsa_3class_test.json
+  num_classes: 3
 
 model:
   tokenizer_name: roberta-base
@@ -23,37 +23,32 @@ model:
 federated:
   num_clients: 6
 
-  # fixed = use samples_per_client
-  # full  = use all training samples
-  partition_mode: full
+  partition_mode: fixed
+  samples_per_client: 2600
+  allow_overlap: true
 
-  # ignored when partition_mode is full
-  samples_per_client: null
-
-  allow_overlap: false
-  rounds: 100
+  rounds: 30
   local_epochs: 1
-  lr: 0.000001
-  batch_size: 32
+  lr: 0.000005
+  weight_decay: 0.03
+  batch_size: 64
   max_local_steps: null
 
 evaluation:
-  eval_batch_size: 64
-  max_train_eval_samples: null
+  eval_batch_size: 128
+  max_train_eval_samples: 3000
   max_val_eval_samples: null
   max_test_eval_samples: null
-  max_text_len: 64
-  num_workers: 4
+  max_text_len: 77
+  num_workers: 8
 
 experiment:
   setting_name: modality_exclusive
   association: iid
-  output_root: results/structure_baseline
-  analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100]
+  output_root: results/mvsa_3class_overlap
+  analysis_rounds: [1, 5, 10, 20, 30]
 
 update:
   target_patterns:
-    - image_proj
-    - text_proj
-    - multi_modal_projector
     - classifier
+    - multi_modal_projector
