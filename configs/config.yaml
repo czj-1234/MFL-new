@@ -1,10 +1,10 @@
 seed: 42
 
 data:
-  train_json: data/processed/mvsa_3class_train.json
-  val_json: data/processed/mvsa_3class_val.json
-  test_json: data/processed/mvsa_3class_test.json
-  num_classes: 3
+  train_json: data/processed/hateful_train.json
+  val_json: data/processed/hateful_val.json
+  test_json: data/processed/hateful_test.json
+  num_classes: 2
 
 model:
   tokenizer_name: roberta-base
@@ -21,11 +21,12 @@ model:
   pretrained_image: true
 
 federated:
-  num_clients: 6
+  num_clients: 4
 
-  partition_mode: fixed
-  samples_per_client: 2600
-  allow_overlap: true
+  # First Hateful Memes baseline: no repeated sampling
+  partition_mode: full
+  samples_per_client: 2000
+  allow_overlap: false
 
   rounds: 30
   local_epochs: 1
@@ -33,6 +34,9 @@ federated:
   weight_decay: 0.03
   batch_size: 64
   max_local_steps: null
+
+  # FedAvg = 0.0, FedProx = 0.001
+  fedprox_mu: 0.001
 
 evaluation:
   eval_batch_size: 128
@@ -45,7 +49,7 @@ evaluation:
 experiment:
   setting_name: modality_exclusive
   association: iid
-  output_root: results/mvsa_3class_overlap
+  output_root: results/hateful_2class_full_fedprox001
   analysis_rounds: [1, 5, 10, 20, 30]
 
 update:

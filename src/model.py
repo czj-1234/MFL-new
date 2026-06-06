@@ -1,6 +1,6 @@
 # ============================================================
 # Model: CLIP-ViT + RoBERTa with Modality-Aware Gated Fusion
-# For MVSA original 3-class classification
+# For Hateful Memes 2-class classification
 # ============================================================
 
 import torch
@@ -23,22 +23,21 @@ class StrongMultimodalNet(nn.Module):
         3. Use a gate to learn image/text contribution.
         4. Classify from the gated fused representation.
 
-    This is more suitable for modality_exclusive FL, because each client may
-    only have image or text input.
+    Suitable for modality_exclusive FL: each client may only have image or text.
     """
 
     def __init__(
         self,
         text_model_name="roberta-base",
         image_model_name="openai/clip-vit-base-patch32",
-        num_classes=3,
+        num_classes=2,
         image_hidden_dim=256,
         text_hidden_dim=256,
         projector_hidden_dim=256,
         dropout=0.3,
         freeze_image_backbone=True,
         freeze_text_backbone=True,
-        pretrained_image=True,  # kept for old config compatibility
+        pretrained_image=True,
     ):
         super().__init__()
 
@@ -109,8 +108,6 @@ class StrongMultimodalNet(nn.Module):
             nn.Softmax(dim=1),
         )
 
-        # Keep this name so your update target pattern "multi_modal_projector"
-        # still works in src/federated.py.
         self.multi_modal_projector = nn.Sequential(
             nn.Linear(projector_hidden_dim, projector_hidden_dim),
             nn.ReLU(),
@@ -130,20 +127,6 @@ class StrongMultimodalNet(nn.Module):
         pixel_values=None,
         setting="both",
     ):
-        """
-        Compatible with old training code:
-            model(image, input_ids, attention_mask)
-
-        Also compatible with new training code:
-            model(pixel_values=pixel_values, input_ids=..., attention_mask=...)
-
-        setting:
-            image_only / image
-            text_only / text
-            both / multimodal / modality_exclusive
-        """
-
-        # Old code passes image as first positional argument.
         if pixel_values is None:
             pixel_values = image
 
@@ -156,83 +139,46 @@ class StrongMultimodalNet(nn.Module):
         else:
             raise ValueError("Either input_ids or pixel_values/image must be provided.")
 
-        use_image = setting in [
-            "image",
-            "image_only",
-            "both",
-            "multimodal",
-            "modality_exclusive",
-        ]
+        use_image = setting in ["image", "image_only", "both", "multimodal", "modality_exclusive"]
+        use_text = setting in ["text", "text_only", "both", "multimodal", "modality_exclusive"]
 
-        use_text = setting in [
-            "text",
-            "text_only",
-            "both",
-            "multimodal",
-            "modality_exclusive",
-        ]
-
-        # -------------------------
         # Image branch
-        # -------------------------
         if use_image and pixel_values is not None:
             image_outputs = self.image_backbone(pixel_values=pixel_values)
             image_cls = image_outputs.pooler_output
             image_feat = self.image_proj(image_cls)
             image_feat = self.image_norm(image_feat)
         else:
-            image_feat = self.missing_image_embedding.expand(
-                batch_size,
-                -1,
-            ).to(device)
+            image_feat = self.missing_image_embedding.expand(batch_size, -1).to(device)
 
-        # -------------------------
         # Text branch
-        # -------------------------
         if use_text and input_ids is not None and attention_mask is not None:
-            text_outputs = self.text_backbone(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-            )
+            text_outputs = self.text_backbone(input_ids=input_ids, attention_mask=attention_mask)
             text_cls = text_outputs.last_hidden_state[:, 0, :]
             text_feat = self.text_proj(text_cls)
             text_feat = self.text_norm(text_feat)
         else:
-            text_feat = self.missing_text_embedding.expand(
-                batch_size,
-                -1,
-            ).to(device)
+            text_feat = self.missing_text_embedding.expand(batch_size, -1).to(device)
 
-        # -------------------------
         # Gated fusion
-        # -------------------------
         gate_input = torch.cat([image_feat, text_feat], dim=1)
         gate = self.fusion_gate(gate_input)
-
         image_weight = gate[:, 0:1]
         text_weight = gate[:, 1:2]
-
         fused = image_weight * image_feat + text_weight * text_feat
 
         h = self.multi_modal_projector(fused)
         h = self.dropout(h)
 
         logits = self.classifier(h)
-
         return logits
 
 
 def build_model(args):
     """
-    Build model from args/config.
+    Build Hateful Memes 2-class model from args/config.
     """
-
-    image_model_name = getattr(
-        args,
-        "image_model_name",
-        "openai/clip-vit-base-patch32",
-    )
-
+    image_model_name = getattr(args, "image_model_name", "openai/clip-vit-base-patch32")
     pretrained_image = getattr(args, "pretrained_image", True)
 
     model = StrongMultimodalNet(
@@ -247,5 +193,4 @@ def build_model(args):
         freeze_text_backbone=args.freeze_text_backbone,
         pretrained_image=pretrained_image,
     )
-
     return model

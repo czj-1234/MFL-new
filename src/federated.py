@@ -7,11 +7,11 @@
 #   4. utility metrics: acc, macro-F1, precision, recall, balanced acc
 #   5. structure / attack metrics
 #   6. RoBERTa + CLIP-ViT-B/32 model input
-#   7. MVSA original 3-class classification
+#   7. Hateful Memes original 2-class classification
 #
-# Current 3-class setting:
-#   num_classes = 3
-#   labels = negative / neutral / positive
+# Current 2-class setting:
+#   num_classes = 2
+#   labels = non_hateful / hateful
 #
 # Client design:
 #   text_only:
@@ -21,12 +21,10 @@
 #       all clients = image, label = image_label
 #
 #   modality_exclusive:
-#       client 0 = image, dominant_label = negative
-#       client 1 = text,  dominant_label = neutral
-#       client 2 = image, dominant_label = positive
-#       client 3 = text,  dominant_label = negative
-#       client 4 = image, dominant_label = neutral
-#       client 5 = text,  dominant_label = positive
+#       client 0 = image, dominant_label = non_hateful
+#       client 1 = image, dominant_label = hateful
+#       client 2 = text,  dominant_label = non_hateful
+#       client 3 = text,  dominant_label = hateful
 #
 # Association is constructed using the label of the client's modality:
 #   text client  -> text_label
@@ -233,9 +231,8 @@ def build_mvsa_dataset(
 # ============================================================
 
 id_to_label_name = {
-    0: "negative",
-    1: "neutral",
-    2: "positive",
+    0: "non_hateful",
+    1: "hateful",
 }
 
 
@@ -316,15 +313,11 @@ def get_client_modality(client_id, setting_name):
         all clients are text-only
 
     modality_exclusive:
-        image and text clients are balanced.
-
-        For 6 clients:
-            client 0 -> image
-            client 1 -> text
-            client 2 -> image
-            client 3 -> text
-            client 4 -> image
-            client 5 -> text
+        For Hateful Memes 2-class / 4-client design:
+            client 0 -> image, non_hateful-dominant
+            client 1 -> image, hateful-dominant
+            client 2 -> text,  non_hateful-dominant
+            client 3 -> text,  hateful-dominant
 
     full_multimodal:
         all clients have both image and text
@@ -339,25 +332,24 @@ def get_client_modality(client_id, setting_name):
         return "text"
 
     if setting_name == "modality_exclusive":
-        return "image" if client_id % 2 == 0 else "text"
+        # For 4 clients:
+        #   0, 1 are image clients
+        #   2, 3 are text clients
+        return "image" if client_id < 2 else "text"
 
     raise ValueError(f"Unknown setting_name: {setting_name}")
 
-
-def get_client_dominant_label(client_id, num_classes=3):
+def get_client_dominant_label(client_id, num_classes=2):
     """
     Assign one dominant label to each client.
 
-    For 6 clients and 3 classes:
-        client 0 -> 0 negative
-        client 1 -> 1 neutral
-        client 2 -> 2 positive
-        client 3 -> 0 negative
-        client 4 -> 1 neutral
-        client 5 -> 2 positive
+    For Hateful Memes 2 classes and 4 clients:
+        client 0 -> 0 non_hateful
+        client 1 -> 1 hateful
+        client 2 -> 0 non_hateful
+        client 3 -> 1 hateful
     """
     return client_id % num_classes
-
 
 def get_sample_label_for_modality(item, modality):
     """
@@ -546,7 +538,7 @@ def build_full_client_partitions(
             Randomly split all raw samples into clients, then convert each
             sample according to that client's modality.
 
-        0.3 / 0.7 / 1.0:
+        0.7 / 0.9 / 1.0:
             Each sample is assigned with higher probability to clients whose
             dominant label matches the sample label under that client's modality.
     """
@@ -1091,9 +1083,8 @@ def evaluate(
     Returns:
         loss, acc, macro-F1, macro-precision, macro-recall,
         balanced accuracy, and per-class F1 for:
-            label 0 = negative
-            label 1 = neutral
-            label 2 = positive
+            label 0 = non_hateful
+            label 1 = hateful
     """
     model.eval()
     model.to(args.device)
@@ -1216,6 +1207,9 @@ def evaluate(
         balanced_acc = 0.0
         per_class_f1 = np.zeros(args.num_classes)
 
+    f1_non_hateful = float(per_class_f1[0]) if len(per_class_f1) > 0 else 0.0
+    f1_hateful = float(per_class_f1[1]) if len(per_class_f1) > 1 else 0.0
+
     return {
         "loss": float(avg_loss),
         "acc": float(acc),
@@ -1224,13 +1218,16 @@ def evaluate(
         "macro_recall": float(macro_recall),
         "balanced_acc": float(balanced_acc),
 
-        # Per-class F1:
-        # label 0 = negative
-        # label 1 = neutral
-        # label 2 = positive
-        "f1_negative": float(per_class_f1[0]) if len(per_class_f1) > 0 else 0.0,
-        "f1_neutral": float(per_class_f1[1]) if len(per_class_f1) > 1 else 0.0,
-        "f1_positive": float(per_class_f1[2]) if len(per_class_f1) > 2 else 0.0,
+        # Hateful Memes per-class F1:
+        # label 0 = non_hateful
+        # label 1 = hateful
+        "f1_non_hateful": f1_non_hateful,
+        "f1_hateful": f1_hateful,
+
+        # Compatibility aliases for older runner/summary columns.
+        "f1_negative": f1_non_hateful,
+        "f1_neutral": 0.0,
+        "f1_positive": f1_hateful,
     }
 
 
@@ -1249,6 +1246,8 @@ def average_metric_dicts(metric_dicts):
             "macro_precision": 0.0,
             "macro_recall": 0.0,
             "balanced_acc": 0.0,
+            "f1_non_hateful": 0.0,
+            "f1_hateful": 0.0,
             "f1_negative": 0.0,
             "f1_neutral": 0.0,
             "f1_positive": 0.0,
@@ -1261,6 +1260,8 @@ def average_metric_dicts(metric_dicts):
         "macro_precision",
         "macro_recall",
         "balanced_acc",
+        "f1_non_hateful",
+        "f1_hateful",
         "f1_negative",
         "f1_neutral",
         "f1_positive",
@@ -1360,6 +1361,12 @@ def evaluate_for_setting(
         avg_metrics["text_macro_f1"] = text_metrics["macro_f1"]
         avg_metrics["image_macro_f1"] = image_metrics["macro_f1"]
 
+        avg_metrics["text_f1_non_hateful"] = text_metrics.get("f1_non_hateful", 0.0)
+        avg_metrics["text_f1_hateful"] = text_metrics.get("f1_hateful", 0.0)
+        avg_metrics["image_f1_non_hateful"] = image_metrics.get("f1_non_hateful", 0.0)
+        avg_metrics["image_f1_hateful"] = image_metrics.get("f1_hateful", 0.0)
+
+        # Compatibility aliases.
         avg_metrics["text_f1_negative"] = text_metrics.get("f1_negative", 0.0)
         avg_metrics["text_f1_neutral"] = text_metrics.get("f1_neutral", 0.0)
         avg_metrics["text_f1_positive"] = text_metrics.get("f1_positive", 0.0)
@@ -1654,6 +1661,8 @@ def run_experiment(args):
                 "train_macro_precision": train_metrics["macro_precision"],
                 "train_macro_recall": train_metrics["macro_recall"],
                 "train_balanced_acc": train_metrics["balanced_acc"],
+                "train_f1_non_hateful": train_metrics.get("f1_non_hateful", 0.0),
+                "train_f1_hateful": train_metrics.get("f1_hateful", 0.0),
                 "train_f1_negative": train_metrics.get("f1_negative", 0.0),
                 "train_f1_neutral": train_metrics.get("f1_neutral", 0.0),
                 "train_f1_positive": train_metrics.get("f1_positive", 0.0),
@@ -1664,6 +1673,8 @@ def run_experiment(args):
                 "val_macro_precision": val_metrics["macro_precision"],
                 "val_macro_recall": val_metrics["macro_recall"],
                 "val_balanced_acc": val_metrics["balanced_acc"],
+                "val_f1_non_hateful": val_metrics.get("f1_non_hateful", 0.0),
+                "val_f1_hateful": val_metrics.get("f1_hateful", 0.0),
                 "val_f1_negative": val_metrics.get("f1_negative", 0.0),
                 "val_f1_neutral": val_metrics.get("f1_neutral", 0.0),
                 "val_f1_positive": val_metrics.get("f1_positive", 0.0),
@@ -1674,6 +1685,8 @@ def run_experiment(args):
                 "test_macro_precision": test_metrics["macro_precision"],
                 "test_macro_recall": test_metrics["macro_recall"],
                 "test_balanced_acc": test_metrics["balanced_acc"],
+                "test_f1_non_hateful": test_metrics.get("f1_non_hateful", 0.0),
+                "test_f1_hateful": test_metrics.get("f1_hateful", 0.0),
                 "test_f1_negative": test_metrics.get("f1_negative", 0.0),
                 "test_f1_neutral": test_metrics.get("f1_neutral", 0.0),
                 "test_f1_positive": test_metrics.get("f1_positive", 0.0),
@@ -1684,6 +1697,10 @@ def run_experiment(args):
                 "image_acc",
                 "text_macro_f1",
                 "image_macro_f1",
+                "text_f1_non_hateful",
+                "text_f1_hateful",
+                "image_f1_non_hateful",
+                "image_f1_hateful",
                 "text_f1_negative",
                 "text_f1_neutral",
                 "text_f1_positive",
@@ -1757,7 +1774,7 @@ def run_experiment(args):
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
-        "task_type": "mvsa_original_3class_modality_specific_classification",
+        "task_type": "hateful_memes_2class_modality_specific_classification",
         "global_num_classes": global_num_classes,
         "random_chance_acc": random_chance_acc,
         "label_space_split_by_modality": False,
@@ -1771,6 +1788,8 @@ def run_experiment(args):
         "train_macro_precision": final_train_metrics["macro_precision"],
         "train_macro_recall": final_train_metrics["macro_recall"],
         "train_balanced_acc": final_train_metrics["balanced_acc"],
+        "train_f1_non_hateful": final_train_metrics.get("f1_non_hateful", 0.0),
+        "train_f1_hateful": final_train_metrics.get("f1_hateful", 0.0),
         "train_f1_negative": final_train_metrics.get("f1_negative", 0.0),
         "train_f1_neutral": final_train_metrics.get("f1_neutral", 0.0),
         "train_f1_positive": final_train_metrics.get("f1_positive", 0.0),
@@ -1781,6 +1800,8 @@ def run_experiment(args):
         "val_macro_precision": final_val_metrics["macro_precision"],
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
+        "val_f1_non_hateful": final_val_metrics.get("f1_non_hateful", 0.0),
+        "val_f1_hateful": final_val_metrics.get("f1_hateful", 0.0),
         "val_f1_negative": final_val_metrics.get("f1_negative", 0.0),
         "val_f1_neutral": final_val_metrics.get("f1_neutral", 0.0),
         "val_f1_positive": final_val_metrics.get("f1_positive", 0.0),
@@ -1790,6 +1811,8 @@ def run_experiment(args):
         "global_macro_precision": final_val_metrics["macro_precision"],
         "global_macro_recall": final_val_metrics["macro_recall"],
         "global_balanced_acc": final_val_metrics["balanced_acc"],
+        "global_f1_non_hateful": final_val_metrics.get("f1_non_hateful", 0.0),
+        "global_f1_hateful": final_val_metrics.get("f1_hateful", 0.0),
         "global_f1_negative": final_val_metrics.get("f1_negative", 0.0),
         "global_f1_neutral": final_val_metrics.get("f1_neutral", 0.0),
         "global_f1_positive": final_val_metrics.get("f1_positive", 0.0),
@@ -1800,6 +1823,8 @@ def run_experiment(args):
         "test_macro_precision": final_test_metrics["macro_precision"],
         "test_macro_recall": final_test_metrics["macro_recall"],
         "test_balanced_acc": final_test_metrics["balanced_acc"],
+        "test_f1_non_hateful": final_test_metrics.get("f1_non_hateful", 0.0),
+        "test_f1_hateful": final_test_metrics.get("f1_hateful", 0.0),
         "test_f1_negative": final_test_metrics.get("f1_negative", 0.0),
         "test_f1_neutral": final_test_metrics.get("f1_neutral", 0.0),
         "test_f1_positive": final_test_metrics.get("f1_positive", 0.0),

@@ -1,7 +1,7 @@
 # ============================================================
 # Structure and Privacy Leakage Metrics
 # Attackers: Random Forest + MLP + XGBoost
-# Compatible with MVSA 4-class classification
+# Compatible with binary / multi-class federated classification
 # ============================================================
 
 import numpy as np
@@ -121,7 +121,10 @@ def _remap_labels_to_contiguous(y):
     """
     y = np.asarray(y)
     unique_labels = np.unique(y)
-    mapping = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
+    mapping = {
+        old_label: new_label
+        for new_label, old_label in enumerate(unique_labels)
+    }
     y_new = np.array([mapping[v] for v in y], dtype=np.int64)
 
     return y_new, mapping
@@ -139,6 +142,15 @@ def compute_attack_success_rates(X, y, seed=42):
     The purpose is to test whether label leakage is stable across
     different nonlinear attackers, rather than being caused by one
     specific classifier.
+
+    For Hateful Memes 2-class:
+        y = dominant_label, where
+        0 = non_hateful
+        1 = hateful
+
+    For MVSA 3-class:
+        y = dominant_label, where
+        0 / 1 / 2 correspond to the sentiment labels.
     """
     X = np.asarray(X)
     y = np.asarray(y)
@@ -167,6 +179,32 @@ def compute_attack_success_rates(X, y, seed=42):
 
     num_attack_classes = len(np.unique(y_train_xgb))
 
+    if num_attack_classes == 2:
+        xgb_model = XGBClassifier(
+            n_estimators=200,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            objective="binary:logistic",
+            eval_metric="logloss",
+            random_state=seed,
+            n_jobs=-1,
+        )
+    else:
+        xgb_model = XGBClassifier(
+            n_estimators=200,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            objective="multi:softmax",
+            num_class=num_attack_classes,
+            eval_metric="mlogloss",
+            random_state=seed,
+            n_jobs=-1,
+        )
+
     attackers = {
         "rf": RandomForestClassifier(
             n_estimators=200,
@@ -186,18 +224,7 @@ def compute_attack_success_rates(X, y, seed=42):
             early_stopping=True,
         ),
 
-        "xgb": XGBClassifier(
-            n_estimators=200,
-            max_depth=4,
-            learning_rate=0.05,
-            subsample=0.9,
-            colsample_bytree=0.9,
-            objective="multi:softmax",
-            num_class=num_attack_classes,
-            eval_metric="mlogloss",
-            random_state=seed,
-            n_jobs=-1,
-        ),
+        "xgb": xgb_model,
     }
 
     results = {}
@@ -206,8 +233,22 @@ def compute_attack_success_rates(X, y, seed=42):
         try:
             if name == "xgb":
                 attacker.fit(X_train_scaled, y_train_xgb)
+
                 pred = attacker.predict(X_test_scaled)
+
+                # binary:logistic may return probabilities in some versions.
+                if pred.ndim > 1:
+                    pred = np.argmax(pred, axis=1)
+
+                pred = np.asarray(pred)
+
+                if num_attack_classes == 2:
+                    # If binary:logistic returns probabilities, threshold them.
+                    if pred.dtype.kind in {"f"}:
+                        pred = (pred >= 0.5).astype(np.int64)
+
                 acc = accuracy_score(y_test_xgb, pred)
+
             else:
                 attacker.fit(X_train_scaled, y_train)
                 pred = attacker.predict(X_test_scaled)
@@ -240,6 +281,12 @@ def compute_structure_metrics(update_records, seed=42):
             "update": np.ndarray,
             "dominant_label": int
         }
+
+    In Hateful Memes 2-class:
+        dominant_label = 0 or 1
+
+    In MVSA 3-class:
+        dominant_label = 0, 1, or 2
     """
     if len(update_records) == 0:
         raise ValueError("update_records is empty. Cannot compute structure metrics.")
@@ -283,9 +330,15 @@ def compute_structure_metrics(update_records, seed=42):
         pred_cluster_count = len(np.unique(pred_cluster))
 
         if 2 <= pred_cluster_count <= n_samples - 1:
-            metrics["Silhouette"] = float(silhouette_score(X_scaled, pred_cluster))
-            metrics["DBI"] = float(davies_bouldin_score(X_scaled, pred_cluster))
-            metrics["CHI"] = float(calinski_harabasz_score(X_scaled, pred_cluster))
+            metrics["Silhouette"] = float(
+                silhouette_score(X_scaled, pred_cluster)
+            )
+            metrics["DBI"] = float(
+                davies_bouldin_score(X_scaled, pred_cluster)
+            )
+            metrics["CHI"] = float(
+                calinski_harabasz_score(X_scaled, pred_cluster)
+            )
         else:
             metrics["Silhouette"] = np.nan
             metrics["DBI"] = np.nan
