@@ -15,3 +15,7 @@ results/
 .env
 .vscode/
 .ipynb_checkpoints/
+
+results/
+*.npy
+results0.1v/

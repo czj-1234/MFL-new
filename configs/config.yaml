@@ -14,7 +14,7 @@ model:
   image_hidden_dim: 256
   text_hidden_dim: 256
   projector_hidden_dim: 256
-  dropout: 0.3
+  dropout: 0.4
 
   freeze_image_backbone: false
   freeze_text_backbone: false
@@ -23,30 +23,30 @@ model:
 federated:
   num_clients: 6
 
-  partition_mode: full
-  samples_per_client: null
-  allow_overlap: false
+  partition_mode: fixed
+  samples_per_client: 2600
+  allow_overlap: true
 
-  rounds: 100
+  rounds: 30
   local_epochs: 1
-  lr: 0.00001
-  weight_decay: 0.01
-  batch_size: 32
+  lr: 0.000005
+  weight_decay: 0.03
+  batch_size: 64
   max_local_steps: null
 
 evaluation:
-  eval_batch_size: 64
+  eval_batch_size: 128
   max_train_eval_samples: 3000
   max_val_eval_samples: null
   max_test_eval_samples: null
-  max_text_len: 64
-  num_workers: 2
+  max_text_len: 77
+  num_workers: 8
 
 experiment:
   setting_name: modality_exclusive
   association: iid
-  output_root: results/mvsa_3class
-  analysis_rounds: [1, 5, 10, 20, 30, 50, 80, 100]
+  output_root: results/mvsa_3class_overlap
+  analysis_rounds: [1, 5, 10, 20, 30]
 
 update:
   target_patterns:

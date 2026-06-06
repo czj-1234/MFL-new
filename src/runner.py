@@ -134,7 +134,14 @@ def run_all_experiments(cfg, cli_args):
         # train utility metrics
         "train_acc",
         "train_macro_f1",
+        "train_macro_precision",
+        "train_macro_recall",
         "train_balanced_acc",
+
+        # train per-class F1
+        "train_f1_negative",
+        "train_f1_neutral",
+        "train_f1_positive",
 
         # validation/global utility metrics
         "global_acc",
@@ -143,12 +150,22 @@ def run_all_experiments(cfg, cli_args):
         "global_macro_recall",
         "global_balanced_acc",
 
+        # validation per-class F1
+        "val_f1_negative",
+        "val_f1_neutral",
+        "val_f1_positive",
+
         # test utility metrics
         "test_acc",
         "test_macro_f1",
         "test_macro_precision",
         "test_macro_recall",
         "test_balanced_acc",
+
+        # test per-class F1
+        "test_f1_negative",
+        "test_f1_neutral",
+        "test_f1_positive",
 
         # modality-specific metrics, mainly for modality_exclusive
         "train_text_acc",
@@ -164,7 +181,31 @@ def run_all_experiments(cfg, cli_args):
         "test_text_macro_f1",
         "test_image_macro_f1",
 
+        # modality-specific per-class F1
+        "train_text_f1_negative",
+        "train_text_f1_neutral",
+        "train_text_f1_positive",
+        "train_image_f1_negative",
+        "train_image_f1_neutral",
+        "train_image_f1_positive",
+
+        "val_text_f1_negative",
+        "val_text_f1_neutral",
+        "val_text_f1_positive",
+        "val_image_f1_negative",
+        "val_image_f1_neutral",
+        "val_image_f1_positive",
+
+        "test_text_f1_negative",
+        "test_text_f1_neutral",
+        "test_text_f1_positive",
+        "test_image_f1_negative",
+        "test_image_f1_neutral",
+        "test_image_f1_positive",
+
         # accuracy above random chance
+        "train_acc_above_chance",
+        "val_acc_above_chance",
         "global_acc_above_chance",
         "test_acc_above_chance",
 

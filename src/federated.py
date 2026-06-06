@@ -497,8 +497,27 @@ def compute_class_weights_from_client_data(client_data, num_classes, device):
     non_zero = [w for w in weights if w > 0]
     fallback = float(np.mean(non_zero)) if len(non_zero) > 0 else 1.0
     weights = [w if w > 0 else fallback for w in weights]
-
+    
     return torch.tensor(weights, dtype=torch.float32, device=device)
+
+
+def focal_loss(logits, labels, weight=None, gamma=2.0):
+    """
+    Focal Loss for imbalanced classification.
+
+    It reduces the contribution of easy examples and focuses more on hard examples.
+    """
+    ce_loss = F.cross_entropy(
+        logits,
+        labels,
+        weight=weight,
+        reduction="none",
+    )
+
+    pt = torch.exp(-ce_loss)
+    loss = ((1.0 - pt) ** gamma) * ce_loss
+
+    return loss.mean()
 
 
 # ============================================================
@@ -1068,6 +1087,13 @@ def evaluate(
 ):
     """
     Evaluate classification task.
+
+    Returns:
+        loss, acc, macro-F1, macro-precision, macro-recall,
+        balanced accuracy, and per-class F1 for:
+            label 0 = negative
+            label 1 = neutral
+            label 2 = positive
     """
     model.eval()
     model.to(args.device)
@@ -1128,7 +1154,14 @@ def evaluate(
             setting=mode,
         )
 
-        loss = F.cross_entropy(logits, labels, weight=class_weights_tensor)
+        # Keep evaluation loss as standard cross entropy for comparability.
+        # Training uses focal_loss() in local_train().
+        loss = F.cross_entropy(
+            logits,
+            labels,
+            weight=class_weights_tensor,
+        )
+
         preds = torch.argmax(logits, dim=1)
 
         total += labels.size(0)
@@ -1167,11 +1200,21 @@ def evaluate(
             all_labels,
             all_preds,
         )
+
+        per_class_f1 = f1_score(
+            all_labels,
+            all_preds,
+            average=None,
+            labels=list(range(args.num_classes)),
+            zero_division=0,
+        )
+
     else:
         macro_f1 = 0.0
         macro_precision = 0.0
         macro_recall = 0.0
         balanced_acc = 0.0
+        per_class_f1 = np.zeros(args.num_classes)
 
     return {
         "loss": float(avg_loss),
@@ -1180,12 +1223,23 @@ def evaluate(
         "macro_precision": float(macro_precision),
         "macro_recall": float(macro_recall),
         "balanced_acc": float(balanced_acc),
+
+        # Per-class F1:
+        # label 0 = negative
+        # label 1 = neutral
+        # label 2 = positive
+        "f1_negative": float(per_class_f1[0]) if len(per_class_f1) > 0 else 0.0,
+        "f1_neutral": float(per_class_f1[1]) if len(per_class_f1) > 1 else 0.0,
+        "f1_positive": float(per_class_f1[2]) if len(per_class_f1) > 2 else 0.0,
     }
 
 
 def average_metric_dicts(metric_dicts):
     """
     Average a list of metric dictionaries.
+
+    Used for modality_exclusive:
+        average text-view metrics and image-view metrics.
     """
     if len(metric_dicts) == 0:
         return {
@@ -1195,21 +1249,30 @@ def average_metric_dicts(metric_dicts):
             "macro_precision": 0.0,
             "macro_recall": 0.0,
             "balanced_acc": 0.0,
+            "f1_negative": 0.0,
+            "f1_neutral": 0.0,
+            "f1_positive": 0.0,
         }
 
-    base_keys = [
+    keys = [
         "loss",
         "acc",
         "macro_f1",
         "macro_precision",
         "macro_recall",
         "balanced_acc",
+        "f1_negative",
+        "f1_neutral",
+        "f1_positive",
     ]
 
-    return {
-        key: float(np.mean([m[key] for m in metric_dicts]))
-        for key in base_keys
-    }
+    out = {}
+
+    for key in keys:
+        values = [m[key] for m in metric_dicts if key in m]
+        out[key] = float(np.mean(values)) if len(values) > 0 else 0.0
+
+    return out
 
 
 def evaluate_for_setting(
@@ -1296,6 +1359,14 @@ def evaluate_for_setting(
         avg_metrics["image_acc"] = image_metrics["acc"]
         avg_metrics["text_macro_f1"] = text_metrics["macro_f1"]
         avg_metrics["image_macro_f1"] = image_metrics["macro_f1"]
+
+        avg_metrics["text_f1_negative"] = text_metrics.get("f1_negative", 0.0)
+        avg_metrics["text_f1_neutral"] = text_metrics.get("f1_neutral", 0.0)
+        avg_metrics["text_f1_positive"] = text_metrics.get("f1_positive", 0.0)
+
+        avg_metrics["image_f1_negative"] = image_metrics.get("f1_negative", 0.0)
+        avg_metrics["image_f1_neutral"] = image_metrics.get("f1_neutral", 0.0)
+        avg_metrics["image_f1_positive"] = image_metrics.get("f1_positive", 0.0)
 
         return avg_metrics
 
@@ -1583,6 +1654,9 @@ def run_experiment(args):
                 "train_macro_precision": train_metrics["macro_precision"],
                 "train_macro_recall": train_metrics["macro_recall"],
                 "train_balanced_acc": train_metrics["balanced_acc"],
+                "train_f1_negative": train_metrics.get("f1_negative", 0.0),
+                "train_f1_neutral": train_metrics.get("f1_neutral", 0.0),
+                "train_f1_positive": train_metrics.get("f1_positive", 0.0),
 
                 "val_loss": val_metrics["loss"],
                 "val_acc": val_metrics["acc"],
@@ -1590,6 +1664,9 @@ def run_experiment(args):
                 "val_macro_precision": val_metrics["macro_precision"],
                 "val_macro_recall": val_metrics["macro_recall"],
                 "val_balanced_acc": val_metrics["balanced_acc"],
+                "val_f1_negative": val_metrics.get("f1_negative", 0.0),
+                "val_f1_neutral": val_metrics.get("f1_neutral", 0.0),
+                "val_f1_positive": val_metrics.get("f1_positive", 0.0),
 
                 "test_loss": test_metrics["loss"],
                 "test_acc": test_metrics["acc"],
@@ -1597,6 +1674,9 @@ def run_experiment(args):
                 "test_macro_precision": test_metrics["macro_precision"],
                 "test_macro_recall": test_metrics["macro_recall"],
                 "test_balanced_acc": test_metrics["balanced_acc"],
+                "test_f1_negative": test_metrics.get("f1_negative", 0.0),
+                "test_f1_neutral": test_metrics.get("f1_neutral", 0.0),
+                "test_f1_positive": test_metrics.get("f1_positive", 0.0),
             }
 
             for key in [
@@ -1604,6 +1684,12 @@ def run_experiment(args):
                 "image_acc",
                 "text_macro_f1",
                 "image_macro_f1",
+                "text_f1_negative",
+                "text_f1_neutral",
+                "text_f1_positive",
+                "image_f1_negative",
+                "image_f1_neutral",
+                "image_f1_positive",
             ]:
                 if key in train_metrics:
                     round_log[f"train_{key}"] = train_metrics[key]
@@ -1685,6 +1771,9 @@ def run_experiment(args):
         "train_macro_precision": final_train_metrics["macro_precision"],
         "train_macro_recall": final_train_metrics["macro_recall"],
         "train_balanced_acc": final_train_metrics["balanced_acc"],
+        "train_f1_negative": final_train_metrics.get("f1_negative", 0.0),
+        "train_f1_neutral": final_train_metrics.get("f1_neutral", 0.0),
+        "train_f1_positive": final_train_metrics.get("f1_positive", 0.0),
 
         "val_loss": final_val_metrics["loss"],
         "val_acc": final_val_metrics["acc"],
@@ -1692,12 +1781,18 @@ def run_experiment(args):
         "val_macro_precision": final_val_metrics["macro_precision"],
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
+        "val_f1_negative": final_val_metrics.get("f1_negative", 0.0),
+        "val_f1_neutral": final_val_metrics.get("f1_neutral", 0.0),
+        "val_f1_positive": final_val_metrics.get("f1_positive", 0.0),
 
         "global_acc": final_val_metrics["acc"],
         "global_macro_f1": final_val_metrics["macro_f1"],
         "global_macro_precision": final_val_metrics["macro_precision"],
         "global_macro_recall": final_val_metrics["macro_recall"],
         "global_balanced_acc": final_val_metrics["balanced_acc"],
+        "global_f1_negative": final_val_metrics.get("f1_negative", 0.0),
+        "global_f1_neutral": final_val_metrics.get("f1_neutral", 0.0),
+        "global_f1_positive": final_val_metrics.get("f1_positive", 0.0),
 
         "test_loss": final_test_metrics["loss"],
         "test_acc": final_test_metrics["acc"],
@@ -1705,6 +1800,9 @@ def run_experiment(args):
         "test_macro_precision": final_test_metrics["macro_precision"],
         "test_macro_recall": final_test_metrics["macro_recall"],
         "test_balanced_acc": final_test_metrics["balanced_acc"],
+        "test_f1_negative": final_test_metrics.get("f1_negative", 0.0),
+        "test_f1_neutral": final_test_metrics.get("f1_neutral", 0.0),
+        "test_f1_positive": final_test_metrics.get("f1_positive", 0.0),
 
         "train_acc_above_chance": final_train_metrics["acc"] - random_chance_acc,
         "val_acc_above_chance": final_val_metrics["acc"] - random_chance_acc,

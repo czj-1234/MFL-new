@@ -120,7 +120,7 @@ def parse_cli_args():
         "--config",
         type=str,
         default="configs/config.yaml",
-        help="Path to config YAML file.",
+        help="Path to config YAML file",
     )
 
     parser.add_argument(
@@ -135,7 +135,7 @@ def parse_cli_args():
         "--association",
         type=str,
         default=None,
-        choices=["iid", "0.3", "0.7", "1.0"],
+        choices=["iid", "0.5", "0.7", "1.0"],
         help="Association setting.",
     )
 
