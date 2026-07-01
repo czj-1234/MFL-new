@@ -1,8 +1,8 @@
 # ============================================================
-# MVSA Dataset for Original 3-Class Modality-Exclusive
-# Heterogeneous Multimodal Federated Learning
+# Generic Multimodal Dataset
+# Compatible with MVSA / Hateful Memes
 #
-# Compatible with:
+# Supports:
 #   1. json_path input
 #   2. Python list input
 #   3. image / text / both modality modes
@@ -10,17 +10,20 @@
 #   5. RoBERTa / BERT tokenizer output
 #   6. old imports: MVSAVoteDataset, load_mvsa_datasets
 #
-# Important for 3-class MVSA:
+# Label logic:
 #   - If item["label"] exists, use item["label"] directly.
 #   - If item["label"] does not exist:
 #       mode="text"  -> use item["text_label"]
 #       mode="image" -> use item["image_label"]
 #       mode="both"  -> use item["text_label"] by default
 #
-# For your current setting:
-#   client 0: text  -> text_label
-#   client 1: text  -> text_label
-#   client 2: image -> image_label
+# Hateful Memes processed format:
+#   label       = 0/1
+#   text_label  = label
+#   image_label = label
+#
+# MVSA processed format:
+#   text_label and image_label may be different.
 # ============================================================
 
 import json
@@ -52,7 +55,7 @@ def load_json(path):
 
 class MVSAStrongDataset(Dataset):
     """
-    MVSA original 3-class dataset.
+    Generic multimodal dataset.
 
     Supports:
         data=list
@@ -67,15 +70,14 @@ class MVSAStrongDataset(Dataset):
         label
 
     Label logic:
-        1. If the sample already has "label", use it directly.
-        2. Otherwise:
-            mode="text"  -> use "text_label"
-            mode="image" -> use "image_label"
-            mode="both"  -> use "text_label" by default
-
-    This is designed for modality-exclusive FL:
-        text client  -> text_label
-        image client -> image_label
+        1. If label_source="label", use item["label"].
+        2. If label_source="text", use item["text_label"].
+        3. If label_source="image", use item["image_label"].
+        4. If label_source="auto":
+            - if item["label"] exists, use it directly
+            - else mode="text"  -> item["text_label"]
+            - else mode="image" -> item["image_label"]
+            - else mode="both"  -> item["text_label"] by default
     """
 
     def __init__(
@@ -96,18 +98,10 @@ class MVSAStrongDataset(Dataset):
     ):
         super().__init__()
 
-        # ------------------------------------------------------------
-        # Backward compatibility:
-        # If old code calls MVSAVoteDataset(json_path, tokenizer=...)
-        # then data receives a string path. Convert it to json_path.
-        # ------------------------------------------------------------
         if isinstance(data, (str, Path)):
             json_path = data
             data = None
 
-        # ------------------------------------------------------------
-        # Load data
-        # ------------------------------------------------------------
         if data is None:
             if json_path is None:
                 json_path = kwargs.get("path", None)
@@ -127,13 +121,6 @@ class MVSAStrongDataset(Dataset):
 
         self.mode = mode
 
-        # ------------------------------------------------------------
-        # label_source:
-        #   auto  -> if item["label"] exists use it, otherwise infer from mode
-        #   label -> always use item["label"]
-        #   text  -> always use item["text_label"]
-        #   image -> always use item["image_label"]
-        # ------------------------------------------------------------
         if label_source not in ["auto", "label", "text", "image"]:
             raise ValueError(
                 f"Unknown label_source: {label_source}. "
@@ -142,7 +129,6 @@ class MVSAStrongDataset(Dataset):
 
         self.label_source = label_source
 
-        # compatible names: max_text_len / max_len / max_length
         if max_len is not None:
             max_text_len = max_len
         if max_length is not None:
@@ -150,9 +136,6 @@ class MVSAStrongDataset(Dataset):
 
         self.max_text_len = int(max_text_len)
 
-        # ------------------------------------------------------------
-        # CLIP image processor
-        # ------------------------------------------------------------
         if image_processor is not None:
             self.image_processor = image_processor
         else:
@@ -184,19 +167,19 @@ class MVSAStrongDataset(Dataset):
         if p.exists():
             return p
 
-        # Try relative to project root/current working directory
         p2 = Path.cwd() / image_path
 
         if p2.exists():
             return p2
 
-        # Try common MVSA image folders
         candidates = [
             Path.cwd() / "data" / image_path,
             Path.cwd() / "data" / "raw" / image_path,
             Path.cwd() / "data" / "processed" / image_path,
             Path.cwd() / "data" / "images" / image_path,
             Path.cwd() / "data" / "MVSA" / image_path,
+            Path.cwd() / "data" / "hateful_memes" / image_path,
+            Path.cwd() / "data" / "Hateful Meme" / "hateful_memes" / image_path,
         ]
 
         for c in candidates:
@@ -254,16 +237,6 @@ class MVSAStrongDataset(Dataset):
     def _get_label(self, item):
         """
         Get label for the current sample.
-
-        Priority:
-            1. label_source="label": use item["label"]
-            2. label_source="text": use item["text_label"]
-            3. label_source="image": use item["image_label"]
-            4. label_source="auto":
-                - if item["label"] exists, use item["label"]
-                - else mode="text"  -> item["text_label"]
-                - else mode="image" -> item["image_label"]
-                - else mode="both"  -> item["text_label"]
         """
 
         if self.label_source == "label":
@@ -307,10 +280,6 @@ class MVSAStrongDataset(Dataset):
                 )
             return int(item["image_label"])
 
-        # mode == "both"
-        # For safety, use text_label by default if no fixed label exists.
-        # In your current modality_exclusive setting, mode should normally
-        # be either "text" or "image", not "both".
         if "text_label" in item:
             return int(item["text_label"])
 
@@ -343,9 +312,6 @@ class MVSAStrongDataset(Dataset):
             or item.get("content", "")
         )
 
-        # ------------------------------------------------------------
-        # Modality control
-        # ------------------------------------------------------------
         if self.mode in ["image", "both"]:
             pixel_values = self._load_image(image_path)
         else:
@@ -361,7 +327,6 @@ class MVSAStrongDataset(Dataset):
             "pixel_values": pixel_values,
 
             # Keep old key for compatibility.
-            # Later in model/train code, prefer using batch["pixel_values"].
             "image": pixel_values,
 
             "input_ids": input_ids,
@@ -378,7 +343,12 @@ MVSADataset = MVSAStrongDataset
 MVSAVoteDataset = MVSAStrongDataset
 MVSA4ClassDataset = MVSAStrongDataset
 MVSA3ClassDataset = MVSAStrongDataset
+MVSA6ClassDataset = MVSAStrongDataset
 VoteDataset = MVSAStrongDataset
+
+# Hateful Memes aliases
+HatefulMemesDataset = MVSAStrongDataset
+HatefulDataset = MVSAStrongDataset
 
 
 # ============================================================
@@ -402,11 +372,7 @@ def load_mvsa_datasets(
 
     Returns train/val/test datasets when json paths are given.
 
-    Supports both:
-        load_mvsa_datasets(train_json, val_json, test_json, tokenizer=...)
-    and keyword-style calls.
-
-    For your modality-exclusive setting:
+    For modality-exclusive setting:
         text client:
             mode="text", label_source="text"
         image client:
@@ -416,7 +382,6 @@ def load_mvsa_datasets(
     with a fixed key "label", then label_source="auto" is enough.
     """
 
-    # Also support alternative keyword names
     train_json = (
         train_json
         or kwargs.get("train_path", None)
@@ -455,3 +420,8 @@ def load_mvsa_datasets(
             )
 
     return tuple(datasets)
+
+
+# Optional alias with a more general name
+def load_multimodal_datasets(*args, **kwargs):
+    return load_mvsa_datasets(*args, **kwargs)

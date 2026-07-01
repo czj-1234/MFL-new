@@ -58,8 +58,53 @@ class ExperimentArgs:
         self.local_epochs = cfg["federated"]["local_epochs"]
         self.lr = cfg["federated"]["lr"]
         self.weight_decay = cfg["federated"].get("weight_decay", 0.0)
+        self.fedprox_mu = cfg["federated"].get("fedprox_mu", 0.0)
+
         self.batch_size = cfg["federated"]["batch_size"]
         self.max_local_steps = cfg["federated"]["max_local_steps"]
+
+        # ------------------------------------------------------------
+        # server-side multimodal calibration
+        # ------------------------------------------------------------
+        server_calibration_cfg = cfg.get("server_calibration", {})
+
+        self.server_calibration_enabled = server_calibration_cfg.get(
+            "enabled",
+            False,
+        )
+
+        self.server_calibration_ratio = server_calibration_cfg.get(
+            "ratio",
+            0.0,
+        )
+
+        self.server_calibration_steps = server_calibration_cfg.get(
+            "steps",
+            0,
+        )
+
+        self.server_calibration_lr = server_calibration_cfg.get(
+            "lr",
+            self.lr,
+        )
+
+        self.server_calibration_batch_size = server_calibration_cfg.get(
+            "batch_size",
+            self.batch_size,
+        )
+
+        self.server_calibration_remove_from_client_train = server_calibration_cfg.get(
+            "remove_from_client_train",
+            False,
+        )
+
+        self.server_calibration_trainable_patterns = server_calibration_cfg.get(
+            "trainable_patterns",
+            [
+                "multi_modal_projector",
+                "classifier",
+            ],
+        )
 
         # evaluation
         self.eval_batch_size = cfg["evaluation"]["eval_batch_size"]
@@ -89,7 +134,7 @@ class ExperimentArgs:
             self.rounds = rounds
 
             # Keep regular analysis checkpoints for logging and structure analysis.
-            default_analysis_rounds = {1, 5, 10, 20, 30, 50, 80, self.rounds}
+            default_analysis_rounds = {1, 5, 10, 20, 30, 40, 50, 80, self.rounds}
             self.analysis_rounds = {
                 r for r in default_analysis_rounds if r <= self.rounds
             }
@@ -113,21 +158,26 @@ class ExperimentArgs:
 
 def parse_cli_args():
     parser = argparse.ArgumentParser(
-        description="Run MVSA multimodal federated learning experiments."
+        description="Run multimodal federated learning experiments."
     )
 
     parser.add_argument(
         "--config",
         type=str,
         default="configs/config.yaml",
-        help="Path to config YAML file",
+        help="Path to config YAML file.",
     )
 
     parser.add_argument(
         "--setting",
         type=str,
         default=None,
-        choices=["image_only", "text_only", "modality_exclusive", "full_multimodal"],
+        choices=[
+            "image_only",
+            "text_only",
+            "modality_exclusive",
+            "full_multimodal",
+        ],
         help="Structural setting.",
     )
 
@@ -135,7 +185,7 @@ def parse_cli_args():
         "--association",
         type=str,
         default=None,
-        choices=["iid", "0.5", "0.7", "1.0"],
+        choices=["iid", "0.5", "0.7", "0.9", "1.0"],
         help="Association setting.",
     )
 

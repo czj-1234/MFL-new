@@ -1,21 +1,27 @@
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 
+# Data
+data/hateful_memes/
 data/MVSA/
 data/raw/
 data/processed/
 data/path_index/
+data/path_inde/
 
+# Results and checkpoints
 results/
+results*/
+results0.1v/
+*.npy
 *.pt
 *.pth
 *.ckpt
+*.zip
 
+# Environment / IDE
 .env
 .vscode/
 .ipynb_checkpoints/
-
-results/
-*.npy
-results0.1v/

@@ -17,9 +17,9 @@ def run_one_experiment(args):
     """
     set_seed(args.seed)
 
-    print("Running MVSA Original 3-Class FL Structural Baseline")
-    print("Model: CLIP-ViT-B/32 + RoBERTa-base")
-    print("TASK:", "original 3-class modality-specific sentiment classification")
+    print("Running Hateful Memes 2-Class FL Structural Baseline")
+    print("Model: CLIP Dual-Encoder / Multimodal Fusion")
+    print("TASK:", "Hateful Memes 2-class modality-specific classification")
     print("NUM_CLASSES:", args.num_classes)
     print("NUM_CLIENTS:", args.num_clients)
     print("SETTING_NAME:", args.setting_name)
@@ -40,14 +40,12 @@ def run_one_experiment(args):
         print("LABEL_SOURCE: image_label")
 
     elif args.setting_name == "modality_exclusive":
-        print("CLIENT_MODALITIES: even clients=image, odd clients=text")
+        print("CLIENT_MODALITIES: clients 0-1=image, clients 2-3=text")
         print("CLIENT DESIGN:")
-        print("  client 0: image, negative-dominant")
-        print("  client 1: text,  neutral-dominant")
-        print("  client 2: image, positive-dominant")
-        print("  client 3: text,  negative-dominant")
-        print("  client 4: image, neutral-dominant")
-        print("  client 5: text,  positive-dominant")
+        print("  client 0: image, non_hateful-dominant")
+        print("  client 1: image, hateful-dominant")
+        print("  client 2: text,  non_hateful-dominant")
+        print("  client 3: text,  hateful-dominant")
         print("LABEL_SOURCE: text clients use text_label; image clients use image_label")
 
     elif args.setting_name == "full_multimodal":
@@ -81,15 +79,15 @@ def run_all_experiments(cfg, cli_args):
 
     association_list = [
         "iid",
-        "0.3",
         "0.7",
+        "0.9",
         "1.0",
     ]
 
     for setting_name in setting_list:
         for association in association_list:
             print("\n" + "=" * 80)
-            print(f"Running 3-class setting={setting_name}, association={association}")
+            print(f"Running Hateful Memes 2-class setting={setting_name}, association={association}")
             print("=" * 80)
 
             args = ExperimentArgs(
@@ -117,10 +115,23 @@ def run_all_experiments(cfg, cli_args):
         "local_epochs",
         "lr",
         "weight_decay",
+        "fedprox_mu",
         "seed",
         "model",
         "freeze_image_backbone",
         "freeze_text_backbone",
+
+        # best checkpoint information
+        "best_round",
+        "selection_metric",
+        "best_val_macro_f1",
+        "best_test_macro_f1",
+        "best_val_auroc",
+        "best_test_auroc",
+        "last_val_macro_f1",
+        "last_test_macro_f1",
+        "last_val_auroc",
+        "last_test_auroc",
 
         # task definition
         "task_type",
@@ -137,11 +148,11 @@ def run_all_experiments(cfg, cli_args):
         "train_macro_precision",
         "train_macro_recall",
         "train_balanced_acc",
+        "train_auroc",
 
         # train per-class F1
-        "train_f1_negative",
-        "train_f1_neutral",
-        "train_f1_positive",
+        "train_f1_non_hateful",
+        "train_f1_hateful",
 
         # validation/global utility metrics
         "global_acc",
@@ -149,11 +160,17 @@ def run_all_experiments(cfg, cli_args):
         "global_macro_precision",
         "global_macro_recall",
         "global_balanced_acc",
+        "global_auroc",
 
         # validation per-class F1
-        "val_f1_negative",
-        "val_f1_neutral",
-        "val_f1_positive",
+        "val_acc",
+        "val_macro_f1",
+        "val_macro_precision",
+        "val_macro_recall",
+        "val_balanced_acc",
+        "val_auroc",
+        "val_f1_non_hateful",
+        "val_f1_hateful",
 
         # test utility metrics
         "test_acc",
@@ -161,47 +178,49 @@ def run_all_experiments(cfg, cli_args):
         "test_macro_precision",
         "test_macro_recall",
         "test_balanced_acc",
+        "test_auroc",
 
         # test per-class F1
-        "test_f1_negative",
-        "test_f1_neutral",
-        "test_f1_positive",
+        "test_f1_non_hateful",
+        "test_f1_hateful",
 
-        # modality-specific metrics, mainly for modality_exclusive
+        # modality-specific metrics
         "train_text_acc",
         "train_image_acc",
         "train_text_macro_f1",
         "train_image_macro_f1",
+        "train_text_auroc",
+        "train_image_auroc",
+
         "val_text_acc",
         "val_image_acc",
         "val_text_macro_f1",
         "val_image_macro_f1",
+        "val_text_auroc",
+        "val_image_auroc",
+
         "test_text_acc",
         "test_image_acc",
         "test_text_macro_f1",
         "test_image_macro_f1",
+        "test_text_auroc",
+        "test_image_auroc",
 
         # modality-specific per-class F1
-        "train_text_f1_negative",
-        "train_text_f1_neutral",
-        "train_text_f1_positive",
-        "train_image_f1_negative",
-        "train_image_f1_neutral",
-        "train_image_f1_positive",
+        "train_text_f1_non_hateful",
+        "train_text_f1_hateful",
+        "train_image_f1_non_hateful",
+        "train_image_f1_hateful",
 
-        "val_text_f1_negative",
-        "val_text_f1_neutral",
-        "val_text_f1_positive",
-        "val_image_f1_negative",
-        "val_image_f1_neutral",
-        "val_image_f1_positive",
+        "val_text_f1_non_hateful",
+        "val_text_f1_hateful",
+        "val_image_f1_non_hateful",
+        "val_image_f1_hateful",
 
-        "test_text_f1_negative",
-        "test_text_f1_neutral",
-        "test_text_f1_positive",
-        "test_image_f1_negative",
-        "test_image_f1_neutral",
-        "test_image_f1_positive",
+        "test_text_f1_non_hateful",
+        "test_text_f1_hateful",
+        "test_image_f1_non_hateful",
+        "test_image_f1_hateful",
 
         # accuracy above random chance
         "train_acc_above_chance",
@@ -240,7 +259,7 @@ def run_all_experiments(cfg, cli_args):
     os.makedirs(os.path.dirname(summary_csv), exist_ok=True)
     summary_df.to_csv(summary_csv, index=False)
 
-    print("\nAll 3-class experiments done.")
+    print("\nAll Hateful Memes 2-class experiments done.")
     print("Saved summary CSV to:", summary_csv)
     print(summary_df)
 

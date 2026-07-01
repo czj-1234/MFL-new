@@ -23,7 +23,7 @@ class Args:
     pass
 
 
-with open("configs/config.yaml", "r", encoding="utf-8") as f:
+with open("configs/config_hateful.yaml", "r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
 args = Args()

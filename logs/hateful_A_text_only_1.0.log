@@ -1,0 +1,222 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Running Hateful Memes 2-Class FL Structural Baseline
+Model: CLIP Dual-Encoder / Multimodal Fusion
+TASK: Hateful Memes 2-class modality-specific classification
+NUM_CLASSES: 2
+NUM_CLIENTS: 4
+SETTING_NAME: text_only
+ASSOCIATION: 1.0
+PARTITION_MODE: fixed
+DEVICE: cuda
+TRAIN_JSON: data/processed/hateful_train.json
+VAL_JSON: data/processed/hateful_val.json
+TEST_JSON: data/processed/hateful_test.json
+OUT_DIR: results/hateful_best_123/text_only/1.0
+CLIENT_MODALITIES: all clients=text
+LABEL_SOURCE: text_label
+
+Loading data...
+Train: 8500
+  text : Counter({'non_hateful': 5481, 'hateful': 3019})
+  image: Counter({'non_hateful': 5481, 'hateful': 3019})
+Val:   500
+  text : Counter({'non_hateful': 253, 'hateful': 247})
+  image: Counter({'non_hateful': 253, 'hateful': 247})
+Test:  1000
+  text : Counter({'non_hateful': 510, 'hateful': 490})
+  image: Counter({'non_hateful': 510, 'hateful': 490})
+
+Server-side multimodal calibration:
+  enabled: True
+  ratio: 0.05
+  calibration samples: 425
+  remove_from_client_train: False
+  client train samples: 8500
+  steps per round: 20
+  trainable patterns: ['multi_modal_projector', 'classifier']
+
+Loading tokenizer and model...
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 10294.53it/s]
+Client 0 | setting=text_only | modality=text | dominant_label=0 (non_hateful) | num_samples=2000 | label_dist=Counter({'non_hateful': 2000})
+Client 1 | setting=text_only | modality=text | dominant_label=1 (hateful) | num_samples=2000 | label_dist=Counter({'hateful': 2000})
+Client 2 | setting=text_only | modality=text | dominant_label=0 (non_hateful) | num_samples=2000 | label_dist=Counter({'non_hateful': 2000})
+Client 3 | setting=text_only | modality=text | dominant_label=1 (hateful) | num_samples=2000 | label_dist=Counter({'hateful': 2000})
+
+Class weights from actual client samples:
+[1.0, 1.0]
+text_only-1.0:   0%|          | 0/35 [00:00<?, ?round/s]text_only-1.0:   0%|          | 0/35 [02:49<?, ?round/s, local_loss=0.6466, local_acc=0.7054]                                                                                             text_only-1.0:   0%|          | 0/35 [02:57<?, ?round/s, local_loss=0.6466, local_acc=0.7054]                                                                                             text_only-1.0:   0%|          | 0/35 [02:57<?, ?round/s, local_loss=0.6466, local_acc=0.7054]text_only-1.0:   3%|▎         | 1/35 [02:57<1:40:47, 177.86s/round, local_loss=0.6466, local_acc=0.7054][Best Updated] Round 001 | Best Val AUROC: 0.5061 | Test AUROC: 0.4860
+
+Round 001 Global Evaluation
+Train | Loss: 0.6923 | Acc: 0.5210 | Macro-F1: 0.5027 | AUROC: 0.5181
+Val   | Loss: 0.6935 | Acc: 0.5100 | Macro-F1: 0.5098 | AUROC: 0.5061
+Test  | Loss: 0.6940 | Acc: 0.4870 | Macro-F1: 0.4866 | AUROC: 0.4860
+
+text_only-1.0:   3%|▎         | 1/35 [05:47<1:40:47, 177.86s/round, local_loss=0.6460, local_acc=0.7096]text_only-1.0:   6%|▌         | 2/35 [05:47<1:35:08, 172.98s/round, local_loss=0.6460, local_acc=0.7096]text_only-1.0:   6%|▌         | 2/35 [08:37<1:35:08, 172.98s/round, local_loss=0.6396, local_acc=0.7280]text_only-1.0:   9%|▊         | 3/35 [08:37<1:31:35, 171.75s/round, local_loss=0.6396, local_acc=0.7280]text_only-1.0:   9%|▊         | 3/35 [11:27<1:31:35, 171.75s/round, local_loss=0.6368, local_acc=0.7319]text_only-1.0:  11%|█▏        | 4/35 [11:27<1:28:25, 171.13s/round, local_loss=0.6368, local_acc=0.7319]text_only-1.0:  11%|█▏        | 4/35 [14:18<1:28:25, 171.13s/round, local_loss=0.6290, local_acc=0.7541]                                                                                                        text_only-1.0:  11%|█▏        | 4/35 [14:26<1:28:25, 171.13s/round, local_loss=0.6290, local_acc=0.7541]                                                                                                        text_only-1.0:  11%|█▏        | 4/35 [14:26<1:28:25, 171.13s/round, local_loss=0.6290, local_acc=0.7541]text_only-1.0:  14%|█▍        | 5/35 [14:26<1:26:57, 173.91s/round, local_loss=0.6290, local_acc=0.7541][Best Updated] Round 005 | Best Val AUROC: 0.5760 | Test AUROC: 0.5644
+
+Round 005 Global Evaluation
+Train | Loss: 0.6830 | Acc: 0.6297 | Macro-F1: 0.6168 | AUROC: 0.6741
+Val   | Loss: 0.6898 | Acc: 0.5500 | Macro-F1: 0.5470 | AUROC: 0.5760
+Test  | Loss: 0.6899 | Acc: 0.5460 | Macro-F1: 0.5429 | AUROC: 0.5644
+
+text_only-1.0:  14%|█▍        | 5/35 [17:17<1:26:57, 173.91s/round, local_loss=0.6201, local_acc=0.7804]text_only-1.0:  17%|█▋        | 6/35 [17:17<1:23:29, 172.75s/round, local_loss=0.6201, local_acc=0.7804]text_only-1.0:  17%|█▋        | 6/35 [20:08<1:23:29, 172.75s/round, local_loss=0.6063, local_acc=0.8120]text_only-1.0:  20%|██        | 7/35 [20:08<1:20:23, 172.26s/round, local_loss=0.6063, local_acc=0.8120]text_only-1.0:  20%|██        | 7/35 [22:59<1:20:23, 172.26s/round, local_loss=0.5908, local_acc=0.8362]text_only-1.0:  23%|██▎       | 8/35 [22:59<1:17:18, 171.78s/round, local_loss=0.5908, local_acc=0.8362]text_only-1.0:  23%|██▎       | 8/35 [25:50<1:17:18, 171.78s/round, local_loss=0.5688, local_acc=0.8759]text_only-1.0:  26%|██▌       | 9/35 [25:50<1:14:20, 171.54s/round, local_loss=0.5688, local_acc=0.8759]text_only-1.0:  26%|██▌       | 9/35 [28:42<1:14:20, 171.54s/round, local_loss=0.5495, local_acc=0.8968]                                                                                                        text_only-1.0:  26%|██▌       | 9/35 [28:51<1:14:20, 171.54s/round, local_loss=0.5495, local_acc=0.8968]                                                                                                        text_only-1.0:  26%|██▌       | 9/35 [28:51<1:14:20, 171.54s/round, local_loss=0.5495, local_acc=0.8968]text_only-1.0:  29%|██▊       | 10/35 [28:51<1:12:40, 174.40s/round, local_loss=0.5495, local_acc=0.8968][Best Updated] Round 010 | Best Val AUROC: 0.6097 | Test AUROC: 0.6180
+
+Round 010 Global Evaluation
+Train | Loss: 0.6610 | Acc: 0.6617 | Macro-F1: 0.6527 | AUROC: 0.7333
+Val   | Loss: 0.6803 | Acc: 0.5880 | Macro-F1: 0.5845 | AUROC: 0.6097
+Test  | Loss: 0.6791 | Acc: 0.5820 | Macro-F1: 0.5806 | AUROC: 0.6180
+
+text_only-1.0:  29%|██▊       | 10/35 [31:42<1:12:40, 174.40s/round, local_loss=0.5251, local_acc=0.9253]text_only-1.0:  31%|███▏      | 11/35 [31:42<1:09:26, 173.61s/round, local_loss=0.5251, local_acc=0.9253]text_only-1.0:  31%|███▏      | 11/35 [34:33<1:09:26, 173.61s/round, local_loss=0.5030, local_acc=0.9445]text_only-1.0:  34%|███▍      | 12/35 [34:33<1:06:15, 172.83s/round, local_loss=0.5030, local_acc=0.9445]text_only-1.0:  34%|███▍      | 12/35 [37:24<1:06:15, 172.83s/round, local_loss=0.4802, local_acc=0.9563]text_only-1.0:  37%|███▋      | 13/35 [37:24<1:03:09, 172.25s/round, local_loss=0.4802, local_acc=0.9563]text_only-1.0:  37%|███▋      | 13/35 [40:16<1:03:09, 172.25s/round, local_loss=0.4608, local_acc=0.9639]text_only-1.0:  40%|████      | 14/35 [40:16<1:00:12, 172.02s/round, local_loss=0.4608, local_acc=0.9639]text_only-1.0:  40%|████      | 14/35 [43:07<1:00:12, 172.02s/round, local_loss=0.4398, local_acc=0.9714]                                                                                                         text_only-1.0:  40%|████      | 14/35 [43:17<1:00:12, 172.02s/round, local_loss=0.4398, local_acc=0.9714]text_only-1.0:  43%|████▎     | 15/35 [43:17<58:13, 174.67s/round, local_loss=0.4398, local_acc=0.9714]  
+Round 015 Global Evaluation
+Train | Loss: 0.6352 | Acc: 0.6663 | Macro-F1: 0.6488 | AUROC: 0.7098
+Val   | Loss: 0.6902 | Acc: 0.5540 | Macro-F1: 0.5401 | AUROC: 0.5679
+Test  | Loss: 0.6830 | Acc: 0.5580 | Macro-F1: 0.5492 | AUROC: 0.5848
+
+text_only-1.0:  43%|████▎     | 15/35 [46:09<58:13, 174.67s/round, local_loss=0.4234, local_acc=0.9745]text_only-1.0:  46%|████▌     | 16/35 [46:09<55:04, 173.94s/round, local_loss=0.4234, local_acc=0.9745]text_only-1.0:  46%|████▌     | 16/35 [49:02<55:04, 173.94s/round, local_loss=0.4052, local_acc=0.9770]text_only-1.0:  49%|████▊     | 17/35 [49:02<52:03, 173.54s/round, local_loss=0.4052, local_acc=0.9770]text_only-1.0:  49%|████▊     | 17/35 [51:54<52:03, 173.54s/round, local_loss=0.3894, local_acc=0.9812]text_only-1.0:  51%|█████▏    | 18/35 [51:54<49:03, 173.12s/round, local_loss=0.3894, local_acc=0.9812]text_only-1.0:  51%|█████▏    | 18/35 [54:46<49:03, 173.12s/round, local_loss=0.3729, local_acc=0.9850]text_only-1.0:  54%|█████▍    | 19/35 [54:46<46:06, 172.88s/round, local_loss=0.3729, local_acc=0.9850]text_only-1.0:  54%|█████▍    | 19/35 [57:38<46:06, 172.88s/round, local_loss=0.3563, local_acc=0.9854]                                                                                                       text_only-1.0:  54%|█████▍    | 19/35 [57:48<46:06, 172.88s/round, local_loss=0.3563, local_acc=0.9854]text_only-1.0:  57%|█████▋    | 20/35 [57:48<43:53, 175.55s/round, local_loss=0.3563, local_acc=0.9854]
+Round 020 Global Evaluation
+Train | Loss: 0.6282 | Acc: 0.6407 | Macro-F1: 0.6282 | AUROC: 0.6948
+Val   | Loss: 0.7183 | Acc: 0.5360 | Macro-F1: 0.5262 | AUROC: 0.5520
+Test  | Loss: 0.7058 | Acc: 0.5400 | Macro-F1: 0.5335 | AUROC: 0.5662
+
+text_only-1.0:  57%|█████▋    | 20/35 [1:00:40<43:53, 175.55s/round, local_loss=0.3433, local_acc=0.9866]text_only-1.0:  60%|██████    | 21/35 [1:00:40<40:44, 174.58s/round, local_loss=0.3433, local_acc=0.9866]text_only-1.0:  60%|██████    | 21/35 [1:03:32<40:44, 174.58s/round, local_loss=0.3268, local_acc=0.9856]text_only-1.0:  63%|██████▎   | 22/35 [1:03:32<37:40, 173.91s/round, local_loss=0.3268, local_acc=0.9856]text_only-1.0:  63%|██████▎   | 22/35 [1:06:25<37:40, 173.91s/round, local_loss=0.3131, local_acc=0.9881]text_only-1.0:  66%|██████▌   | 23/35 [1:06:25<34:42, 173.51s/round, local_loss=0.3131, local_acc=0.9881]text_only-1.0:  66%|██████▌   | 23/35 [1:09:18<34:42, 173.51s/round, local_loss=0.2972, local_acc=0.9892]text_only-1.0:  69%|██████▊   | 24/35 [1:09:18<31:47, 173.36s/round, local_loss=0.2972, local_acc=0.9892]text_only-1.0:  69%|██████▊   | 24/35 [1:12:10<31:47, 173.36s/round, local_loss=0.2842, local_acc=0.9915]                                                                                                         text_only-1.0:  69%|██████▊   | 24/35 [1:12:20<31:47, 173.36s/round, local_loss=0.2842, local_acc=0.9915]text_only-1.0:  71%|███████▏  | 25/35 [1:12:20<29:19, 175.96s/round, local_loss=0.2842, local_acc=0.9915]
+Round 025 Global Evaluation
+Train | Loss: 0.6365 | Acc: 0.6440 | Macro-F1: 0.6312 | AUROC: 0.6859
+Val   | Loss: 0.7669 | Acc: 0.5180 | Macro-F1: 0.5121 | AUROC: 0.5471
+Test  | Loss: 0.7600 | Acc: 0.5320 | Macro-F1: 0.5276 | AUROC: 0.5527
+
+text_only-1.0:  71%|███████▏  | 25/35 [1:15:13<29:19, 175.96s/round, local_loss=0.2717, local_acc=0.9910]text_only-1.0:  74%|███████▍  | 26/35 [1:15:13<26:14, 174.95s/round, local_loss=0.2717, local_acc=0.9910]text_only-1.0:  74%|███████▍  | 26/35 [1:18:05<26:14, 174.95s/round, local_loss=0.2584, local_acc=0.9921]text_only-1.0:  77%|███████▋  | 27/35 [1:18:05<23:13, 174.21s/round, local_loss=0.2584, local_acc=0.9921]text_only-1.0:  77%|███████▋  | 27/35 [1:20:58<23:13, 174.21s/round, local_loss=0.2486, local_acc=0.9894]text_only-1.0:  80%|████████  | 28/35 [1:20:58<20:16, 173.77s/round, local_loss=0.2486, local_acc=0.9894]text_only-1.0:  80%|████████  | 28/35 [1:23:51<20:16, 173.77s/round, local_loss=0.2351, local_acc=0.9914]text_only-1.0:  83%|████████▎ | 29/35 [1:23:51<17:21, 173.59s/round, local_loss=0.2351, local_acc=0.9914]text_only-1.0:  83%|████████▎ | 29/35 [1:26:44<17:21, 173.59s/round, local_loss=0.2252, local_acc=0.9909]                                                                                                         text_only-1.0:  83%|████████▎ | 29/35 [1:26:54<17:21, 173.59s/round, local_loss=0.2252, local_acc=0.9909]text_only-1.0:  86%|████████▌ | 30/35 [1:26:54<14:41, 176.29s/round, local_loss=0.2252, local_acc=0.9909]
+Round 030 Global Evaluation
+Train | Loss: 0.6660 | Acc: 0.6390 | Macro-F1: 0.6241 | AUROC: 0.6815
+Val   | Loss: 0.8424 | Acc: 0.5300 | Macro-F1: 0.5247 | AUROC: 0.5438
+Test  | Loss: 0.8484 | Acc: 0.5230 | Macro-F1: 0.5190 | AUROC: 0.5422
+
+text_only-1.0:  86%|████████▌ | 30/35 [1:29:46<14:41, 176.29s/round, local_loss=0.2154, local_acc=0.9904]text_only-1.0:  89%|████████▊ | 31/35 [1:29:46<11:40, 175.12s/round, local_loss=0.2154, local_acc=0.9904]text_only-1.0:  89%|████████▊ | 31/35 [1:32:39<11:40, 175.12s/round, local_loss=0.2029, local_acc=0.9923]text_only-1.0:  91%|█████████▏| 32/35 [1:32:39<08:43, 174.60s/round, local_loss=0.2029, local_acc=0.9923]text_only-1.0:  91%|█████████▏| 32/35 [1:35:32<08:43, 174.60s/round, local_loss=0.1922, local_acc=0.9919]text_only-1.0:  94%|█████████▍| 33/35 [1:35:32<05:48, 174.10s/round, local_loss=0.1922, local_acc=0.9919]text_only-1.0:  94%|█████████▍| 33/35 [1:38:26<05:48, 174.10s/round, local_loss=0.1816, local_acc=0.9924]text_only-1.0:  97%|█████████▋| 34/35 [1:38:26<02:53, 174.00s/round, local_loss=0.1816, local_acc=0.9924]text_only-1.0:  97%|█████████▋| 34/35 [1:41:19<02:53, 174.00s/round, local_loss=0.1742, local_acc=0.9919]                                                                                                         text_only-1.0:  97%|█████████▋| 34/35 [1:41:28<02:53, 174.00s/round, local_loss=0.1742, local_acc=0.9919]text_only-1.0: 100%|██████████| 35/35 [1:41:28<00:00, 176.52s/round, local_loss=0.1742, local_acc=0.9919]text_only-1.0: 100%|██████████| 35/35 [1:41:28<00:00, 173.97s/round, local_loss=0.1742, local_acc=0.9919]
+
+Round 035 Global Evaluation
+Train | Loss: 0.7301 | Acc: 0.6350 | Macro-F1: 0.6218 | AUROC: 0.6746
+Val   | Loss: 0.9490 | Acc: 0.5420 | Macro-F1: 0.5372 | AUROC: 0.5441
+Test  | Loss: 0.9708 | Acc: 0.5340 | Macro-F1: 0.5295 | AUROC: 0.5379
+
+
+Raw logs saved before structure metrics:
+round_logs: results/hateful_best_123/text_only/1.0/round_logs.csv
+update_metadata: results/hateful_best_123/text_only/1.0/update_metadata.csv
+[Warning] Attack model xgb failed: vector::_M_fill_insert
+
+Saved results:
+summary: results/hateful_best_123/text_only/1.0/summary.json
+round_logs: results/hateful_best_123/text_only/1.0/round_logs.csv
+update_metadata: results/hateful_best_123/text_only/1.0/update_metadata.csv
+
+Done.
+Summary:
+setting_name: text_only
+association: 1.0
+num_clients: 4
+samples_per_client: 2000
+partition_mode: fixed
+allow_overlap: True
+server_calibration_enabled: True
+server_calibration_ratio: 0.05
+server_calibration_size: 425
+server_calibration_remove_from_client_train: False
+server_calibration_steps: 20
+server_calibration_lr: 5e-07
+server_calibration_batch_size: 16
+server_calibration_trainable_patterns: ['multi_modal_projector', 'classifier']
+selection_metric: val_auroc
+best_round: 10
+best_val_loss: 0.6803354487419129
+best_val_acc: 0.588
+best_val_macro_f1: 0.5844830646592761
+best_val_auroc: 0.6097438031076474
+best_test_loss: 0.6790914635658264
+best_test_acc: 0.582
+best_test_macro_f1: 0.5805891017382474
+best_test_auroc: 0.6179711884753901
+last_val_loss: 0.948952031135559
+last_val_acc: 0.542
+last_val_macro_f1: 0.5371848714020672
+last_val_auroc: 0.5440783472820087
+last_test_loss: 0.970810119152069
+last_test_acc: 0.534
+last_test_macro_f1: 0.529481136838194
+last_test_auroc: 0.5378791516606642
+rounds: 35
+local_epochs: 1
+lr: 1e-06
+weight_decay: 0.05
+fedprox_mu: 0.001
+seed: 42
+model: CLIP-DualEncoder+ServerCalibration
+freeze_image_backbone: False
+freeze_text_backbone: False
+task_type: hateful_memes_2class_modality_specific_classification
+global_num_classes: 2
+random_chance_acc: 0.5
+label_space_split_by_modality: False
+uses_modality_specific_labels: True
+text_client_label_source: text_label
+image_client_label_source: image_label
+train_loss: 0.6609910759925842
+train_acc: 0.6616666666666666
+train_macro_f1: 0.6526633534514825
+train_macro_precision: 0.6556480178724848
+train_macro_recall: 0.6681258190593302
+train_balanced_acc: 0.6681258190593302
+train_auroc: 0.7332656917815995
+train_f1_non_hateful: 0.7085845535457939
+train_f1_hateful: 0.5967421533571713
+train_f1_negative: 0.7085845535457939
+train_f1_neutral: 0.0
+train_f1_positive: 0.5967421533571713
+val_loss: 0.6803354487419129
+val_acc: 0.588
+val_macro_f1: 0.5844830646592761
+val_macro_precision: 0.5896192972910587
+val_macro_recall: 0.5869805251956282
+val_balanced_acc: 0.5869805251956282
+val_auroc: 0.6097438031076474
+val_f1_non_hateful: 0.6227106227106227
+val_f1_hateful: 0.5462555066079295
+val_f1_negative: 0.6227106227106227
+val_f1_neutral: 0.0
+val_f1_positive: 0.5462555066079295
+global_acc: 0.588
+global_macro_f1: 0.5844830646592761
+global_macro_precision: 0.5896192972910587
+global_macro_recall: 0.5869805251956282
+global_balanced_acc: 0.5869805251956282
+global_auroc: 0.6097438031076474
+global_f1_non_hateful: 0.6227106227106227
+global_f1_hateful: 0.5462555066079295
+global_f1_negative: 0.6227106227106227
+global_f1_neutral: 0.0
+global_f1_positive: 0.5462555066079295
+test_loss: 0.6790914635658264
+test_acc: 0.582
+test_macro_f1: 0.5805891017382474
+test_macro_precision: 0.5817938117692656
+test_macro_recall: 0.5810724289715886
+test_balanced_acc: 0.5810724289715886
+test_auroc: 0.6179711884753901
+test_f1_non_hateful: 0.6049149338374291
+test_f1_hateful: 0.5562632696390658
+test_f1_negative: 0.6049149338374291
+test_f1_neutral: 0.0
+test_f1_positive: 0.5562632696390658
+train_acc_above_chance: 0.16166666666666663
+val_acc_above_chance: 0.08799999999999997
+global_acc_above_chance: 0.08799999999999997
+test_acc_above_chance: 0.08199999999999996
+e_rank: 83.12954437335452
+Top1_ratio: 0.6991714931133635
+Top3_ratio: 0.8549049255684921
+Top5_ratio: 0.886155890835066
+kmeans_acc: 1.0
+Silhouette: 0.5937893986701965
+DBI: 0.6449748015967527
+CHI: 313.6524658203125
+attack_success_rate_rf: 1.0
+attack_success_rate_mlp: 1.0
+attack_success_rate_xgb: nan
+attack_success_rate_mean: 1.0
