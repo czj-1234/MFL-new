@@ -1,10 +1,11 @@
 import argparse
 from pathlib import Path
+
 import numpy as np
 
 from src.config import ExperimentArgs
 from src.defense.projection import pca_basis, random_basis
-from src.defense.runtime import update_projection
+from src.defense.runtime import capture_raw_updates, update_projection
 from src.defense.subspace import CounterfactualSubspace
 from src.runner import run_one_experiment
 from src.utils import load_config, set_seed
@@ -15,42 +16,124 @@ def matrix(path):
     return data["updates"] if "updates" in data.files else data[data.files[0]]
 
 
+def alpha_tag(alpha):
+    return str(alpha).replace(".", "p")
+
+
 def execute(cfg, method, basis, alpha, root):
     set_seed(42)
-    args = ExperimentArgs(cfg, setting_name="modality_exclusive", association="0.7",
-                          output_root=str(Path(root) / method))
+
+    args = ExperimentArgs(
+        cfg,
+        setting_name="modality_exclusive",
+        association="0.7",
+        output_root=str(Path(root) / method),
+    )
     args.target_patterns = ["classifier"]
+
+    captured = {}
+
     if basis is None:
-        _, _, updates = run_one_experiment(args)
+        with capture_raw_updates(captured):
+            _, _, scaled_updates = run_one_experiment(args)
     else:
-        with update_projection(basis, alpha, ("classifier",)):
-            _, _, updates = run_one_experiment(args)
-    if updates is not None:
-        np.savez_compressed(Path(args.out_dir) / "classifier_updates.npz", updates=np.asarray(updates))
+        with update_projection(basis, alpha, ("classifier",)), capture_raw_updates(captured):
+            _, _, scaled_updates = run_one_experiment(args)
+
+    if scaled_updates is None:
+        raise RuntimeError(f"No scaled updates returned for method={method}")
+    if "raw" not in captured:
+        raise RuntimeError(f"No raw updates captured for method={method}")
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_updates = np.asarray(captured["raw"], dtype=np.float64)
+    scaled_updates = np.asarray(scaled_updates, dtype=np.float64)
+    labels = np.asarray(captured["labels"], dtype=np.int64)
+
+    np.savez_compressed(
+        out_dir / "classifier_updates.npz",
+        updates=raw_updates,
+        labels=labels,
+        representation="raw",
+    )
+    np.savez_compressed(
+        out_dir / "classifier_updates_raw.npz",
+        updates=raw_updates,
+        labels=labels,
+        representation="raw",
+    )
+    np.savez_compressed(
+        out_dir / "classifier_updates_scaled.npz",
+        updates=scaled_updates,
+        labels=labels,
+        representation="standard_scaled",
+    )
+    np.savez_compressed(
+        out_dir / "classifier_update_labels.npz",
+        labels=labels,
+    )
+
+    print(f"Completed method={method}")
+    print(f"Output directory: {out_dir}")
+    print(f"Raw shape: {raw_updates.shape}")
+    print(f"Scaled shape: {scaled_updates.shape}")
 
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--config", default="configs/config_hateful_counterfactual.yaml")
-    p.add_argument("--method", default="all")
-    p.add_argument("--basis", required=True)
-    p.add_argument("--shadow-updates", required=True)
-    p.add_argument("--rank", type=int, default=3)
-    p.add_argument("--alpha", type=float, default=0.5)
-    p.add_argument("--output-root", default="results/defense_seed42_assoc07/end_to_end")
-    args = p.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        default="configs/config_hateful_counterfactual.yaml",
+    )
+    parser.add_argument(
+        "--method",
+        choices=["all", "baseline", "random", "pca", "proposed"],
+        default="all",
+    )
+    parser.add_argument("--basis", required=True)
+    parser.add_argument("--shadow-updates", required=True)
+    parser.add_argument("--rank", type=int, default=3)
+    parser.add_argument("--alpha", type=float, default=0.5)
+    parser.add_argument(
+        "--output-root",
+        default="results/defense_seed42_assoc07/end_to_end",
+    )
+    args = parser.parse_args()
 
     cfg = load_config(args.config)
     shadow = matrix(args.shadow_updates)
+
+    learned = CounterfactualSubspace.load(args.basis).basis
+    if args.rank < 1 or args.rank > learned.shape[1]:
+        raise ValueError(
+            f"rank must be in [1, {learned.shape[1]}], got {args.rank}"
+        )
+
+    run_root = (
+        Path(args.output_root)
+        / f"rank_{args.rank}_alpha_{alpha_tag(args.alpha)}"
+    )
+
     bases = {
         "baseline": None,
         "random": random_basis(shadow.shape[1], args.rank, 42),
         "pca": pca_basis(shadow, args.rank),
-        "proposed": CounterfactualSubspace.load(args.basis).basis[:, :args.rank],
+        "proposed": learned[:, :args.rank],
     }
+
     names = list(bases) if args.method == "all" else [args.method]
+
+    print("=" * 72)
+    print("End-to-end defense comparison")
+    print(f"rank={args.rank}, alpha={args.alpha}")
+    print(f"output root={run_root}")
+    print(f"methods={names}")
+    print("=" * 72)
+
     for name in names:
-        execute(cfg, name, bases[name], args.alpha, args.output_root)
+        execute(cfg, name, bases[name], args.alpha, run_root)
 
 
 if __name__ == "__main__":
