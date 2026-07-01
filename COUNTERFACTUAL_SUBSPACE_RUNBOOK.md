@@ -2,6 +2,20 @@
 
 This branch implements the seed42, Hateful Memes, modality-exclusive, association=0.7 experiment plan.
 
+Verified best seed42 training settings from `hateful_modality_exclusive_final42.zip`:
+
+- rounds: 25
+- local epochs: 1
+- learning rate: 5e-6
+- weight decay: 0.03
+- FedProx mu: 0.001
+- samples per client: 2000
+- fixed partition with overlap enabled
+- server calibration disabled
+- checkpoint selection by validation AUROC
+
+Reference best checkpoint: round 20, test accuracy 0.654, macro-F1 0.6521, test AUROC 0.7137.
+
 ## 0. Pull the branch
 
 ```bash
@@ -17,7 +31,7 @@ mkdir -p logs
 Each split uses the same modality-wise sample pool for its associated and counterfactual conditions. The associated clients use 70/30 label allocation, while the counterfactual clients use a balanced 50/50 redistribution of the same pool.
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 nohup python -m src.scripts.run_shadow_splits \
+CUDA_VISIBLE_DEVICES=0 nohup python -u -m src.scripts.run_shadow_splits \
   --splits A B C \
   > logs/shadow_splits.log 2>&1 &
 ```
@@ -80,7 +94,7 @@ python -m src.analysis.learn_counterfactual_subspace \
 First comparison: rank=3, alpha=0.5.
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 nohup python -m src.scripts.run_defense_comparison \
+CUDA_VISIBLE_DEVICES=0 nohup python -u -m src.scripts.run_defense_comparison \
   --method all \
   --basis results/defense_seed42_assoc07/subspace/final_r5.npz \
   --shadow-updates results/defense_seed42_assoc07/subspace/combined/associated_all.npz \
@@ -123,7 +137,7 @@ python -m src.analysis.leakage_intervention \
 This runs alpha={0.25,0.5,0.75,1.0} at rank=3, then rank={1,3,5} at alpha=0.5. Duplicate configurations are skipped.
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 nohup python -m src.scripts.run_defense_sweep \
+CUDA_VISIBLE_DEVICES=0 nohup python -u -m src.scripts.run_defense_sweep \
   --basis results/defense_seed42_assoc07/subspace/final_r5.npz \
   > logs/defense_sweep.log 2>&1 &
 ```
