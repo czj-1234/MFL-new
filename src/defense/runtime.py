@@ -21,6 +21,35 @@ def predefined_clients(client_data):
 
 
 @contextmanager
+def capture_raw_updates(holder):
+    """Capture the original update vectors passed to structure analysis.
+
+    `compute_structure_metrics` internally standardizes updates for clustering and
+    attack evaluation. This wrapper preserves the unscaled matrix before that
+    transformation so counterfactual differences and SVD are learned in the
+    original classifier-update coordinate system.
+    """
+    original = fed.compute_structure_metrics
+
+    def wrapped(update_records, seed=42):
+        holder["raw"] = np.stack(
+            [np.asarray(record["update"], dtype=np.float64) for record in update_records],
+            axis=0,
+        )
+        holder["labels"] = np.asarray(
+            [record["dominant_label"] for record in update_records],
+            dtype=np.int64,
+        )
+        return original(update_records, seed=seed)
+
+    fed.compute_structure_metrics = wrapped
+    try:
+        yield
+    finally:
+        fed.compute_structure_metrics = original
+
+
+@contextmanager
 def update_projection(basis, alpha, patterns=("classifier",)):
     original = fed.local_train
     u = np.asarray(basis, dtype=np.float64)
