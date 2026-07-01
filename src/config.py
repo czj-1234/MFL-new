@@ -63,6 +63,49 @@ class ExperimentArgs:
         self.batch_size = cfg["federated"]["batch_size"]
         self.max_local_steps = cfg["federated"]["max_local_steps"]
 
+        # ------------------------------------------------------------
+        # server-side multimodal calibration
+        # ------------------------------------------------------------
+        server_calibration_cfg = cfg.get("server_calibration", {})
+
+        self.server_calibration_enabled = server_calibration_cfg.get(
+            "enabled",
+            False,
+        )
+
+        self.server_calibration_ratio = server_calibration_cfg.get(
+            "ratio",
+            0.0,
+        )
+
+        self.server_calibration_steps = server_calibration_cfg.get(
+            "steps",
+            0,
+        )
+
+        self.server_calibration_lr = server_calibration_cfg.get(
+            "lr",
+            self.lr,
+        )
+
+        self.server_calibration_batch_size = server_calibration_cfg.get(
+            "batch_size",
+            self.batch_size,
+        )
+
+        self.server_calibration_remove_from_client_train = server_calibration_cfg.get(
+            "remove_from_client_train",
+            False,
+        )
+
+        self.server_calibration_trainable_patterns = server_calibration_cfg.get(
+            "trainable_patterns",
+            [
+                "multi_modal_projector",
+                "classifier",
+            ],
+        )
+
         # evaluation
         self.eval_batch_size = cfg["evaluation"]["eval_batch_size"]
         self.max_train_eval_samples = cfg["evaluation"]["max_train_eval_samples"]
@@ -91,7 +134,7 @@ class ExperimentArgs:
             self.rounds = rounds
 
             # Keep regular analysis checkpoints for logging and structure analysis.
-            default_analysis_rounds = {1, 5, 10, 20, 30, 50, 80, self.rounds}
+            default_analysis_rounds = {1, 5, 10, 20, 30, 40, 50, 80, self.rounds}
             self.analysis_rounds = {
                 r for r in default_analysis_rounds if r <= self.rounds
             }

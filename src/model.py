@@ -1,42 +1,57 @@
 # ============================================================
-# Model: CLIP-ViT + RoBERTa with Modality-Aware Gated Fusion
+# Model: CLIP Dual-Encoder with Missing-Modality Fusion
 # For Hateful Memes 2-class classification
+#
+# Supports:
+#   image_only
+#   text_only
+#   modality_exclusive
+#   full_multimodal
+#
+# Encoders:
+#   Image encoder: CLIP image encoder
+#   Text encoder : CLIP text encoder
+#
+# Fusion:
+#   image_feat
+#   text_feat
+#   image_feat * text_feat
+#   |image_feat - text_feat|
 # ============================================================
 
 import torch
 import torch.nn as nn
 
-from transformers import AutoModel, CLIPVisionModel
+from transformers import CLIPModel
 
 
 class StrongMultimodalNet(nn.Module):
     """
-    Strong multimodal model with modality-aware gated fusion.
+    CLIP dual-encoder model with missing-modality fusion.
 
-    Encoders:
-        Image encoder: CLIP-ViT
-        Text encoder: RoBERTa / BERT
-
-    Fusion:
-        1. Project image/text features into a shared hidden space.
-        2. Use learnable missing-modality embeddings instead of zero vectors.
-        3. Use a gate to learn image/text contribution.
-        4. Classify from the gated fused representation.
-
-    Suitable for modality_exclusive FL: each client may only have image or text.
+    This model is designed for heterogeneous multimodal FL:
+        image_only:
+            use CLIP image encoder, replace text with learnable missing embedding
+        text_only:
+            use CLIP text encoder, replace image with learnable missing embedding
+        modality_exclusive:
+            image clients use image branch
+            text clients use text branch
+        full_multimodal:
+            use both image and text
     """
 
     def __init__(
         self,
-        text_model_name="roberta-base",
+        text_model_name="openai/clip-vit-base-patch32",
         image_model_name="openai/clip-vit-base-patch32",
         num_classes=2,
         image_hidden_dim=256,
         text_hidden_dim=256,
         projector_hidden_dim=256,
-        dropout=0.3,
-        freeze_image_backbone=True,
-        freeze_text_backbone=True,
+        dropout=0.5,
+        freeze_image_backbone=False,
+        freeze_text_backbone=False,
         pretrained_image=True,
     ):
         super().__init__()
@@ -44,49 +59,57 @@ class StrongMultimodalNet(nn.Module):
         self.num_classes = num_classes
         self.projector_hidden_dim = projector_hidden_dim
 
-        # -------------------------
-        # Image encoder: CLIP-ViT
-        # -------------------------
-        self.image_backbone = CLIPVisionModel.from_pretrained(image_model_name)
-        clip_hidden = self.image_backbone.config.hidden_size
+        # ------------------------------------------------------------
+        # CLIP model
+        # ------------------------------------------------------------
+        self.clip = CLIPModel.from_pretrained(image_model_name)
 
+        clip_proj_dim = self.clip.config.projection_dim
+
+        # ------------------------------------------------------------
+        # Image projection
+        # ------------------------------------------------------------
         self.image_proj = nn.Sequential(
-            nn.Linear(clip_hidden, image_hidden_dim),
+            nn.Linear(clip_proj_dim, image_hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(image_hidden_dim, projector_hidden_dim),
         )
 
-        if freeze_image_backbone:
-            for p in self.image_backbone.parameters():
-                p.requires_grad = False
-
-        # -------------------------
-        # Text encoder: RoBERTa / BERT
-        # -------------------------
-        self.text_backbone = AutoModel.from_pretrained(text_model_name)
-        text_backbone_hidden = self.text_backbone.config.hidden_size
-
+        # ------------------------------------------------------------
+        # Text projection
+        # ------------------------------------------------------------
         self.text_proj = nn.Sequential(
-            nn.Linear(text_backbone_hidden, text_hidden_dim),
+            nn.Linear(clip_proj_dim, text_hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(text_hidden_dim, projector_hidden_dim),
         )
 
-        if freeze_text_backbone:
-            for p in self.text_backbone.parameters():
+        # ------------------------------------------------------------
+        # Freeze CLIP branches if needed
+        # ------------------------------------------------------------
+        if freeze_image_backbone:
+            for p in self.clip.vision_model.parameters():
+                p.requires_grad = False
+            for p in self.clip.visual_projection.parameters():
                 p.requires_grad = False
 
-        # -------------------------
+        if freeze_text_backbone:
+            for p in self.clip.text_model.parameters():
+                p.requires_grad = False
+            for p in self.clip.text_projection.parameters():
+                p.requires_grad = False
+
+        # ------------------------------------------------------------
         # Normalization
-        # -------------------------
+        # ------------------------------------------------------------
         self.image_norm = nn.LayerNorm(projector_hidden_dim)
         self.text_norm = nn.LayerNorm(projector_hidden_dim)
 
-        # -------------------------
+        # ------------------------------------------------------------
         # Learnable missing-modality embeddings
-        # -------------------------
+        # ------------------------------------------------------------
         self.missing_image_embedding = nn.Parameter(
             torch.zeros(1, projector_hidden_dim)
         )
@@ -97,26 +120,22 @@ class StrongMultimodalNet(nn.Module):
         nn.init.normal_(self.missing_image_embedding, mean=0.0, std=0.02)
         nn.init.normal_(self.missing_text_embedding, mean=0.0, std=0.02)
 
-        # -------------------------
-        # Modality-aware gate
-        # -------------------------
-        self.fusion_gate = nn.Sequential(
-            nn.Linear(projector_hidden_dim * 2, projector_hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(projector_hidden_dim, 2),
-            nn.Softmax(dim=1),
-        )
-
+        # ------------------------------------------------------------
+        # Fusion projector
+        # ------------------------------------------------------------
+        # Fusion vector:
+        #   [image_feat, text_feat, image_feat * text_feat, |image_feat - text_feat|]
+        #
+        # Keep the name "multi_modal_projector" so update extraction still works.
         self.multi_modal_projector = nn.Sequential(
-            nn.Linear(projector_hidden_dim, projector_hidden_dim),
+            nn.Linear(projector_hidden_dim * 4, projector_hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(projector_hidden_dim, projector_hidden_dim),
             nn.ReLU(),
+            nn.Dropout(dropout),
         )
 
-        self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(projector_hidden_dim, num_classes)
 
     def forward(
@@ -127,6 +146,16 @@ class StrongMultimodalNet(nn.Module):
         pixel_values=None,
         setting="both",
     ):
+        """
+        Compatible with existing training code:
+            model(
+                image=image,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                setting=mode,
+            )
+        """
+
         if pixel_values is None:
             pixel_values = image
 
@@ -139,50 +168,104 @@ class StrongMultimodalNet(nn.Module):
         else:
             raise ValueError("Either input_ids or pixel_values/image must be provided.")
 
-        use_image = setting in ["image", "image_only", "both", "multimodal", "modality_exclusive"]
-        use_text = setting in ["text", "text_only", "both", "multimodal", "modality_exclusive"]
+        use_image = setting in [
+            "image",
+            "image_only",
+            "both",
+            "multimodal",
+            "modality_exclusive",
+        ]
 
+        use_text = setting in [
+            "text",
+            "text_only",
+            "both",
+            "multimodal",
+            "modality_exclusive",
+        ]
+
+        # ------------------------------------------------------------
         # Image branch
+        # ------------------------------------------------------------
         if use_image and pixel_values is not None:
-            image_outputs = self.image_backbone(pixel_values=pixel_values)
-            image_cls = image_outputs.pooler_output
-            image_feat = self.image_proj(image_cls)
+            image_outputs = self.clip.vision_model(
+                pixel_values=pixel_values,
+            )
+
+            image_pooled = image_outputs.pooler_output
+            image_feat = self.clip.visual_projection(image_pooled)
+
+            image_feat = self.image_proj(image_feat)
             image_feat = self.image_norm(image_feat)
         else:
-            image_feat = self.missing_image_embedding.expand(batch_size, -1).to(device)
+            image_feat = self.missing_image_embedding.expand(
+                batch_size,
+                -1,
+            ).to(device)
 
+        # ------------------------------------------------------------
         # Text branch
+        # ------------------------------------------------------------
         if use_text and input_ids is not None and attention_mask is not None:
-            text_outputs = self.text_backbone(input_ids=input_ids, attention_mask=attention_mask)
-            text_cls = text_outputs.last_hidden_state[:, 0, :]
-            text_feat = self.text_proj(text_cls)
+            text_outputs = self.clip.text_model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            )
+
+            text_pooled = text_outputs.pooler_output
+            text_feat = self.clip.text_projection(text_pooled)
+
+            text_feat = self.text_proj(text_feat)
             text_feat = self.text_norm(text_feat)
         else:
-            text_feat = self.missing_text_embedding.expand(batch_size, -1).to(device)
+            text_feat = self.missing_text_embedding.expand(
+                batch_size,
+                -1,
+            ).to(device)
 
-        # Gated fusion
-        gate_input = torch.cat([image_feat, text_feat], dim=1)
-        gate = self.fusion_gate(gate_input)
-        image_weight = gate[:, 0:1]
-        text_weight = gate[:, 1:2]
-        fused = image_weight * image_feat + text_weight * text_feat
+        # ------------------------------------------------------------
+        # Fusion
+        # ------------------------------------------------------------
+        interaction = image_feat * text_feat
+        difference = torch.abs(image_feat - text_feat)
+
+        fused = torch.cat(
+            [
+                image_feat,
+                text_feat,
+                interaction,
+                difference,
+            ],
+            dim=1,
+        )
 
         h = self.multi_modal_projector(fused)
-        h = self.dropout(h)
-
         logits = self.classifier(h)
+
         return logits
 
 
 def build_model(args):
     """
-    Build Hateful Memes 2-class model from args/config.
+    Build CLIP dual-encoder Hateful Memes model from args/config.
     """
-    image_model_name = getattr(args, "image_model_name", "openai/clip-vit-base-patch32")
+
+    image_model_name = getattr(
+        args,
+        "image_model_name",
+        "openai/clip-vit-base-patch32",
+    )
+
+    text_model_name = getattr(
+        args,
+        "text_model_name",
+        "openai/clip-vit-base-patch32",
+    )
+
     pretrained_image = getattr(args, "pretrained_image", True)
 
     model = StrongMultimodalNet(
-        text_model_name=args.text_model_name,
+        text_model_name=text_model_name,
         image_model_name=image_model_name,
         num_classes=args.num_classes,
         image_hidden_dim=args.image_hidden_dim,
@@ -193,4 +276,5 @@ def build_model(args):
         freeze_text_backbone=args.freeze_text_backbone,
         pretrained_image=pretrained_image,
     )
+
     return model

@@ -1,0 +1,38 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Running Hateful Memes 2-Class FL Structural Baseline
+Model: CLIP Dual-Encoder / Multimodal Fusion
+TASK: Hateful Memes 2-class modality-specific classification
+NUM_CLASSES: 2
+NUM_CLIENTS: 4
+SETTING_NAME: text_only
+ASSOCIATION: iid
+PARTITION_MODE: fixed
+DEVICE: cuda
+TRAIN_JSON: data/processed/hateful_train.json
+VAL_JSON: data/processed/hateful_val.json
+TEST_JSON: data/processed/hateful_test.json
+OUT_DIR: results/hateful_modality_exclusive_final44/text_only/iid
+CLIENT_MODALITIES: all clients=text
+LABEL_SOURCE: text_label
+
+Loading data...
+Train: 8500
+  text : Counter({'non_hateful': 5481, 'hateful': 3019})
+  image: Counter({'non_hateful': 5481, 'hateful': 3019})
+Val:   500
+  text : Counter({'non_hateful': 253, 'hateful': 247})
+  image: Counter({'non_hateful': 253, 'hateful': 247})
+Test:  1000
+  text : Counter({'non_hateful': 510, 'hateful': 490})
+  image: Counter({'non_hateful': 510, 'hateful': 490})
+
+Loading tokenizer and model...
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 6103.35it/s]
+Client 0 | setting=text_only | modality=text | dominant_label=0 (non_hateful) | num_samples=2000 | label_dist=Counter({'hateful': 1000, 'non_hateful': 1000})
+Client 1 | setting=text_only | modality=text | dominant_label=1 (hateful) | num_samples=2000 | label_dist=Counter({'hateful': 1000, 'non_hateful': 1000})
+Client 2 | setting=text_only | modality=text | dominant_label=0 (non_hateful) | num_samples=2000 | label_dist=Counter({'hateful': 1000, 'non_hateful': 1000})
+Client 3 | setting=text_only | modality=text | dominant_label=1 (hateful) | num_samples=2000 | label_dist=Counter({'non_hateful': 1000, 'hateful': 1000})
+
+Class weights from actual client samples:
+[1.0, 1.0]
+text_only-iid:   0%|          | 0/25 [00:00<?, ?round/s]

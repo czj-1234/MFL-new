@@ -54,6 +54,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     balanced_accuracy_score,
+    roc_auc_score,
 )
 
 import src.data.vote_dataset as vote_dataset
@@ -963,6 +964,20 @@ def local_train(
                 weight=class_weights_tensor,
             )
 
+            # FedProx proximal term:
+            # keep the local model close to the current global model.
+            fedprox_mu = float(getattr(args, "fedprox_mu", 0.0) or 0.0)
+
+            if fedprox_mu > 0.0:
+                prox_term = torch.tensor(0.0, device=device)
+
+                for name, param in local_model.named_parameters():
+                    if param.requires_grad and name in before_state:
+                        global_param = before_state[name].to(device)
+                        prox_term = prox_term + torch.sum((param - global_param) ** 2)
+
+                loss = loss + 0.5 * fedprox_mu * prox_term
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -1064,6 +1079,181 @@ def fedavg_state_dicts(state_dicts, weights):
 
 
 # ============================================================
+# Server-side Multimodal Calibration
+# ============================================================
+
+def set_trainable_by_patterns(model, trainable_patterns):
+    """
+    Temporarily make only selected parameters trainable.
+    """
+    original_requires_grad = {}
+
+    for name, param in model.named_parameters():
+        original_requires_grad[name] = param.requires_grad
+        param.requires_grad = match_target_parameter(name, trainable_patterns)
+
+    return original_requires_grad
+
+
+def restore_trainable_state(model, original_requires_grad):
+    """
+    Restore original requires_grad flags after server calibration.
+    """
+    for name, param in model.named_parameters():
+        if name in original_requires_grad:
+            param.requires_grad = original_requires_grad[name]
+
+
+def server_multimodal_calibration(
+    global_model,
+    calibration_data,
+    tokenizer,
+    args,
+):
+    """
+    Server-side multimodal calibration.
+
+    After aggregation, the server uses a small set of paired image-text samples
+    to calibrate only the fusion and classifier layers.
+    """
+    if not getattr(args, "server_calibration_enabled", False):
+        return {
+            "server_calibration_loss": np.nan,
+            "server_calibration_acc": np.nan,
+            "server_calibration_steps_done": 0,
+        }
+
+    if calibration_data is None or len(calibration_data) == 0:
+        return {
+            "server_calibration_loss": np.nan,
+            "server_calibration_acc": np.nan,
+            "server_calibration_steps_done": 0,
+        }
+
+    steps = int(getattr(args, "server_calibration_steps", 0) or 0)
+
+    if steps <= 0:
+        return {
+            "server_calibration_loss": np.nan,
+            "server_calibration_acc": np.nan,
+            "server_calibration_steps_done": 0,
+        }
+
+    device = args.device
+    global_model.to(device)
+
+    trainable_patterns = getattr(
+        args,
+        "server_calibration_trainable_patterns",
+        ["multi_modal_projector", "classifier"],
+    )
+
+    original_requires_grad = set_trainable_by_patterns(
+        global_model,
+        trainable_patterns,
+    )
+
+    global_model.train()
+
+    dataset = build_mvsa_dataset(
+        samples=calibration_data,
+        tokenizer=tokenizer,
+        mode="both",
+        max_text_len=args.max_text_len,
+        cache_dir=os.path.join(args.out_dir, "_server_calibration_cache"),
+        image_model_name=getattr(
+            args,
+            "image_model_name",
+            "openai/clip-vit-base-patch32",
+        ),
+        label_source="auto",
+    )
+
+    loader = DataLoader(
+        dataset,
+        batch_size=getattr(
+            args,
+            "server_calibration_batch_size",
+            args.batch_size,
+        ),
+        shuffle=True,
+        num_workers=args.num_workers,
+    )
+
+    optimizer = torch.optim.AdamW(
+        [p for p in global_model.parameters() if p.requires_grad],
+        lr=getattr(args, "server_calibration_lr", args.lr),
+        weight_decay=getattr(args, "weight_decay", 0.0),
+    )
+
+    if hasattr(args, "class_weights_tensor"):
+        class_weights_tensor = args.class_weights_tensor.to(device)
+    elif hasattr(args, "class_weights"):
+        class_weights_tensor = torch.tensor(
+            args.class_weights,
+            dtype=torch.float32,
+            device=device,
+        )
+    else:
+        class_weights_tensor = None
+
+    total_loss = 0.0
+    total = 0
+    correct = 0
+    steps_done = 0
+
+    data_iter = iter(loader)
+
+    while steps_done < steps:
+        try:
+            batch = next(data_iter)
+        except StopIteration:
+            data_iter = iter(loader)
+            batch = next(data_iter)
+
+        image, input_ids, attention_mask, labels = apply_modality_mask(
+            batch=batch,
+            mode="both",
+            device=device,
+        )
+
+        logits = global_model(
+            image=image,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            setting="both",
+        )
+
+        loss = F.cross_entropy(
+            logits,
+            labels,
+            weight=class_weights_tensor,
+        )
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        preds = torch.argmax(logits, dim=1)
+
+        total_loss += loss.item() * labels.size(0)
+        total += labels.size(0)
+        correct += (preds == labels).sum().item()
+        steps_done += 1
+
+    avg_loss = total_loss / total if total > 0 else np.nan
+    acc = correct / total if total > 0 else np.nan
+
+    restore_trainable_state(global_model, original_requires_grad)
+
+    return {
+        "server_calibration_loss": float(avg_loss) if not np.isnan(avg_loss) else np.nan,
+        "server_calibration_acc": float(acc) if not np.isnan(acc) else np.nan,
+        "server_calibration_steps_done": steps_done,
+    }
+
+
+# ============================================================
 # Evaluation
 # ============================================================
 
@@ -1130,6 +1320,7 @@ def evaluate(
 
     all_labels = []
     all_preds = []
+    all_probs = []
 
     for batch in loader:
         image, input_ids, attention_mask, labels = apply_modality_mask(
@@ -1153,6 +1344,7 @@ def evaluate(
             weight=class_weights_tensor,
         )
 
+        probs = torch.softmax(logits, dim=1)
         preds = torch.argmax(logits, dim=1)
 
         total += labels.size(0)
@@ -1161,6 +1353,11 @@ def evaluate(
 
         all_labels.extend(labels.detach().cpu().numpy().tolist())
         all_preds.extend(preds.detach().cpu().numpy().tolist())
+
+        if probs.size(1) == 2:
+            all_probs.extend(probs[:, 1].detach().cpu().numpy().tolist())
+        else:
+            all_probs.extend(probs.detach().cpu().numpy().tolist())
 
     avg_loss = total_loss / total if total > 0 else 0.0
     acc = correct / total if total > 0 else 0.0
@@ -1200,12 +1397,26 @@ def evaluate(
             zero_division=0,
         )
 
+        try:
+            if args.num_classes == 2:
+                auroc = roc_auc_score(all_labels, all_probs)
+            else:
+                auroc = roc_auc_score(
+                    all_labels,
+                    np.asarray(all_probs),
+                    multi_class="ovr",
+                    average="macro",
+                )
+        except Exception:
+            auroc = np.nan
+
     else:
         macro_f1 = 0.0
         macro_precision = 0.0
         macro_recall = 0.0
         balanced_acc = 0.0
         per_class_f1 = np.zeros(args.num_classes)
+        auroc = np.nan
 
     f1_non_hateful = float(per_class_f1[0]) if len(per_class_f1) > 0 else 0.0
     f1_hateful = float(per_class_f1[1]) if len(per_class_f1) > 1 else 0.0
@@ -1217,6 +1428,7 @@ def evaluate(
         "macro_precision": float(macro_precision),
         "macro_recall": float(macro_recall),
         "balanced_acc": float(balanced_acc),
+        "auroc": float(auroc) if not np.isnan(auroc) else np.nan,
 
         # Hateful Memes per-class F1:
         # label 0 = non_hateful
@@ -1246,6 +1458,7 @@ def average_metric_dicts(metric_dicts):
             "macro_precision": 0.0,
             "macro_recall": 0.0,
             "balanced_acc": 0.0,
+            "auroc": np.nan,
             "f1_non_hateful": 0.0,
             "f1_hateful": 0.0,
             "f1_negative": 0.0,
@@ -1260,6 +1473,7 @@ def average_metric_dicts(metric_dicts):
         "macro_precision",
         "macro_recall",
         "balanced_acc",
+        "auroc",
         "f1_non_hateful",
         "f1_hateful",
         "f1_negative",
@@ -1271,7 +1485,12 @@ def average_metric_dicts(metric_dicts):
 
     for key in keys:
         values = [m[key] for m in metric_dicts if key in m]
-        out[key] = float(np.mean(values)) if len(values) > 0 else 0.0
+
+        if key == "auroc":
+            values = [v for v in values if not np.isnan(v)]
+            out[key] = float(np.mean(values)) if len(values) > 0 else np.nan
+        else:
+            out[key] = float(np.mean(values)) if len(values) > 0 else 0.0
 
     return out
 
@@ -1293,10 +1512,12 @@ def evaluate_for_setting(
         image input + image_label
 
     full_multimodal:
-        both input. If no fixed label exists, Dataset falls back to text_label.
+        image + text input, using unified label if available.
 
     modality_exclusive:
-        evaluate both text-view and image-view, then average metrics.
+        evaluate the server-aggregated global model with image + text together.
+        This measures the final multimodal ability of the global model after
+        heterogeneous single-modality client training and server aggregation.
     """
     setting_name = args.setting_name
 
@@ -1334,48 +1555,15 @@ def evaluate_for_setting(
         )
 
     if setting_name == "modality_exclusive":
-        text_metrics = evaluate(
+        return evaluate(
             model=model,
             data=data,
             tokenizer=tokenizer,
             args=args,
-            mode="text",
+            mode="both",
             max_samples=max_samples,
-            label_source="text",
+            label_source="auto",
         )
-
-        image_metrics = evaluate(
-            model=model,
-            data=data,
-            tokenizer=tokenizer,
-            args=args,
-            mode="image",
-            max_samples=max_samples,
-            label_source="image",
-        )
-
-        avg_metrics = average_metric_dicts([text_metrics, image_metrics])
-
-        avg_metrics["text_acc"] = text_metrics["acc"]
-        avg_metrics["image_acc"] = image_metrics["acc"]
-        avg_metrics["text_macro_f1"] = text_metrics["macro_f1"]
-        avg_metrics["image_macro_f1"] = image_metrics["macro_f1"]
-
-        avg_metrics["text_f1_non_hateful"] = text_metrics.get("f1_non_hateful", 0.0)
-        avg_metrics["text_f1_hateful"] = text_metrics.get("f1_hateful", 0.0)
-        avg_metrics["image_f1_non_hateful"] = image_metrics.get("f1_non_hateful", 0.0)
-        avg_metrics["image_f1_hateful"] = image_metrics.get("f1_hateful", 0.0)
-
-        # Compatibility aliases.
-        avg_metrics["text_f1_negative"] = text_metrics.get("f1_negative", 0.0)
-        avg_metrics["text_f1_neutral"] = text_metrics.get("f1_neutral", 0.0)
-        avg_metrics["text_f1_positive"] = text_metrics.get("f1_positive", 0.0)
-
-        avg_metrics["image_f1_negative"] = image_metrics.get("f1_negative", 0.0)
-        avg_metrics["image_f1_neutral"] = image_metrics.get("f1_neutral", 0.0)
-        avg_metrics["image_f1_positive"] = image_metrics.get("f1_positive", 0.0)
-
-        return avg_metrics
 
     raise ValueError(f"Unknown setting_name: {setting_name}")
 
@@ -1464,6 +1652,54 @@ def run_experiment(args):
     print("  text :", Counter([x["text_label_name"] for x in test_data]))
     print("  image:", Counter([x["image_label_name"] for x in test_data]))
 
+
+    # ------------------------------------------------------------
+    # Server-side multimodal calibration data
+    # ------------------------------------------------------------
+    calibration_data = []
+    client_train_data = train_data
+
+    if getattr(args, "server_calibration_enabled", False):
+        calibration_ratio = float(
+            getattr(args, "server_calibration_ratio", 0.0) or 0.0
+        )
+        calibration_ratio = max(0.0, min(1.0, calibration_ratio))
+
+        calibration_size = int(round(len(train_data) * calibration_ratio))
+
+        if calibration_ratio > 0.0 and calibration_size <= 0:
+            calibration_size = 1
+
+        if calibration_size > 0:
+            rng = random.Random(args.seed)
+            calibration_size = min(calibration_size, len(train_data))
+            calibration_data = rng.sample(train_data, calibration_size)
+
+            if getattr(args, "server_calibration_remove_from_client_train", False):
+                calibration_ids = set(
+                    [str(x.get("id", "")) for x in calibration_data]
+                )
+
+                client_train_data = [
+                    x for x in train_data
+                    if str(x.get("id", "")) not in calibration_ids
+                ]
+
+        print("\nServer-side multimodal calibration:")
+        print("  enabled:", getattr(args, "server_calibration_enabled", False))
+        print("  ratio:", calibration_ratio)
+        print("  calibration samples:", len(calibration_data))
+        print(
+            "  remove_from_client_train:",
+            getattr(args, "server_calibration_remove_from_client_train", False),
+        )
+        print("  client train samples:", len(client_train_data))
+        print("  steps per round:", getattr(args, "server_calibration_steps", 0))
+        print(
+            "  trainable patterns:",
+            getattr(args, "server_calibration_trainable_patterns", []),
+        )
+
     # ------------------------------------------------------------
     # 2. Load tokenizer and model
     # ------------------------------------------------------------
@@ -1478,7 +1714,7 @@ def run_experiment(args):
     # 3. Build client partitions
     # ------------------------------------------------------------
     client_data = build_client_partitions(
-        train_data=train_data,
+        train_data=client_train_data,
         setting_name=args.setting_name,
         association=args.association,
         num_clients=args.num_clients,
@@ -1509,6 +1745,15 @@ def run_experiment(args):
     round_logs = []
     update_records = []
     update_metadata = []
+
+    # ------------------------------------------------------------
+    # Best validation AUROC tracking
+    # ------------------------------------------------------------
+    best_val_auroc = -1.0
+    best_round = None
+    best_train_metrics = None
+    best_val_metrics = None
+    best_test_metrics = None
 
     round_pbar = tqdm(
         range(1, args.rounds + 1),
@@ -1579,6 +1824,20 @@ def run_experiment(args):
 
         global_model.load_state_dict(avg_state, strict=True)
 
+        server_calibration_metrics = {
+            "server_calibration_loss": np.nan,
+            "server_calibration_acc": np.nan,
+            "server_calibration_steps_done": 0,
+        }
+
+        if getattr(args, "server_calibration_enabled", False):
+            server_calibration_metrics = server_multimodal_calibration(
+                global_model=global_model,
+                calibration_data=calibration_data,
+                tokenizer=tokenizer,
+                args=args,
+            )
+
         avg_local_loss = (
             float(np.mean(round_local_losses))
             if len(round_local_losses) > 0
@@ -1597,9 +1856,9 @@ def run_experiment(args):
         })
 
         # ------------------------------------------------------------
-        # Global evaluation every 10 rounds
+        # Global evaluation every 5 rounds
         # ------------------------------------------------------------
-        if round_id == 1 or round_id % 10 == 0 or round_id == args.rounds:
+        if round_id == 1 or round_id % 5 == 0 or round_id == args.rounds:
             train_metrics = evaluate_for_setting(
                 global_model,
                 train_data,
@@ -1624,15 +1883,30 @@ def run_experiment(args):
                 max_samples=args.max_test_eval_samples,
             )
 
+            # ------------------------------------------------------------
+            # Best validation AUROC checkpoint
+            # ------------------------------------------------------------
+            current_val_auroc = val_metrics.get("auroc", np.nan)
+
+            if not np.isnan(current_val_auroc) and current_val_auroc > best_val_auroc:
+                best_val_auroc = current_val_auroc
+                best_round = round_id
+                best_train_metrics = copy.deepcopy(train_metrics)
+                best_val_metrics = copy.deepcopy(val_metrics)
+                best_test_metrics = copy.deepcopy(test_metrics)
+
+                tqdm.write(
+                    f"[Best Updated] Round {round_id:03d} | "
+                    f"Best Val AUROC: {best_val_auroc:.4f} | "
+                    f"Test AUROC: {test_metrics.get('auroc', float('nan')):.4f}"
+                )
+
             extra_line = ""
 
             if args.setting_name == "modality_exclusive":
                 extra_line = (
-                    f"Modality detail | "
-                    f"Val text Acc: {val_metrics.get('text_acc', 0.0):.4f} | "
-                    f"Val image Acc: {val_metrics.get('image_acc', 0.0):.4f} | "
-                    f"Test text Acc: {test_metrics.get('text_acc', 0.0):.4f} | "
-                    f"Test image Acc: {test_metrics.get('image_acc', 0.0):.4f}\n"
+                    "Evaluation mode | modality_exclusive uses both image+text "
+                    "for the server-aggregated global model.\n"
                 )
 
             tqdm.write(
@@ -1640,20 +1914,43 @@ def run_experiment(args):
                 f"Train | "
                 f"Loss: {train_metrics['loss']:.4f} | "
                 f"Acc: {train_metrics['acc']:.4f} | "
-                f"Macro-F1: {train_metrics['macro_f1']:.4f}\n"
+                f"Macro-F1: {train_metrics['macro_f1']:.4f} | "
+                f"AUROC: {train_metrics.get('auroc', float('nan')):.4f}\n"
                 f"Val   | "
                 f"Loss: {val_metrics['loss']:.4f} | "
                 f"Acc: {val_metrics['acc']:.4f} | "
-                f"Macro-F1: {val_metrics['macro_f1']:.4f}\n"
+                f"Macro-F1: {val_metrics['macro_f1']:.4f} | "
+                f"AUROC: {val_metrics.get('auroc', float('nan')):.4f}\n"
                 f"Test  | "
                 f"Loss: {test_metrics['loss']:.4f} | "
                 f"Acc: {test_metrics['acc']:.4f} | "
-                f"Macro-F1: {test_metrics['macro_f1']:.4f}\n"
+                f"Macro-F1: {test_metrics['macro_f1']:.4f} | "
+                f"AUROC: {test_metrics.get('auroc', float('nan')):.4f}\n"
                 f"{extra_line}"
             )
 
             round_log = {
                 "round": round_id,
+                "is_best_val_auroc": round_id == best_round,
+                "best_val_auroc_so_far": best_val_auroc,
+
+                "server_calibration_enabled": getattr(
+                    args,
+                    "server_calibration_enabled",
+                    False,
+                ),
+                "server_calibration_loss": server_calibration_metrics.get(
+                    "server_calibration_loss",
+                    np.nan,
+                ),
+                "server_calibration_acc": server_calibration_metrics.get(
+                    "server_calibration_acc",
+                    np.nan,
+                ),
+                "server_calibration_steps_done": server_calibration_metrics.get(
+                    "server_calibration_steps_done",
+                    0,
+                ),
 
                 "train_loss": train_metrics["loss"],
                 "train_acc": train_metrics["acc"],
@@ -1661,6 +1958,7 @@ def run_experiment(args):
                 "train_macro_precision": train_metrics["macro_precision"],
                 "train_macro_recall": train_metrics["macro_recall"],
                 "train_balanced_acc": train_metrics["balanced_acc"],
+                "train_auroc": train_metrics.get("auroc", np.nan),
                 "train_f1_non_hateful": train_metrics.get("f1_non_hateful", 0.0),
                 "train_f1_hateful": train_metrics.get("f1_hateful", 0.0),
                 "train_f1_negative": train_metrics.get("f1_negative", 0.0),
@@ -1673,6 +1971,7 @@ def run_experiment(args):
                 "val_macro_precision": val_metrics["macro_precision"],
                 "val_macro_recall": val_metrics["macro_recall"],
                 "val_balanced_acc": val_metrics["balanced_acc"],
+                "val_auroc": val_metrics.get("auroc", np.nan),
                 "val_f1_non_hateful": val_metrics.get("f1_non_hateful", 0.0),
                 "val_f1_hateful": val_metrics.get("f1_hateful", 0.0),
                 "val_f1_negative": val_metrics.get("f1_negative", 0.0),
@@ -1685,6 +1984,7 @@ def run_experiment(args):
                 "test_macro_precision": test_metrics["macro_precision"],
                 "test_macro_recall": test_metrics["macro_recall"],
                 "test_balanced_acc": test_metrics["balanced_acc"],
+                "test_auroc": test_metrics.get("auroc", np.nan),
                 "test_f1_non_hateful": test_metrics.get("f1_non_hateful", 0.0),
                 "test_f1_hateful": test_metrics.get("f1_hateful", 0.0),
                 "test_f1_negative": test_metrics.get("f1_negative", 0.0),
@@ -1697,6 +1997,8 @@ def run_experiment(args):
                 "image_acc",
                 "text_macro_f1",
                 "image_macro_f1",
+                "text_auroc",
+                "image_auroc",
                 "text_f1_non_hateful",
                 "text_f1_hateful",
                 "image_f1_non_hateful",
@@ -1744,13 +2046,54 @@ def run_experiment(args):
         max_samples=args.max_test_eval_samples,
     )
 
+    # Keep last-round metrics for comparison.
+    last_train_metrics = copy.deepcopy(final_train_metrics)
+    last_val_metrics = copy.deepcopy(final_val_metrics)
+    last_test_metrics = copy.deepcopy(final_test_metrics)
+
+    # Use the metrics from the best validation AUROC round as final reported utility.
+    # If no validation AUROC was recorded, fall back to the last round.
+    if best_val_metrics is not None:
+        final_train_metrics = best_train_metrics
+        final_val_metrics = best_val_metrics
+        final_test_metrics = best_test_metrics
+    else:
+        best_round = args.rounds
+        best_val_auroc = final_val_metrics.get("auroc", np.nan)
+
+    # ------------------------------------------------------------
+    # Save raw logs before structure metrics
+    # ------------------------------------------------------------
+    round_logs_path = os.path.join(args.out_dir, "round_logs.csv")
+    update_metadata_path = os.path.join(args.out_dir, "update_metadata.csv")
+
+    pd.DataFrame(round_logs).to_csv(round_logs_path, index=False)
+    pd.DataFrame(update_metadata).to_csv(update_metadata_path, index=False)
+
+    print("\nRaw logs saved before structure metrics:")
+    print("round_logs:", round_logs_path)
+    print("update_metadata:", update_metadata_path)
+
     # ------------------------------------------------------------
     # 6. Structure and attack metrics
     # ------------------------------------------------------------
-    structure_metrics, all_mat = compute_structure_metrics(
-        update_records,
-        seed=args.seed,
-    )
+    try:
+        structure_metrics, all_mat = compute_structure_metrics(
+            update_records,
+            seed=args.seed,
+        )
+    except Exception as e:
+        import traceback
+
+        print("\n[Warning] compute_structure_metrics failed.")
+        print("Training and evaluation finished, but structure/attack metrics failed.")
+        traceback.print_exc()
+
+        structure_metrics = {
+            "structure_metrics_failed": True,
+            "structure_metrics_error": str(e),
+        }
+        all_mat = None
 
     # ------------------------------------------------------------
     # 7. Summary
@@ -1765,12 +2108,74 @@ def run_experiment(args):
         "samples_per_client": args.samples_per_client,
         "partition_mode": getattr(args, "partition_mode", "fixed"),
         "allow_overlap": args.allow_overlap,
+
+        "server_calibration_enabled": getattr(
+            args,
+            "server_calibration_enabled",
+            False,
+        ),
+        "server_calibration_ratio": getattr(
+            args,
+            "server_calibration_ratio",
+            0.0,
+        ),
+        "server_calibration_size": len(calibration_data),
+        "server_calibration_remove_from_client_train": getattr(
+            args,
+            "server_calibration_remove_from_client_train",
+            False,
+        ),
+        "server_calibration_steps": getattr(
+            args,
+            "server_calibration_steps",
+            0,
+        ),
+        "server_calibration_lr": getattr(
+            args,
+            "server_calibration_lr",
+            np.nan,
+        ),
+        "server_calibration_batch_size": getattr(
+            args,
+            "server_calibration_batch_size",
+            args.batch_size,
+        ),
+        "server_calibration_trainable_patterns": getattr(
+            args,
+            "server_calibration_trainable_patterns",
+            [],
+        ),
+
+        "selection_metric": "val_auroc",
+        "best_round": best_round,
+
+        "best_val_loss": final_val_metrics.get("loss", np.nan),
+        "best_val_acc": final_val_metrics.get("acc", np.nan),
+        "best_val_macro_f1": final_val_metrics.get("macro_f1", np.nan),
+        "best_val_auroc": final_val_metrics.get("auroc", np.nan),
+
+        "best_test_loss": final_test_metrics.get("loss", np.nan),
+        "best_test_acc": final_test_metrics.get("acc", np.nan),
+        "best_test_macro_f1": final_test_metrics.get("macro_f1", np.nan),
+        "best_test_auroc": final_test_metrics.get("auroc", np.nan),
+
+        "last_val_loss": last_val_metrics.get("loss", np.nan),
+        "last_val_acc": last_val_metrics.get("acc", np.nan),
+        "last_val_macro_f1": last_val_metrics.get("macro_f1", np.nan),
+        "last_val_auroc": last_val_metrics.get("auroc", np.nan),
+
+        "last_test_loss": last_test_metrics.get("loss", np.nan),
+        "last_test_acc": last_test_metrics.get("acc", np.nan),
+        "last_test_macro_f1": last_test_metrics.get("macro_f1", np.nan),
+        "last_test_auroc": last_test_metrics.get("auroc", np.nan),
+
         "rounds": args.rounds,
         "local_epochs": args.local_epochs,
         "lr": args.lr,
         "weight_decay": getattr(args, "weight_decay", 0.0),
+        "fedprox_mu": getattr(args, "fedprox_mu", 0.0),
         "seed": args.seed,
-        "model": "CLIP-ViT-B32+RoBERTa-base",
+        "model": "CLIP-DualEncoder+ServerCalibration",
         "freeze_image_backbone": args.freeze_image_backbone,
         "freeze_text_backbone": args.freeze_text_backbone,
 
@@ -1788,6 +2193,7 @@ def run_experiment(args):
         "train_macro_precision": final_train_metrics["macro_precision"],
         "train_macro_recall": final_train_metrics["macro_recall"],
         "train_balanced_acc": final_train_metrics["balanced_acc"],
+        "train_auroc": final_train_metrics.get("auroc", np.nan),
         "train_f1_non_hateful": final_train_metrics.get("f1_non_hateful", 0.0),
         "train_f1_hateful": final_train_metrics.get("f1_hateful", 0.0),
         "train_f1_negative": final_train_metrics.get("f1_negative", 0.0),
@@ -1800,6 +2206,7 @@ def run_experiment(args):
         "val_macro_precision": final_val_metrics["macro_precision"],
         "val_macro_recall": final_val_metrics["macro_recall"],
         "val_balanced_acc": final_val_metrics["balanced_acc"],
+        "val_auroc": final_val_metrics.get("auroc", np.nan),
         "val_f1_non_hateful": final_val_metrics.get("f1_non_hateful", 0.0),
         "val_f1_hateful": final_val_metrics.get("f1_hateful", 0.0),
         "val_f1_negative": final_val_metrics.get("f1_negative", 0.0),
@@ -1811,6 +2218,7 @@ def run_experiment(args):
         "global_macro_precision": final_val_metrics["macro_precision"],
         "global_macro_recall": final_val_metrics["macro_recall"],
         "global_balanced_acc": final_val_metrics["balanced_acc"],
+        "global_auroc": final_val_metrics.get("auroc", np.nan),
         "global_f1_non_hateful": final_val_metrics.get("f1_non_hateful", 0.0),
         "global_f1_hateful": final_val_metrics.get("f1_hateful", 0.0),
         "global_f1_negative": final_val_metrics.get("f1_negative", 0.0),
@@ -1823,6 +2231,7 @@ def run_experiment(args):
         "test_macro_precision": final_test_metrics["macro_precision"],
         "test_macro_recall": final_test_metrics["macro_recall"],
         "test_balanced_acc": final_test_metrics["balanced_acc"],
+        "test_auroc": final_test_metrics.get("auroc", np.nan),
         "test_f1_non_hateful": final_test_metrics.get("f1_non_hateful", 0.0),
         "test_f1_hateful": final_test_metrics.get("f1_hateful", 0.0),
         "test_f1_negative": final_test_metrics.get("f1_negative", 0.0),
@@ -1840,6 +2249,8 @@ def run_experiment(args):
         "image_acc",
         "text_macro_f1",
         "image_macro_f1",
+        "text_auroc",
+        "image_auroc",
     ]:
         if key in final_train_metrics:
             summary[f"train_{key}"] = final_train_metrics[key]
@@ -1856,17 +2267,13 @@ def run_experiment(args):
     summary_path = os.path.join(args.out_dir, "summary.json")
     round_logs_path = os.path.join(args.out_dir, "round_logs.csv")
     update_metadata_path = os.path.join(args.out_dir, "update_metadata.csv")
-    update_matrix_path = os.path.join(args.out_dir, "update_matrix.npy")
-
     save_summary_json(summary, summary_path)
     pd.DataFrame(round_logs).to_csv(round_logs_path, index=False)
     pd.DataFrame(update_metadata).to_csv(update_metadata_path, index=False)
-    np.save(update_matrix_path, all_mat)
 
     print("\nSaved results:")
     print("summary:", summary_path)
     print("round_logs:", round_logs_path)
     print("update_metadata:", update_metadata_path)
-    print("update_matrix:", update_matrix_path)
 
     return summary, round_logs, all_mat

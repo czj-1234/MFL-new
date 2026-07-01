@@ -7,7 +7,7 @@
 
 cd /data/deli/MFL-new/MFL-new || exit 1
 
-SETTINGS=("modality_exclusive")
+SETTINGS=("modality_exclusive" "image_only" "text_only")
 ASSOCIATIONS=("iid" "0.7" "0.9" "1.0")
 
 mkdir -p logs
@@ -17,15 +17,15 @@ for setting in "${SETTINGS[@]}"; do
 
     echo ""
     echo "============================================================"
-    echo "Server B running: setting=${setting}, association=${association}"
+    echo "GPU 1 / B running: setting=${setting}, association=${association}"
     echo "============================================================"
     echo ""
 
     CUDA_VISIBLE_DEVICES=1 /home/deli/Data/miniconda3/envs/mfl/bin/python -m src.main \
-      --config configs/config_hateful.yaml \
+      --config configs/config_hateful_modality_exclusive1.yaml \
       --setting "${setting}" \
       --association "${association}" \
-      --rounds 30 \
+      --rounds 25 \
       2>&1 | tee "logs/hateful_B_${setting}_${association}.log"
 
     if [ ${PIPESTATUS[0]} -ne 0 ]; then

@@ -1,0 +1,70 @@
+seed: 44
+
+data:
+  train_json: data/processed/hateful_train.json
+  val_json: data/processed/hateful_val.json
+  test_json: data/processed/hateful_test.json
+  num_classes: 2
+
+model:
+  tokenizer_name: openai/clip-vit-large-patch14
+  text_model_name: openai/clip-vit-large-patch14
+  image_model_name: openai/clip-vit-large-patch14
+
+  image_hidden_dim: 512
+  text_hidden_dim: 512
+  projector_hidden_dim: 512
+  dropout: 0.5
+
+  freeze_image_backbone: false
+  freeze_text_backbone: false
+  pretrained_image: true
+
+federated:
+  num_clients: 4
+
+  partition_mode: fixed
+  samples_per_client: 2000
+  allow_overlap: true
+
+  rounds: 25
+  local_epochs: 1
+  lr: 0.000005
+  weight_decay: 0.03
+  batch_size: 32
+  max_local_steps: null
+
+  fedprox_mu: 0.001
+
+server_calibration:
+  enabled: false
+
+  ratio: 0.05
+  remove_from_client_train: false
+
+  steps: 20
+  lr: 0.0000005
+  batch_size: 16
+
+  trainable_patterns:
+    - multi_modal_projector
+    - classifier
+
+evaluation:
+  eval_batch_size: 64
+  max_train_eval_samples: 3000
+  max_val_eval_samples: null
+  max_test_eval_samples: null
+  max_text_len: 77
+  num_workers: 8
+
+experiment:
+  setting_name: modality_exclusive
+  association: iid
+  output_root: results/hateful_modality_exclusive_final44_text
+  analysis_rounds: [1, 5, 10, 15, 20, 25]
+
+update:
+  target_patterns:
+    - classifier
+    - multi_modal_projector
