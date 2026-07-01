@@ -23,16 +23,16 @@ federated:
   partition_mode: fixed
   samples_per_client: 2000
   allow_overlap: true
-  rounds: 35
+  rounds: 25
   local_epochs: 1
-  lr: 0.000001
-  weight_decay: 0.05
+  lr: 0.000005
+  weight_decay: 0.03
   batch_size: 32
   max_local_steps: null
   fedprox_mu: 0.001
 
 server_calibration:
-  enabled: true
+  enabled: false
   ratio: 0.05
   remove_from_client_train: false
   steps: 20
@@ -54,7 +54,7 @@ experiment:
   setting_name: modality_exclusive
   association: 0.7
   output_root: results/defense_seed42_assoc07
-  analysis_rounds: [1, 5, 10, 15, 20, 25, 30, 35]
+  analysis_rounds: [1, 5, 10, 15, 20, 25]
 
 update:
   # Main defense is learned and applied to the shared classifier update.
@@ -66,7 +66,7 @@ shadow:
   num_splits: 3
   split_names: [A, B, C]
   associated_value: 0.7
-  counterfactual_value: iid
+  counterfactual_value: strict_matched_0.5
   save_every_round: true
   output_dir: results/defense_seed42_assoc07/shadow
 
