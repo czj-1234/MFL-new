@@ -7,23 +7,39 @@ from sklearn.linear_model import LogisticRegression
 from src.defense.subspace import CounterfactualSubspace
 
 
-def _load_updates_and_labels(path):
+def _load_updates_and_labels(path, num_clients=4):
     data = np.load(path)
     updates = data["updates"] if "updates" in data.files else data[data.files[0]]
-    if "labels" not in data.files:
-        raise ValueError(
-            f"{path} does not contain labels. Use a shadow-update file saved with labels."
-        )
-    labels = data["labels"]
     updates = np.asarray(updates, dtype=np.float64)
-    labels = np.asarray(labels, dtype=np.int64)
+
     if updates.ndim != 2:
         raise ValueError(f"Expected a 2D update matrix, got {updates.shape}")
+
+    if "labels" in data.files:
+        labels = np.asarray(data["labels"], dtype=np.int64)
+        label_source = "stored_in_npz"
+    else:
+        if num_clients <= 0:
+            raise ValueError("num_clients must be positive")
+        if updates.shape[0] % num_clients != 0:
+            raise ValueError(
+                "Cannot infer labels because the number of updates is not divisible "
+                f"by num_clients: updates={updates.shape[0]}, num_clients={num_clients}."
+            )
+
+        # In the current four-client modality-exclusive design, updates are saved
+        # round by round in client order 0,1,2,3. Dominant labels are assigned by
+        # get_client_dominant_label(client_id) = client_id % 2, giving 0,1,0,1.
+        client_labels = np.arange(num_clients, dtype=np.int64) % 2
+        labels = np.tile(client_labels, updates.shape[0] // num_clients)
+        label_source = f"inferred_from_client_order_{client_labels.tolist()}"
+
     if labels.ndim != 1 or labels.shape[0] != updates.shape[0]:
         raise ValueError(
             f"Label shape {labels.shape} is incompatible with updates {updates.shape}"
         )
-    return updates, labels
+
+    return updates, labels, label_source
 
 
 def _append_orthogonal(columns, vector, tolerance=1e-10):
@@ -90,7 +106,7 @@ def main():
     parser.add_argument(
         "--shadow-updates",
         required=True,
-        help="Associated shadow updates containing both updates and labels.",
+        help="Associated shadow updates. Labels are used if present; otherwise they are inferred from client order.",
     )
     parser.add_argument(
         "--counterfactual-basis",
@@ -100,12 +116,21 @@ def main():
     parser.add_argument("--rank", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--num-clients",
+        type=int,
+        default=4,
+        help="Number of clients used to infer labels when the NPZ has no labels.",
+    )
+    parser.add_argument(
         "--output",
         default="results/defense_seed42_assoc07/subspace/final_attack_aware_r5.npz",
     )
     args = parser.parse_args()
 
-    updates, labels = _load_updates_and_labels(args.shadow_updates)
+    updates, labels, label_source = _load_updates_and_labels(
+        args.shadow_updates,
+        num_clients=args.num_clients,
+    )
     original = CounterfactualSubspace.load(args.counterfactual_basis)
 
     if updates.shape[1] != original.basis.shape[0]:
@@ -137,9 +162,14 @@ def main():
             [training_attack_accuracy], dtype=np.float64
         ),
         seed=np.asarray([args.seed], dtype=np.int64),
+        label_source=np.asarray([label_source]),
     )
 
     gram_error = float(np.linalg.norm(basis.T @ basis - np.eye(args.rank)))
+    counts = {int(label): int((labels == label).sum()) for label in np.unique(labels)}
+    print(f"Loaded shadow updates: {updates.shape}")
+    print(f"Label source: {label_source}")
+    print(f"Label counts: {counts}")
     print(f"Saved attack-aware basis: {output}")
     print(f"Basis shape: {basis.shape}")
     print(f"Shadow linear-attack training accuracy: {training_attack_accuracy:.6f}")
