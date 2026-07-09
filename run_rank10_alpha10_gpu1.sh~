@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ! -d "src" || ! -d "configs" ]]; then
+  echo "[ERROR] Run this script from the MFL-new project root."
+  exit 1
+fi
+
+mkdir -p logs
+
+BASIS="results/defense_seed42_assoc07/subspace/final_r10.npz"
+SHADOW="results/defense_seed42_assoc07/subspace/combined/associated_all.npz"
+
+[[ -f "$BASIS" ]] || { echo "[ERROR] Missing $BASIS"; exit 1; }
+[[ -f "$SHADOW" ]] || { echo "[ERROR] Missing $SHADOW"; exit 1; }
+
+echo "Starting rank=10, alpha=1.0 on GPU 1"
+
+CUDA_VISIBLE_DEVICES=0 python -u -m src.scripts.run_defense_comparison   --method proposed   --basis "$BASIS"   --shadow-updates "$SHADOW"   --rank 10   --alpha 1.0   2>&1 | tee logs/defense_r10_a10_gpu1.log

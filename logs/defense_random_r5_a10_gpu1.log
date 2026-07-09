@@ -1,0 +1,7 @@
+usage: run_defense_comparison.py [-h] [--config CONFIG]
+                                 [--method {all,baseline,random,pca,proposed}]
+                                 --basis BASIS --shadow-updates SHADOW_UPDATES
+                                 [--rank RANK] [--alpha ALPHA]
+                                 [--gaussian-noise-ratio GAUSSIAN_NOISE_RATIO]
+                                 [--output-root OUTPUT_ROOT]
+run_defense_comparison.py: error: the following arguments are required: --shadow-updates

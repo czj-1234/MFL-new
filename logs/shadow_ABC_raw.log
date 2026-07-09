@@ -1,0 +1,52 @@
+nohup: ignoring input
+
+################################################################################
+Preparing strict matched split A
+################################################################################
+Running Hateful Memes 2-Class FL Structural Baseline
+Model: CLIP Dual-Encoder / Multimodal Fusion
+TASK: Hateful Memes 2-class modality-specific classification
+NUM_CLASSES: 2
+NUM_CLIENTS: 4
+SETTING_NAME: modality_exclusive
+ASSOCIATION: assoc_07
+PARTITION_MODE: fixed
+DEVICE: cuda
+TRAIN_JSON: data/processed/hateful_train.json
+VAL_JSON: data/processed/hateful_val.json
+TEST_JSON: data/processed/hateful_test.json
+OUT_DIR: results/defense_seed42_assoc07/shadow/split_A/modality_exclusive/assoc_07
+CLIENT_MODALITIES: clients 0-1=image, clients 2-3=text
+CLIENT DESIGN:
+  client 0: image, non_hateful-dominant
+  client 1: image, hateful-dominant
+  client 2: text,  non_hateful-dominant
+  client 3: text,  hateful-dominant
+LABEL_SOURCE: text clients use text_label; image clients use image_label
+
+Loading data...
+Train: 8500
+  text : Counter({'non_hateful': 5481, 'hateful': 3019})
+  image: Counter({'non_hateful': 5481, 'hateful': 3019})
+Val:   500
+  text : Counter({'non_hateful': 253, 'hateful': 247})
+  image: Counter({'non_hateful': 253, 'hateful': 247})
+Test:  1000
+  text : Counter({'non_hateful': 510, 'hateful': 490})
+  image: Counter({'non_hateful': 510, 'hateful': 490})
+
+Loading tokenizer and model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 7577.18it/s]
+
+Class weights from actual client samples:
+[1.0, 1.0]
+modality_exclusive-assoc_07:   0%|          | 0/25 [00:00<?, ?round/s]modality_exclusive-assoc_07:   0%|          | 0/25 [03:57<?, ?round/s, local_loss=0.6572, local_acc=0.6436]                                                                                                           [Best Updated] Round 001 | Best Val AUROC: 0.5260 | Test AUROC: 0.5220
+modality_exclusive-assoc_07:   0%|          | 0/25 [04:59<?, ?round/s, local_loss=0.6572, local_acc=0.6436]                                                                                                           
+Round 001 Global Evaluation
+Train | Loss: 0.6965 | Acc: 0.4763 | Macro-F1: 0.4734 | AUROC: 0.5612
+Val   | Loss: 0.6929 | Acc: 0.5220 | Macro-F1: 0.5078 | AUROC: 0.5260
+Test  | Loss: 0.6930 | Acc: 0.5040 | Macro-F1: 0.4889 | AUROC: 0.5220
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-assoc_07:   0%|          | 0/25 [04:59<?, ?round/s, local_loss=0.6572, local_acc=0.6436]modality_exclusive-assoc_07:   4%|▍         | 1/25 [04:59<1:59:59, 299.97s/round, local_loss=0.6572, local_acc=0.6436]modality_exclusive-assoc_07:   4%|▍         | 1/25 [08:55<1:59:59, 299.97s/round, local_loss=0.6524, local_acc=0.6491]modality_exclusive-assoc_07:   8%|▊         | 2/25 [08:55<1:40:33, 262.34s/round, local_loss=0.6524, local_acc=0.6491]modality_exclusive-assoc_07:   8%|▊         | 2/25 [12:53<1:40:33, 262.34s/round, local_loss=0.6473, local_acc=0.6616]modality_exclusive-assoc_07:  12%|█▏        | 3/25 [12:53<1:32:01, 250.97s/round, local_loss=0.6473, local_acc=0.6616]

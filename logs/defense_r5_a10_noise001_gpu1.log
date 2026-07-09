@@ -1,0 +1,227 @@
+========================================================================
+End-to-end defense comparison
+rank=5, alpha=1.0
+gaussian_noise_ratio=0.01
+formal_dp_guarantee=False
+output root=results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01
+methods=['proposed']
+========================================================================
+Running Hateful Memes 2-Class FL Structural Baseline
+Model: CLIP Dual-Encoder / Multimodal Fusion
+TASK: Hateful Memes 2-class modality-specific classification
+NUM_CLASSES: 2
+NUM_CLIENTS: 4
+SETTING_NAME: modality_exclusive
+ASSOCIATION: 0.7
+PARTITION_MODE: fixed
+DEVICE: cuda
+TRAIN_JSON: data/processed/hateful_train.json
+VAL_JSON: data/processed/hateful_val.json
+TEST_JSON: data/processed/hateful_test.json
+OUT_DIR: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7
+CLIENT_MODALITIES: clients 0-1=image, clients 2-3=text
+CLIENT DESIGN:
+  client 0: image, non_hateful-dominant
+  client 1: image, hateful-dominant
+  client 2: text,  non_hateful-dominant
+  client 3: text,  hateful-dominant
+LABEL_SOURCE: text clients use text_label; image clients use image_label
+
+Loading data...
+Train: 8500
+  text : Counter({'non_hateful': 5481, 'hateful': 3019})
+  image: Counter({'non_hateful': 5481, 'hateful': 3019})
+Val:   500
+  text : Counter({'non_hateful': 253, 'hateful': 247})
+  image: Counter({'non_hateful': 253, 'hateful': 247})
+Test:  1000
+  text : Counter({'non_hateful': 510, 'hateful': 490})
+  image: Counter({'non_hateful': 510, 'hateful': 490})
+
+Loading tokenizer and model...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 7372.17it/s]
+Client 0 | setting=modality_exclusive | modality=image | dominant_label=0 (non_hateful) | num_samples=2000 | label_dist=Counter({'non_hateful': 1400, 'hateful': 600})
+Client 1 | setting=modality_exclusive | modality=image | dominant_label=1 (hateful) | num_samples=2000 | label_dist=Counter({'hateful': 1400, 'non_hateful': 600})
+Client 2 | setting=modality_exclusive | modality=text | dominant_label=0 (non_hateful) | num_samples=2000 | label_dist=Counter({'non_hateful': 1400, 'hateful': 600})
+Client 3 | setting=modality_exclusive | modality=text | dominant_label=1 (hateful) | num_samples=2000 | label_dist=Counter({'hateful': 1400, 'non_hateful': 600})
+
+Class weights from actual client samples:
+[1.0, 1.0]
+modality_exclusive-0.7:   0%|          | 0/25 [00:00<?, ?round/s]modality_exclusive-0.7:   0%|          | 0/25 [04:35<?, ?round/s, local_loss=0.6553, local_acc=0.6456]                                                                                                      [Best Updated] Round 001 | Best Val AUROC: 0.5450 | Test AUROC: 0.5390
+modality_exclusive-0.7:   0%|          | 0/25 [05:38<?, ?round/s, local_loss=0.6553, local_acc=0.6456]                                                                                                      
+Round 001 Global Evaluation
+Train | Loss: 0.6937 | Acc: 0.4973 | Macro-F1: 0.4972 | AUROC: 0.5775
+Val   | Loss: 0.6913 | Acc: 0.5320 | Macro-F1: 0.5215 | AUROC: 0.5450
+Test  | Loss: 0.6917 | Acc: 0.5260 | Macro-F1: 0.5186 | AUROC: 0.5390
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-0.7:   0%|          | 0/25 [05:38<?, ?round/s, local_loss=0.6553, local_acc=0.6456]modality_exclusive-0.7:   4%|▍         | 1/25 [05:38<2:15:34, 338.95s/round, local_loss=0.6553, local_acc=0.6456]modality_exclusive-0.7:   4%|▍         | 1/25 [10:17<2:15:34, 338.95s/round, local_loss=0.6528, local_acc=0.6515]modality_exclusive-0.7:   8%|▊         | 2/25 [10:17<1:56:12, 303.17s/round, local_loss=0.6528, local_acc=0.6515]modality_exclusive-0.7:   8%|▊         | 2/25 [15:08<1:56:12, 303.17s/round, local_loss=0.6415, local_acc=0.6723]modality_exclusive-0.7:  12%|█▏        | 3/25 [15:08<1:49:11, 297.79s/round, local_loss=0.6415, local_acc=0.6723]modality_exclusive-0.7:  12%|█▏        | 3/25 [19:54<1:49:11, 297.79s/round, local_loss=0.6344, local_acc=0.6771]modality_exclusive-0.7:  16%|█▌        | 4/25 [19:54<1:42:32, 293.00s/round, local_loss=0.6344, local_acc=0.6771]modality_exclusive-0.7:  16%|█▌        | 4/25 [24:44<1:42:32, 293.00s/round, local_loss=0.6249, local_acc=0.6886]                                                                                                                 [Best Updated] Round 005 | Best Val AUROC: 0.6102 | Test AUROC: 0.6389
+modality_exclusive-0.7:  16%|█▌        | 4/25 [25:49<1:42:32, 293.00s/round, local_loss=0.6249, local_acc=0.6886]                                                                                                                 
+Round 005 Global Evaluation
+Train | Loss: 0.6314 | Acc: 0.7240 | Macro-F1: 0.7018 | AUROC: 0.7835
+Val   | Loss: 0.6774 | Acc: 0.5720 | Macro-F1: 0.5563 | AUROC: 0.6102
+Test  | Loss: 0.6727 | Acc: 0.5870 | Macro-F1: 0.5692 | AUROC: 0.6389
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-0.7:  16%|█▌        | 4/25 [25:49<1:42:32, 293.00s/round, local_loss=0.6249, local_acc=0.6886]modality_exclusive-0.7:  20%|██        | 5/25 [25:49<1:45:10, 315.51s/round, local_loss=0.6249, local_acc=0.6886]modality_exclusive-0.7:  20%|██        | 5/25 [30:38<1:45:10, 315.51s/round, local_loss=0.6136, local_acc=0.7044]modality_exclusive-0.7:  24%|██▍       | 6/25 [30:38<1:37:05, 306.63s/round, local_loss=0.6136, local_acc=0.7044]modality_exclusive-0.7:  24%|██▍       | 6/25 [35:28<1:37:05, 306.63s/round, local_loss=0.5933, local_acc=0.7246]modality_exclusive-0.7:  28%|██▊       | 7/25 [35:28<1:30:20, 301.12s/round, local_loss=0.5933, local_acc=0.7246]modality_exclusive-0.7:  28%|██▊       | 7/25 [40:17<1:30:20, 301.12s/round, local_loss=0.5673, local_acc=0.7572]modality_exclusive-0.7:  32%|███▏      | 8/25 [40:17<1:24:14, 297.31s/round, local_loss=0.5673, local_acc=0.7572]modality_exclusive-0.7:  32%|███▏      | 8/25 [45:06<1:24:14, 297.31s/round, local_loss=0.5344, local_acc=0.7939]modality_exclusive-0.7:  36%|███▌      | 9/25 [45:06<1:18:33, 294.61s/round, local_loss=0.5344, local_acc=0.7939]modality_exclusive-0.7:  36%|███▌      | 9/25 [49:57<1:18:33, 294.61s/round, local_loss=0.4888, local_acc=0.8325]                                                                                                                 [Best Updated] Round 010 | Best Val AUROC: 0.6547 | Test AUROC: 0.7026
+modality_exclusive-0.7:  36%|███▌      | 9/25 [51:03<1:18:33, 294.61s/round, local_loss=0.4888, local_acc=0.8325]                                                                                                                 
+Round 010 Global Evaluation
+Train | Loss: 0.4371 | Acc: 0.8103 | Macro-F1: 0.7979 | AUROC: 0.8772
+Val   | Loss: 0.7529 | Acc: 0.6060 | Macro-F1: 0.5885 | AUROC: 0.6547
+Test  | Loss: 0.7006 | Acc: 0.6240 | Macro-F1: 0.6093 | AUROC: 0.7026
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-0.7:  36%|███▌      | 9/25 [51:03<1:18:33, 294.61s/round, local_loss=0.4888, local_acc=0.8325]modality_exclusive-0.7:  40%|████      | 10/25 [51:03<1:18:29, 313.99s/round, local_loss=0.4888, local_acc=0.8325]modality_exclusive-0.7:  40%|████      | 10/25 [55:51<1:18:29, 313.99s/round, local_loss=0.4380, local_acc=0.8662]modality_exclusive-0.7:  44%|████▍     | 11/25 [55:51<1:11:21, 305.79s/round, local_loss=0.4380, local_acc=0.8662]modality_exclusive-0.7:  44%|████▍     | 11/25 [1:00:37<1:11:21, 305.79s/round, local_loss=0.3785, local_acc=0.8934]modality_exclusive-0.7:  48%|████▊     | 12/25 [1:00:37<1:04:59, 299.98s/round, local_loss=0.3785, local_acc=0.8934]modality_exclusive-0.7:  48%|████▊     | 12/25 [1:05:25<1:04:59, 299.98s/round, local_loss=0.3234, local_acc=0.9149]modality_exclusive-0.7:  52%|█████▏    | 13/25 [1:05:25<59:13, 296.14s/round, local_loss=0.3234, local_acc=0.9149]  modality_exclusive-0.7:  52%|█████▏    | 13/25 [1:10:14<59:13, 296.14s/round, local_loss=0.2794, local_acc=0.9281]modality_exclusive-0.7:  56%|█████▌    | 14/25 [1:10:14<53:55, 294.15s/round, local_loss=0.2794, local_acc=0.9281]modality_exclusive-0.7:  56%|█████▌    | 14/25 [1:15:01<53:55, 294.15s/round, local_loss=0.2425, local_acc=0.9400]                                                                                                                  [Best Updated] Round 015 | Best Val AUROC: 0.6776 | Test AUROC: 0.7137
+modality_exclusive-0.7:  56%|█████▌    | 14/25 [1:16:07<53:55, 294.15s/round, local_loss=0.2425, local_acc=0.9400]                                                                                                                  
+Round 015 Global Evaluation
+Train | Loss: 0.4326 | Acc: 0.8400 | Macro-F1: 0.8343 | AUROC: 0.9269
+Val   | Loss: 1.1760 | Acc: 0.6320 | Macro-F1: 0.6277 | AUROC: 0.6776
+Test  | Loss: 1.0750 | Acc: 0.6610 | Macro-F1: 0.6582 | AUROC: 0.7137
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-0.7:  56%|█████▌    | 14/25 [1:16:07<53:55, 294.15s/round, local_loss=0.2425, local_acc=0.9400]modality_exclusive-0.7:  60%|██████    | 15/25 [1:16:07<51:58, 311.89s/round, local_loss=0.2425, local_acc=0.9400]modality_exclusive-0.7:  60%|██████    | 15/25 [1:20:54<51:58, 311.89s/round, local_loss=0.2133, local_acc=0.9470]modality_exclusive-0.7:  64%|██████▍   | 16/25 [1:20:54<45:39, 304.39s/round, local_loss=0.2133, local_acc=0.9470]modality_exclusive-0.7:  64%|██████▍   | 16/25 [1:25:41<45:39, 304.39s/round, local_loss=0.1927, local_acc=0.9487]modality_exclusive-0.7:  68%|██████▊   | 17/25 [1:25:41<39:53, 299.16s/round, local_loss=0.1927, local_acc=0.9487]modality_exclusive-0.7:  68%|██████▊   | 17/25 [1:30:30<39:53, 299.16s/round, local_loss=0.1834, local_acc=0.9502]modality_exclusive-0.7:  72%|███████▏  | 18/25 [1:30:30<34:32, 296.01s/round, local_loss=0.1834, local_acc=0.9502]modality_exclusive-0.7:  72%|███████▏  | 18/25 [1:35:19<34:32, 296.01s/round, local_loss=0.1595, local_acc=0.9586]modality_exclusive-0.7:  76%|███████▌  | 19/25 [1:35:19<29:24, 294.02s/round, local_loss=0.1595, local_acc=0.9586]modality_exclusive-0.7:  76%|███████▌  | 19/25 [1:40:08<29:24, 294.02s/round, local_loss=0.1476, local_acc=0.9609]                                                                                                                  
+Round 020 Global Evaluation
+Train | Loss: 0.5143 | Acc: 0.8453 | Macro-F1: 0.8393 | AUROC: 0.9319
+Val   | Loss: 1.7192 | Acc: 0.6280 | Macro-F1: 0.6222 | AUROC: 0.6749
+Test  | Loss: 1.5161 | Acc: 0.6540 | Macro-F1: 0.6506 | AUROC: 0.7181
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-0.7:  76%|███████▌  | 19/25 [1:41:15<29:24, 294.02s/round, local_loss=0.1476, local_acc=0.9609]modality_exclusive-0.7:  80%|████████  | 20/25 [1:41:15<26:02, 312.49s/round, local_loss=0.1476, local_acc=0.9609]modality_exclusive-0.7:  80%|████████  | 20/25 [1:46:02<26:02, 312.49s/round, local_loss=0.1404, local_acc=0.9621]modality_exclusive-0.7:  84%|████████▍ | 21/25 [1:46:02<20:19, 304.95s/round, local_loss=0.1404, local_acc=0.9621]modality_exclusive-0.7:  84%|████████▍ | 21/25 [1:50:49<20:19, 304.95s/round, local_loss=0.1364, local_acc=0.9635]modality_exclusive-0.7:  88%|████████▊ | 22/25 [1:50:49<14:58, 299.52s/round, local_loss=0.1364, local_acc=0.9635]modality_exclusive-0.7:  88%|████████▊ | 22/25 [1:55:38<14:58, 299.52s/round, local_loss=0.1284, local_acc=0.9641]modality_exclusive-0.7:  92%|█████████▏| 23/25 [1:55:38<09:52, 296.27s/round, local_loss=0.1284, local_acc=0.9641]modality_exclusive-0.7:  92%|█████████▏| 23/25 [2:00:27<09:52, 296.27s/round, local_loss=0.1119, local_acc=0.9688]modality_exclusive-0.7:  96%|█████████▌| 24/25 [2:00:27<04:54, 294.06s/round, local_loss=0.1119, local_acc=0.9688]modality_exclusive-0.7:  96%|█████████▌| 24/25 [2:05:14<04:54, 294.06s/round, local_loss=0.1143, local_acc=0.9680]                                                                                                                  [Best Updated] Round 025 | Best Val AUROC: 0.6786 | Test AUROC: 0.7097
+modality_exclusive-0.7:  96%|█████████▌| 24/25 [2:06:20<04:54, 294.06s/round, local_loss=0.1143, local_acc=0.9680]                                                                                                                  
+Round 025 Global Evaluation
+Train | Loss: 0.5470 | Acc: 0.8623 | Macro-F1: 0.8553 | AUROC: 0.9398
+Val   | Loss: 2.1142 | Acc: 0.6280 | Macro-F1: 0.6172 | AUROC: 0.6786
+Test  | Loss: 1.8924 | Acc: 0.6470 | Macro-F1: 0.6406 | AUROC: 0.7097
+Evaluation mode | modality_exclusive uses both image+text for the server-aggregated global model.
+
+modality_exclusive-0.7:  96%|█████████▌| 24/25 [2:06:20<04:54, 294.06s/round, local_loss=0.1143, local_acc=0.9680]modality_exclusive-0.7: 100%|██████████| 25/25 [2:06:20<00:00, 311.98s/round, local_loss=0.1143, local_acc=0.9680]modality_exclusive-0.7: 100%|██████████| 25/25 [2:06:20<00:00, 303.23s/round, local_loss=0.1143, local_acc=0.9680]
+
+Raw logs saved before structure metrics:
+round_logs: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7/round_logs.csv
+update_metadata: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7/update_metadata.csv
+
+Saved results:
+summary: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7/summary.json
+round_logs: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7/round_logs.csv
+update_metadata: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7/update_metadata.csv
+
+Done.
+Summary:
+setting_name: modality_exclusive
+association: 0.7
+num_clients: 4
+samples_per_client: 2000
+partition_mode: fixed
+allow_overlap: True
+server_calibration_enabled: False
+server_calibration_ratio: 0.05
+server_calibration_size: 0
+server_calibration_remove_from_client_train: False
+server_calibration_steps: 20
+server_calibration_lr: 5e-07
+server_calibration_batch_size: 16
+server_calibration_trainable_patterns: ['multi_modal_projector', 'classifier']
+selection_metric: val_auroc
+best_round: 25
+best_val_loss: 2.114199489593506
+best_val_acc: 0.628
+best_val_macro_f1: 0.6171957323498419
+best_val_auroc: 0.6785777151909874
+best_test_loss: 1.8923965320587157
+best_test_acc: 0.647
+best_test_macro_f1: 0.6406433400420031
+best_test_auroc: 0.7097118847539017
+last_val_loss: 2.114199489593506
+last_val_acc: 0.628
+last_val_macro_f1: 0.6171957323498419
+last_val_auroc: 0.6785777151909874
+last_test_loss: 1.8923965320587157
+last_test_acc: 0.647
+last_test_macro_f1: 0.6406433400420031
+last_test_auroc: 0.7097118847539017
+rounds: 25
+local_epochs: 1
+lr: 5e-06
+weight_decay: 0.03
+fedprox_mu: 0.001
+seed: 42
+model: CLIP-DualEncoder+ServerCalibration
+freeze_image_backbone: False
+freeze_text_backbone: False
+task_type: hateful_memes_2class_modality_specific_classification
+global_num_classes: 2
+random_chance_acc: 0.5
+label_space_split_by_modality: False
+uses_modality_specific_labels: True
+text_client_label_source: text_label
+image_client_label_source: image_label
+train_loss: 0.5469521864255269
+train_acc: 0.8623333333333333
+train_macro_f1: 0.8552642968560813
+train_macro_precision: 0.8488074356751931
+train_macro_recall: 0.8685474537037037
+train_balanced_acc: 0.8685474537037037
+train_auroc: 0.9397955246913582
+train_f1_non_hateful: 0.8872508872508873
+train_f1_hateful: 0.8232777064612752
+train_f1_negative: 0.8872508872508873
+train_f1_neutral: 0.0
+train_f1_positive: 0.8232777064612752
+val_loss: 2.114199489593506
+val_acc: 0.628
+val_macro_f1: 0.6171957323498419
+val_macro_precision: 0.6408409159977833
+val_macro_recall: 0.6260741546782737
+val_balanced_acc: 0.6260741546782737
+val_auroc: 0.6785777151909874
+val_f1_non_hateful: 0.6815068493150684
+val_f1_hateful: 0.5528846153846154
+val_f1_negative: 0.6815068493150684
+val_f1_neutral: 0.0
+val_f1_positive: 0.5528846153846154
+global_acc: 0.628
+global_macro_f1: 0.6171957323498419
+global_macro_precision: 0.6408409159977833
+global_macro_recall: 0.6260741546782737
+global_balanced_acc: 0.6260741546782737
+global_auroc: 0.6785777151909874
+global_f1_non_hateful: 0.6815068493150684
+global_f1_hateful: 0.5528846153846154
+global_f1_negative: 0.6815068493150684
+global_f1_neutral: 0.0
+global_f1_positive: 0.5528846153846154
+test_loss: 1.8923965320587157
+test_acc: 0.647
+test_macro_f1: 0.6406433400420031
+test_macro_precision: 0.6538504115024844
+test_macro_recall: 0.6445978391356542
+test_balanced_acc: 0.6445978391356542
+test_auroc: 0.7097118847539017
+test_f1_non_hateful: 0.6884377758164166
+test_f1_hateful: 0.5928489042675894
+test_f1_negative: 0.6884377758164166
+test_f1_neutral: 0.0
+test_f1_positive: 0.5928489042675894
+train_acc_above_chance: 0.3623333333333333
+val_acc_above_chance: 0.128
+global_acc_above_chance: 0.128
+test_acc_above_chance: 0.14700000000000002
+e_rank: 88.43968420278351
+Top1_ratio: 0.13893802361375615
+Top3_ratio: 0.3161037287034599
+Top5_ratio: 0.3702026342239129
+kmeans_acc: 0.51
+Silhouette: 0.1171735135550172
+DBI: 2.68849991860314
+CHI: 12.466588820933152
+attack_success_rate_rf: 0.7666666666666667
+attack_success_rate_mlp: 0.7
+attack_success_rate_xgb: 0.8
+attack_success_rate_mean: 0.7555555555555555
+Completed method=proposed
+Gaussian noise ratio=0.01
+Formal DP guarantee=False
+Output directory: results/defense_seed42_assoc07/end_to_end/rank_5_alpha_1p0_noise_0p01/proposed/modality_exclusive/0.7
+Raw shape: (100, 1026)
+Scaled shape: (100, 1026)

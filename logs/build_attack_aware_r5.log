@@ -1,0 +1,8 @@
+Loaded shadow updates: (300, 1026)
+Label source: inferred_from_client_order_[0, 1, 0, 1]
+Label counts: {0: 150, 1: 150}
+Saved attack-aware basis: results/defense_seed42_assoc07/subspace/final_attack_aware_r5.npz
+Basis shape: (1026, 5)
+Shadow linear-attack training accuracy: 1.000000
+Orthogonality error: 1.109884e-14
+This is an empirical attack-aware defense, not a formal DP mechanism.
