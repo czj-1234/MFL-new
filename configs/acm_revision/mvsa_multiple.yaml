@@ -1,0 +1,80 @@
+seed: 42
+
+data:
+  name: mvsa_multiple
+  train_json: data/processed/mvsa_3class_train.json
+  val_json: data/processed/mvsa_3class_val.json
+  test_json: data/processed/mvsa_3class_test.json
+  pools_dir: data/processed/acm_revision/mvsa_multiple
+  num_classes: 3
+  eval_label_source: auto
+
+strict_split:
+  shadow_train_ratio: 0.40
+  shadow_val_ratio: 0.20
+  target_ratio: 0.40
+  group_key: null
+  deduplicate: true
+  near_duplicate_check: true
+
+model:
+  architecture: clip_dual
+  tokenizer_name: openai/clip-vit-base-patch32
+  text_model_name: openai/clip-vit-base-patch32
+  image_model_name: openai/clip-vit-base-patch32
+  hidden_dim: 256
+  dropout: 0.4
+  freeze_image_backbone: false
+  freeze_text_backbone: false
+  pretrained_image: true
+  fusion_style: concat_product_absdiff
+  fusion_stage: early
+  missing_mode: learned
+
+federated:
+  num_clients: 20
+  partition_mode: fixed
+  samples_per_client: 250
+  rounds: 50
+  participation_rate: 1.0
+  min_participants: 2
+  local_epochs: 1
+  optimizer: adamw
+  lr: 0.000005
+  weight_decay: 0.03
+  batch_size: 32
+  max_local_steps: null
+  aggregation: fedavg
+  fedprox_mu: 0.0
+  momentum: 0.9
+
+evaluation:
+  eval_batch_size: 64
+  eval_every: 5
+  max_text_len: 77
+  num_workers: 8
+
+experiment:
+  population: target
+  setting_name: modality_exclusive
+  concentration: 0.7
+  output_root: results/acm_revision
+
+update_capture:
+  save_all_checkpoints: true
+  checkpoint_rounds: [1, 5, 10, 20, 30, 40, 50]
+  storage_dtype: float16
+  groups:
+    - classifier_bias
+    - classifier_weight
+    - classifier_head
+    - fusion
+    - image_encoder
+    - text_encoder
+    - missing_modality
+    - all_shared
+    - full_update
+
+defense:
+  name: none
+  group: classifier_head
