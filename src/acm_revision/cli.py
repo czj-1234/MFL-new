@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-import yaml
 
 from .analysis import layer_geometry_report
 from .attacks import (
@@ -16,10 +16,17 @@ from .attacks import (
     run_neural_trajectory_attack,
     run_trajectory_statistical_attack,
 )
+from .basis_baselines import (
+    fit_gradient_orthogonalization_basis,
+    fit_pca_basis,
+    fit_random_basis,
+    fit_supervised_sensitive_basis,
+)
 from .contrast import collect_identical_checkpoint_contrasts, fit_contrast_bases
 from .data_protocol import build_strict_pools, load_json, save_strict_pools
 from .fl import run_strict_fl
 from .orchestrator import generate_job_files, load_yaml, select_defense_operating_point
+from .privacy import rdp_epsilon
 
 
 def _csv_list(value: str):
@@ -89,7 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--clients", default=None)
     p.add_argument("--samples-per-branch", type=int, default=None)
 
-    p = sub.add_parser("fit-basis", help="Fit SVD basis from a just-collected contrast directory")
+    p = sub.add_parser("fit-basis", help="Collect matched contrasts and fit an ordered SVD basis")
     p.add_argument("--config", required=True)
     p.add_argument("--reference-run-dir", required=True)
     p.add_argument("--pool-json", required=True)
@@ -100,6 +107,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--balanced", type=float, default=None)
     p.add_argument("--max-rank", type=int, default=None)
     p.add_argument("--output", required=True)
+
+    p = sub.add_parser("fit-baseline-basis", help="Fit PCA/random/supervised/orthogonalization defense basis on shadow updates")
+    p.add_argument("--method", required=True, choices=["pca", "random", "supervised", "orthogonal"])
+    p.add_argument("--metadata", nargs="+", default=None)
+    p.add_argument("--group", default="classifier_head")
+    p.add_argument("--rank", type=int, required=True)
+    p.add_argument("--dimension", type=int, default=None, help="Required only for random basis without metadata")
+    p.add_argument("--observation", choices=["raw", "observed"], default="raw")
+    p.add_argument("--target", default="dominant_label")
+    p.add_argument("--output", required=True)
+    p.add_argument("--seed", type=int, default=42)
 
     p = sub.add_parser("mechanism", help="Compute layer-wise norms/cosines/SVD/effective-rank diagnostics")
     p.add_argument("--metadata", nargs="+", required=True)
@@ -113,6 +131,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--attack-metric", default="attack_asr")
     p.add_argument("--utility-metric", default="task_auroc")
     p.add_argument("--max-utility-drop", type=float, default=0.02)
+
+    p = sub.add_parser("dp-epsilon", help="Report RDP epsilon for clipping + Gaussian-noise baseline")
+    p.add_argument("--noise-multiplier", type=float, required=True)
+    p.add_argument("--sample-rate", type=float, required=True)
+    p.add_argument("--steps", type=int, required=True)
+    p.add_argument("--delta", type=float, required=True)
 
     return parser
 
@@ -172,13 +196,7 @@ def main() -> None:
     if args.command == "label-distribution":
         frame = read_metadata(args.metadata)
         split = make_attack_split(frame, args.protocol, seed=args.seed)
-        result = run_label_distribution_inference(
-            split,
-            args.group,
-            args.num_classes,
-            observation=args.observation,
-            seed=args.seed,
-        )
+        result = run_label_distribution_inference(split, args.group, args.num_classes, observation=args.observation, seed=args.seed)
         Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame([result]).to_csv(args.output, index=False)
         print(json.dumps(result, indent=2))
@@ -217,11 +235,12 @@ def main() -> None:
 
     if args.command in ("collect-contrast", "fit-basis"):
         cfg = load_yaml(args.config)
+        output_dir = args.contrast_dir if args.command == "fit-basis" else args.output_dir
         result = collect_identical_checkpoint_contrasts(
             cfg,
             args.reference_run_dir,
             args.pool_json,
-            args.contrast_dir if args.command == "fit-basis" else args.output_dir,
+            output_dir,
             checkpoint_rounds=_int_list(args.rounds),
             groups=_csv_list(args.groups),
             concentrated=args.concentrated,
@@ -234,6 +253,37 @@ def main() -> None:
             print(json.dumps(diagnostics, indent=2))
         else:
             print(f"Collected {len(result['records'])} matched contrast records.")
+        return
+
+    if args.command == "fit-baseline-basis":
+        if args.method != "random" and not args.metadata:
+            raise SystemExit("--metadata is required for pca/supervised/orthogonal basis fitting")
+        if args.method == "pca":
+            result = fit_pca_basis(args.metadata, args.group, args.output, args.rank, args.observation)
+        elif args.method == "supervised":
+            result = fit_supervised_sensitive_basis(
+                args.metadata,
+                args.group,
+                args.output,
+                args.rank,
+                target=args.target,
+                observation=args.observation,
+                seed=args.seed,
+            )
+        elif args.method == "orthogonal":
+            result = fit_gradient_orthogonalization_basis(args.metadata, args.group, args.output, args.rank, args.observation)
+        else:
+            dimension = args.dimension
+            if dimension is None:
+                if not args.metadata:
+                    raise SystemExit("random basis needs --dimension or --metadata")
+                frame = read_metadata(args.metadata)
+                first = np.load(frame.iloc[0]["update_path"], allow_pickle=False)
+                key = f"{args.observation}__{args.group}"
+                dimension = int(np.asarray(first[key]).size)
+                first.close()
+            result = fit_random_basis(dimension, args.output, args.rank, seed=args.seed)
+        print(json.dumps(result, indent=2))
         return
 
     if args.command == "mechanism":
@@ -249,6 +299,17 @@ def main() -> None:
             utility_metric=args.utility_metric,
             max_utility_drop=args.max_utility_drop,
         )
+        print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "dp-epsilon":
+        result = {
+            "epsilon": rdp_epsilon(args.noise_multiplier, args.sample_rate, args.steps, args.delta),
+            "delta": args.delta,
+            "noise_multiplier": args.noise_multiplier,
+            "sample_rate": args.sample_rate,
+            "steps": args.steps,
+        }
         print(json.dumps(result, indent=2))
         return
 
