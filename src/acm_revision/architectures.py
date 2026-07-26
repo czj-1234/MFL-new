@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 from transformers import AutoModel, CLIPModel
@@ -96,9 +94,6 @@ class FlexibleCLIPNet(nn.Module, MissingModalityMixin):
         self._init_missing(hidden_dim, missing_mode)
         self.fusion_stage = fusion_stage
         self.fusion = FusionHead(hidden_dim, num_classes, dropout, fusion_style)
-        # Stable names for layer-wise extraction and server-calibration compatibility.
-        self.multi_modal_projector = self.fusion.multi_modal_projector
-        self.classifier = self.fusion.classifier
         self.image_classifier = nn.Linear(hidden_dim, num_classes)
         self.text_classifier = nn.Linear(hidden_dim, num_classes)
 
@@ -121,14 +116,7 @@ class FlexibleCLIPNet(nn.Module, MissingModalityMixin):
         outputs = self.clip.text_model(input_ids=input_ids, attention_mask=attention_mask)
         return self.text_norm(self.text_proj(self.clip.text_projection(outputs.pooler_output)))
 
-    def forward(
-        self,
-        image=None,
-        input_ids=None,
-        attention_mask=None,
-        pixel_values=None,
-        setting: str = "both",
-    ) -> torch.Tensor:
+    def forward(self, image=None, input_ids=None, attention_mask=None, pixel_values=None, setting: str = "both") -> torch.Tensor:
         pixel_values = pixel_values if pixel_values is not None else image
         if input_ids is not None:
             batch_size = input_ids.size(0)
@@ -186,8 +174,6 @@ class ResNetRobertaNet(nn.Module, MissingModalityMixin):
         self._init_missing(hidden_dim, missing_mode)
         self.fusion_stage = fusion_stage
         self.fusion = FusionHead(hidden_dim, num_classes, dropout, fusion_style)
-        self.multi_modal_projector = self.fusion.multi_modal_projector
-        self.classifier = self.fusion.classifier
         self.image_classifier = nn.Linear(hidden_dim, num_classes)
         self.text_classifier = nn.Linear(hidden_dim, num_classes)
 
@@ -206,14 +192,7 @@ class ResNetRobertaNet(nn.Module, MissingModalityMixin):
     def _image_feature(self, pixel_values: torch.Tensor) -> torch.Tensor:
         return self.image_norm(self.image_proj(self.image_encoder(pixel_values)))
 
-    def forward(
-        self,
-        image=None,
-        input_ids=None,
-        attention_mask=None,
-        pixel_values=None,
-        setting: str = "both",
-    ) -> torch.Tensor:
+    def forward(self, image=None, input_ids=None, attention_mask=None, pixel_values=None, setting: str = "both") -> torch.Tensor:
         pixel_values = pixel_values if pixel_values is not None else image
         if input_ids is not None:
             batch_size = input_ids.size(0)
