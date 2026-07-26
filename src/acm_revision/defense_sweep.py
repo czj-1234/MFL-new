@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Sequence
 
 import pandas as pd
 
@@ -43,12 +43,14 @@ def generate_contrast_defense_sweep(
                         }
                         job_id = f"contrast_{idx:06d}"
                         cfg["experiment"]["job_id"] = job_id
+                        cfg["experiment"]["output_root"] = str(Path("results/acm_revision/defense_sweeps") / output_dir.name / job_id)
                         path = output_dir / f"{job_id}.yaml"
                         save_yaml(cfg, path)
                         rows.append(
                             {
                                 "job_id": job_id,
                                 "config_path": str(path),
+                                "output_root": cfg["experiment"]["output_root"],
                                 "seed": seed,
                                 "population": population,
                                 "group": group,
@@ -73,11 +75,7 @@ def generate_layerwise_adaptive_sweep(
     fusion_alphas: Sequence[float] = (0.25, 0.5, 0.75),
     encoder_alphas: Sequence[float] = (0.0, 0.25, 0.5),
 ) -> pd.DataFrame:
-    """Generate separate-basis/separate-alpha layer-wise filters.
-
-    The same NPZ may contain group-specific bases created by fit-basis. Each
-    layer loads its own group key from that file.
-    """
+    """Generate separate-basis/separate-alpha layer-wise filters."""
     base = load_yaml(base_config)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -126,12 +124,14 @@ def generate_layerwise_adaptive_sweep(
                             cfg["defense"] = {"name": "layerwise_contrast_filter", "layers": layers}
                             job_id = f"layerwise_{idx:06d}"
                             cfg["experiment"]["job_id"] = job_id
+                            cfg["experiment"]["output_root"] = str(Path("results/acm_revision/defense_sweeps") / output_dir.name / job_id)
                             path = output_dir / f"{job_id}.yaml"
                             save_yaml(cfg, path)
                             rows.append(
                                 {
                                     "job_id": job_id,
                                     "config_path": str(path),
+                                    "output_root": cfg["experiment"]["output_root"],
                                     "seed": seed,
                                     "population": population,
                                     "rank": rank,
