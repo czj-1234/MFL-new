@@ -2,6 +2,8 @@
 set -euo pipefail
 
 # Prepare strict Shadow-Train / Shadow-Val / Target pools for Hateful Memes.
+# This version preserves the original training examples and prevents leakage by
+# assigning exact/near-duplicate families to a single strict pool.
 # Usage from anywhere inside the repository:
 #   bash scripts/acm_revision/prepare_hateful_data.sh
 
@@ -23,6 +25,7 @@ fi
 
 echo "============================================================"
 echo "ACM Revision - Hateful Memes strict data preparation"
+echo "Policy     : preserve all raw examples; group duplicate families"
 echo "Repository : ${REPO_ROOT}"
 echo "Config     : ${CONFIG}"
 echo "Python     : $(${PYTHON_BIN} --version 2>&1)"
@@ -34,20 +37,17 @@ if [[ ! -f "${CONFIG}" ]]; then
     exit 1
 fi
 
-if [[ ! -f "data/processed/hateful_train.json" ]]; then
-    echo "[ERROR] Missing data/processed/hateful_train.json" >&2
-    exit 1
-fi
-if [[ ! -f "data/processed/hateful_val.json" ]]; then
-    echo "[ERROR] Missing data/processed/hateful_val.json" >&2
-    exit 1
-fi
-if [[ ! -f "data/processed/hateful_test.json" ]]; then
-    echo "[ERROR] Missing data/processed/hateful_test.json" >&2
-    exit 1
-fi
+for required in \
+    data/processed/hateful_train.json \
+    data/processed/hateful_val.json \
+    data/processed/hateful_test.json; do
+    if [[ ! -f "${required}" ]]; then
+        echo "[ERROR] Missing ${required}" >&2
+        exit 1
+    fi
+done
 
-${PYTHON_BIN} -m src.acm_revision.cli prepare-data --config "${CONFIG}"
+${PYTHON_BIN} -m src.acm_revision.prepare_data --config "${CONFIG}"
 
 echo
 if [[ -f "${REPORT}" ]]; then
@@ -56,6 +56,7 @@ if [[ -f "${REPORT}" ]]; then
     echo
     echo "============================================================"
     echo "[OK] Strict Hateful Memes pools were generated successfully."
+    echo "[OK] Original train examples were preserved; duplicate families were grouped, not deleted."
     echo "Output: data/processed/acm_revision/hateful_memes/"
 else
     echo "[ERROR] Command finished but ${REPORT} was not created." >&2
