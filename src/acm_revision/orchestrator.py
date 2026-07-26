@@ -121,6 +121,9 @@ def generate_job_files(matrix_path: str | Path, profile_name: str, output_dir: s
     for idx, cfg in enumerate(jobs):
         job_id = f"{profile_name}_{idx:06d}"
         cfg["experiment"]["job_id"] = job_id
+        # Every matrix job writes into its own root. This prevents E8/E10/E11
+        # ablations that share seed/setting names from overwriting each other.
+        cfg["experiment"]["output_root"] = str(Path("results/acm_revision") / profile_name / job_id)
         path = output_dir / f"{job_id}.yaml"
         save_yaml(cfg, path)
         rows.append(
@@ -128,6 +131,7 @@ def generate_job_files(matrix_path: str | Path, profile_name: str, output_dir: s
                 "job_id": job_id,
                 "profile": profile_name,
                 "config_path": str(path),
+                "output_root": cfg["experiment"]["output_root"],
                 "dataset": cfg["data"].get("name"),
                 "seed": cfg.get("seed"),
                 "population": cfg["experiment"].get("population", "target"),
