@@ -22,8 +22,11 @@ strict_split:
   stratify_keys: [image_label, text_label]
   size_weight: 1.0
   stratify_weight: 2.0
-  refinement_passes: 3
-  swap_attempts_per_pass: 5000
+  family_structure_weight: 2.0
+  family_count_weight: 1.0
+  family_size_bins: [1, 2, 4, 8]
+  refinement_passes: 4
+  swap_attempts_per_pass: 10000
 
 model:
   architecture: clip_dual
