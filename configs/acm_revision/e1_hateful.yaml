@@ -1,0 +1,31 @@
+datasets:
+  hateful_memes: configs/acm_revision/hateful_memes.yaml
+
+seeds: &seeds [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+concentrations: &concentrations [0.5, 0.6, 0.7, 0.8, 0.9]
+settings: &settings [image_only, text_only, modality_exclusive, full_multimodal]
+
+profiles:
+  E1_task_performance_hateful:
+    datasets: [hateful_memes]
+    fixed:
+      experiment:
+        population: target
+      federated:
+        num_clients: 20
+        samples_per_client: 100
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+      # E1 reports utility only. Do not retain per-client update vectors or all
+      # checkpoints; E2/E3 generate their own strict attack populations.
+      update_capture:
+        save_all_checkpoints: false
+        checkpoint_rounds: []
+        groups: []
+        storage_dtype: float16
+    vary:
+      seed: *seeds
+      experiment.setting_name: *settings
+      experiment.concentration: *concentrations
