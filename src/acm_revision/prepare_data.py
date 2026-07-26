@@ -5,8 +5,8 @@ import json
 from typing import List, Optional
 
 from .data_protocol import load_json, save_strict_pools
+from .family_stratified_split import build_strict_pools
 from .orchestrator import load_yaml
-from .strict_split import build_strict_pools
 
 
 def _as_str_list(value) -> Optional[List[str]]:
@@ -18,6 +18,18 @@ def _as_str_list(value) -> Optional[List[str]]:
         return [str(x) for x in value]
     raise ValueError(
         f"Expected stratify_keys to be a list or comma-separated string, got {type(value).__name__}"
+    )
+
+
+def _as_int_list(value, default: List[int]) -> List[int]:
+    if value is None:
+        return list(default)
+    if isinstance(value, str):
+        return [int(x.strip()) for x in value.split(",") if x.strip()]
+    if isinstance(value, (list, tuple)):
+        return [int(x) for x in value]
+    raise ValueError(
+        f"Expected family_size_bins to be a list or comma-separated string, got {type(value).__name__}"
     )
 
 
@@ -47,8 +59,11 @@ def prepare_from_config(config_path: str) -> dict:
         stratify_keys=_as_str_list(split_cfg.get("stratify_keys")),
         size_weight=float(split_cfg.get("size_weight", 1.0)),
         stratify_weight=float(split_cfg.get("stratify_weight", 2.0)),
-        refinement_passes=int(split_cfg.get("refinement_passes", 3)),
-        swap_attempts_per_pass=int(split_cfg.get("swap_attempts_per_pass", 5000)),
+        family_structure_weight=float(split_cfg.get("family_structure_weight", 2.0)),
+        family_count_weight=float(split_cfg.get("family_count_weight", 1.0)),
+        family_size_bins=_as_int_list(split_cfg.get("family_size_bins"), [1, 2, 4, 8]),
+        refinement_passes=int(split_cfg.get("refinement_passes", 4)),
+        swap_attempts_per_pass=int(split_cfg.get("swap_attempts_per_pass", 10000)),
     )
     save_strict_pools(pools, report, data_cfg["pools_dir"])
     return report
@@ -56,7 +71,10 @@ def prepare_from_config(config_path: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Prepare strict ACM-revision pools with exact deduplication and group-aware stratification."
+        description=(
+            "Prepare strict ACM-revision pools with exact deduplication, duplicate-family isolation, "
+            "label stratification, and family-size-structure stratification."
+        )
     )
     parser.add_argument("--config", required=True)
     args = parser.parse_args()
