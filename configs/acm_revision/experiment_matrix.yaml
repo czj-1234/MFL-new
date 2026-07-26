@@ -77,7 +77,8 @@ profiles:
       experiment.concentration: *all_concentrations
 
   # E4 — Independent experimental units, client scale and partial participation.
-  # Paired cases keep the requested samples/client feasible with finite pools.
+  # Keep the total assigned client-data budget fixed at 1500 examples so the
+  # 20/50/100-client comparison changes system scale without changing total data.
   E4_scale_participation:
     datasets: [hateful_memes, mvsa_multiple]
     fixed:
@@ -90,7 +91,7 @@ profiles:
         name: none
     cases:
       - federated.num_clients: 20
-        federated.samples_per_client: 100
+        federated.samples_per_client: 75
       - federated.num_clients: 50
         federated.samples_per_client: 30
       - federated.num_clients: 100
@@ -541,6 +542,8 @@ profiles:
       federated.batch_size: [16, 32, 64]
 
   # E11C — Client-scale + participation robustness with both aggregators.
+  # Use the same 1500 assigned examples at 20/50/100 clients so client-scale
+  # comparisons are not confounded by a changing total local-data budget.
   E11C_system_generalization:
     datasets: [hateful_memes, mvsa_multiple]
     fixed:
@@ -553,7 +556,7 @@ profiles:
     default_fedprox_mu: 0.001
     cases:
       - federated.num_clients: 20
-        federated.samples_per_client: 100
+        federated.samples_per_client: 75
       - federated.num_clients: 50
         federated.samples_per_client: 30
       - federated.num_clients: 100
