@@ -14,6 +14,7 @@ profiles:
       federated:
         num_clients: 20
         samples_per_client: 100
+        rounds: 25
         participation_rate: 1.0
         aggregation: fedavg
       defense:
