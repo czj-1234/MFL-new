@@ -3,7 +3,8 @@ import torch
 
 from src.acm_revision.data_protocol import make_client_specs, partition_clients_strict
 from src.acm_revision.defenses import project_out
-from src.acm_revision.strict_split import build_strict_pools, remove_exact_duplicates
+from src.acm_revision.family_stratified_split import build_strict_pools
+from src.acm_revision.strict_split import remove_exact_duplicates
 
 
 def _binary_data(n=200, start=0, positive_every=2):
@@ -123,6 +124,70 @@ def test_group_aware_stratification_preserves_label_distribution():
     )
     assert len(pools.shadow_train) + len(pools.shadow_val) + len(pools.target) == 200
     assert report["label_distribution"]["max_absolute_joint_proportion_drift"] <= 0.02
+
+
+def test_family_size_structure_is_distributed_across_strict_pools():
+    # Construct an exactly splittable mix of singleton, size-2 and size-4 families.
+    data = []
+    item_id = 0
+
+    for _ in range(100):
+        label = item_id % 2
+        data.append({
+            "id": item_id,
+            "image": f"img/{item_id}.png",
+            "text": f"singleton {item_id}",
+            "label": label,
+            "text_label": label,
+            "image_label": label,
+        })
+        item_id += 1
+
+    for family_id in range(30):
+        for _ in range(2):
+            label = item_id % 2
+            data.append({
+                "id": item_id,
+                "image": f"img/{item_id}.png",
+                "text": f"pair family {family_id}",
+                "label": label,
+                "text_label": label,
+                "image_label": label,
+            })
+            item_id += 1
+
+    for family_id in range(10):
+        for _ in range(4):
+            label = item_id % 2
+            data.append({
+                "id": item_id,
+                "image": f"img/{item_id}.png",
+                "text": f"quad family {family_id}",
+                "label": label,
+                "text_label": label,
+                "image_label": label,
+            })
+            item_id += 1
+
+    pools, report = build_strict_pools(
+        data,
+        task_val=_binary_data(10, start=1000),
+        task_test=_binary_data(10, start=2000),
+        seed=11,
+        group_near_duplicates=False,
+        stratify_keys=["label"],
+        family_structure_weight=3.0,
+        family_count_weight=1.5,
+        refinement_passes=4,
+        swap_attempts_per_pass=2000,
+    )
+
+    assert len(pools.shadow_train) == 80
+    assert len(pools.shadow_val) == 40
+    assert len(pools.target) == 80
+    structure = report["family_structure_distribution"]
+    assert structure["multi_example_family_sample_fraction_range"] <= 0.05
+    assert structure["max_sample_bin_proportion_drift"] <= 0.05
 
 
 def test_fixed_client_partition_has_no_reuse_and_exact_concentration():
