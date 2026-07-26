@@ -26,6 +26,7 @@ model:
   dropout: 0.4
   freeze_image_backbone: false
   freeze_text_backbone: false
+  encoder_train_mode: full
   pretrained_image: true
   fusion_style: concat_product_absdiff
   fusion_stage: early
@@ -34,7 +35,7 @@ model:
 federated:
   num_clients: 20
   partition_mode: fixed
-  samples_per_client: 250
+  samples_per_client: 100
   rounds: 50
   participation_rate: 1.0
   min_participants: 2
