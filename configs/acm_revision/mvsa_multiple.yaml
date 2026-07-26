@@ -47,7 +47,7 @@ federated:
   num_clients: 20
   partition_mode: fixed
   samples_per_client: 100
-  rounds: 50
+  rounds: 25
   participation_rate: 1.0
   min_participants: 2
   local_epochs: 1
@@ -74,7 +74,7 @@ experiment:
 
 update_capture:
   save_all_checkpoints: true
-  checkpoint_rounds: [1, 5, 10, 20, 30, 40, 50]
+  checkpoint_rounds: [1, 5, 10, 15, 20, 25]
   storage_dtype: float16
   groups:
     - classifier_bias
