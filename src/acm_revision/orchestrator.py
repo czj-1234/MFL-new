@@ -4,7 +4,7 @@ import copy
 import itertools
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import List, Mapping
 
 import pandas as pd
 import yaml
@@ -52,12 +52,34 @@ def _merge_dict(base: dict, overlay: Mapping) -> dict:
     return out
 
 
-def expand_profile(matrix_cfg: dict, profile_name: str) -> List[dict]:
-    """Expand one named revision experiment profile into resolved jobs.
+def _apply_dotted_overlay(cfg: dict, overlay: Mapping) -> dict:
+    out = copy.deepcopy(cfg)
+    for key, value in overlay.items():
+        if "." in key:
+            deep_set(out, key, value)
+        elif isinstance(value, Mapping) and isinstance(out.get(key), Mapping):
+            out[key] = _merge_dict(out[key], value)
+        else:
+            out[key] = copy.deepcopy(value)
+    return out
 
-    Matrix profiles deliberately vary only the factors needed by that experiment
-    rather than taking a scientifically unhelpful Cartesian product of every
-    robustness factor at once.
+
+def _finalize_job(cfg: dict, profile: dict, factors: dict) -> dict:
+    aggregation = str(deep_get(cfg, "federated.aggregation", "fedavg")).lower()
+    if aggregation == "fedavg":
+        deep_set(cfg, "federated.fedprox_mu", 0.0)
+    elif aggregation == "fedprox" and float(deep_get(cfg, "federated.fedprox_mu", 0.0)) <= 0:
+        deep_set(cfg, "federated.fedprox_mu", float(profile.get("default_fedprox_mu", 0.001)))
+    cfg["experiment"]["profile_factors"] = factors
+    return cfg
+
+
+def expand_profile(matrix_cfg: dict, profile_name: str) -> List[dict]:
+    """Expand one named E1-E11 profile into resolved jobs.
+
+    `vary` creates a Cartesian product for independent factors. `cases` is a
+    list of paired overlays used when settings must change together, e.g.
+    architecture + tokenizer, or client count + samples/client.
     """
     datasets = matrix_cfg["datasets"]
     profile = matrix_cfg["profiles"][profile_name]
@@ -66,6 +88,7 @@ def expand_profile(matrix_cfg: dict, profile_name: str) -> List[dict]:
     vary_keys = list(vary)
     vary_values = [vary[key] for key in vary_keys]
     fixed = profile.get("fixed", {})
+    cases = profile.get("cases", [None])
     jobs = []
 
     for dataset_name in dataset_names:
@@ -74,30 +97,22 @@ def expand_profile(matrix_cfg: dict, profile_name: str) -> List[dict]:
         base.setdefault("data", {})["name"] = dataset_name
         base.setdefault("experiment", {})["revision_experiment"] = profile_name
         base = _merge_dict(base, fixed)
-        combinations = itertools.product(*vary_values) if vary_keys else [tuple()]
-        for values in combinations:
-            cfg = copy.deepcopy(base)
-            factors = {}
-            for key, value in zip(vary_keys, values):
-                deep_set(cfg, key, value)
-                factors[key] = value
-
-            aggregation = str(deep_get(cfg, "federated.aggregation", "fedavg")).lower()
-            if aggregation == "fedavg":
-                deep_set(cfg, "federated.fedprox_mu", 0.0)
-            elif aggregation == "fedprox" and float(deep_get(cfg, "federated.fedprox_mu", 0.0)) <= 0:
-                deep_set(cfg, "federated.fedprox_mu", float(profile.get("default_fedprox_mu", 0.001)))
-
-            cfg["experiment"]["profile_factors"] = factors
-            jobs.append(cfg)
+        combinations = list(itertools.product(*vary_values)) if vary_keys else [tuple()]
+        for case in cases:
+            case_cfg = _apply_dotted_overlay(base, case or {})
+            for values in combinations:
+                cfg = copy.deepcopy(case_cfg)
+                factors = {}
+                if case:
+                    factors.update({f"case::{k}": v for k, v in case.items()})
+                for key, value in zip(vary_keys, values):
+                    deep_set(cfg, key, value)
+                    factors[key] = value
+                jobs.append(_finalize_job(cfg, profile, factors))
     return jobs
 
 
-def generate_job_files(
-    matrix_path: str | Path,
-    profile_name: str,
-    output_dir: str | Path,
-) -> pd.DataFrame:
+def generate_job_files(matrix_path: str | Path, profile_name: str, output_dir: str | Path) -> pd.DataFrame:
     matrix_cfg = load_yaml(matrix_path)
     jobs = expand_profile(matrix_cfg, profile_name)
     output_dir = Path(output_dir) / profile_name
@@ -120,10 +135,19 @@ def generate_job_files(
                 "concentration": cfg["experiment"].get("concentration"),
                 "architecture": cfg["model"].get("architecture"),
                 "num_clients": cfg["federated"].get("num_clients"),
+                "samples_per_client": cfg["federated"].get("samples_per_client"),
                 "participation_rate": cfg["federated"].get("participation_rate"),
                 "aggregation": cfg["federated"].get("aggregation"),
                 "optimizer": cfg["federated"].get("optimizer"),
+                "local_epochs": cfg["federated"].get("local_epochs"),
+                "batch_size": cfg["federated"].get("batch_size"),
+                "fusion_style": cfg["model"].get("fusion_style"),
+                "fusion_stage": cfg["model"].get("fusion_stage"),
+                "missing_mode": cfg["model"].get("missing_mode"),
                 "defense": cfg.get("defense", {}).get("name", "none"),
+                "defense_group": cfg.get("defense", {}).get("group"),
+                "defense_rank": cfg.get("defense", {}).get("rank"),
+                "defense_alpha": cfg.get("defense", {}).get("alpha"),
             }
         )
     manifest = pd.DataFrame(rows)
@@ -139,12 +163,7 @@ def select_defense_operating_point(
     max_utility_drop: float = 0.02,
     baseline_defense_name: str = "none",
 ) -> dict:
-    """Select defense hyperparameters on shadow-validation only.
-
-    Candidate rows should contain defense_name, hyperparameters, attack metric,
-    and utility metric. The selected point minimizes attack success subject to a
-    maximum utility drop from the no-defense validation baseline.
-    """
+    """Select defense hyperparameters on shadow-validation only."""
     frame = pd.read_csv(validation_results_csv)
     baseline = frame[frame["defense_name"] == baseline_defense_name]
     if baseline.empty:
@@ -175,12 +194,12 @@ def select_defense_operating_point(
 def summarize_job_status(job_manifest: str | Path, results_root: str | Path) -> pd.DataFrame:
     jobs = pd.read_csv(job_manifest)
     root = Path(results_root)
+    summaries = list(root.rglob("summary.json"))
     rows = []
     for row in jobs.to_dict("records"):
-        matches = list(root.rglob("summary.json"))
         completed = False
         summary_path = None
-        for path in matches:
+        for path in summaries:
             try:
                 with path.open("r", encoding="utf-8") as f:
                     summary = json.load(f)
