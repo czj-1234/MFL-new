@@ -4,6 +4,8 @@ set -euo pipefail
 # Prepare strict Shadow-Train / Shadow-Val / Target pools for Hateful Memes.
 # Exact duplicate identities/pairs are removed. Repeated/near-duplicate content
 # is retained but grouped so one duplicate family can never cross strict pools.
+# Whole-family assignment jointly balances pool size, label composition, and
+# duplicate-family-size structure.
 # Usage from anywhere inside the repository:
 #   bash scripts/acm_revision/prepare_hateful_data.sh
 
@@ -25,7 +27,7 @@ fi
 
 echo "============================================================"
 echo "ACM Revision - Hateful Memes strict data preparation"
-echo "Policy     : exact dedup + grouped near-duplicates + stratified pools"
+echo "Policy     : exact dedup + family isolation + label/family-size stratification"
 echo "Repository : ${REPO_ROOT}"
 echo "Config     : ${CONFIG}"
 echo "Python     : $(${PYTHON_BIN} --version 2>&1)"
@@ -56,8 +58,8 @@ if [[ -f "${REPORT}" ]]; then
     echo
     echo "============================================================"
     echo "[OK] Strict Hateful Memes pools were generated successfully."
-    echo "[OK] Exact duplicates were removed; near-duplicate families stay within one pool."
-    echo "[OK] Pool label distributions were stratified toward the benchmark distribution."
+    echo "[OK] Exact duplicates removed; near-duplicate families do not cross pools."
+    echo "[OK] Label distributions and duplicate-family-size structure were jointly balanced."
     echo "Output: data/processed/acm_revision/hateful_memes/"
 else
     echo "[ERROR] Command finished but ${REPORT} was not created." >&2
