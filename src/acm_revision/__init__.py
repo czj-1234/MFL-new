@@ -8,7 +8,7 @@ attacks, adaptive defenses, and run-level statistics.
 
 from . import data_protocol as _data_protocol
 from .data_protocol import ClientSpec, StrictPools
-from .strict_split import build_strict_pools as _strict_build_strict_pools
+from .family_stratified_split import build_strict_pools as _strict_build_strict_pools
 
 
 def _compat_build_strict_pools(*args, **kwargs):
@@ -16,8 +16,8 @@ def _compat_build_strict_pools(*args, **kwargs):
 
     Older CLI code used ``deduplicate`` and ``enable_near_duplicate_check``.
     In the revision protocol these mean exact-pair deduplication and grouping of
-    near-duplicate families, respectively.  We also infer joint image/text label
-    stratification when both modality labels are available.
+    near-duplicate families. The final splitter also balances label composition
+    and duplicate-family-size structure across Shadow-Train/Shadow-Val/Target.
     """
     if "deduplicate" in kwargs:
         kwargs.setdefault("exact_deduplicate", bool(kwargs.pop("deduplicate")))
