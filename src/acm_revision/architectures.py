@@ -69,8 +69,18 @@ class MissingModalityMixin:
         return token.expand(batch_size, -1).to(device)
 
 
+def _freeze(module: nn.Module) -> None:
+    for p in module.parameters():
+        p.requires_grad = False
+
+
+def _unfreeze(module: nn.Module) -> None:
+    for p in module.parameters():
+        p.requires_grad = True
+
+
 class FlexibleCLIPNet(nn.Module, MissingModalityMixin):
-    """CLIP dual encoder with configurable fusion and missing-modality handling."""
+    """CLIP dual encoder with fusion/missing-modality/encoder-training ablations."""
 
     def __init__(
         self,
@@ -83,6 +93,7 @@ class FlexibleCLIPNet(nn.Module, MissingModalityMixin):
         fusion_style: str = "concat_product_absdiff",
         fusion_stage: str = "early",
         missing_mode: str = "learned",
+        encoder_train_mode: str = "full",
     ):
         super().__init__()
         self.clip = CLIPModel.from_pretrained(model_name)
@@ -96,17 +107,43 @@ class FlexibleCLIPNet(nn.Module, MissingModalityMixin):
         self.fusion = FusionHead(hidden_dim, num_classes, dropout, fusion_style)
         self.image_classifier = nn.Linear(hidden_dim, num_classes)
         self.text_classifier = nn.Linear(hidden_dim, num_classes)
+        self._configure_encoder_training(encoder_train_mode, freeze_image_backbone, freeze_text_backbone)
 
-        if freeze_image_backbone:
-            for p in self.clip.vision_model.parameters():
-                p.requires_grad = False
-            for p in self.clip.visual_projection.parameters():
-                p.requires_grad = False
-        if freeze_text_backbone:
-            for p in self.clip.text_model.parameters():
-                p.requires_grad = False
-            for p in self.clip.text_projection.parameters():
-                p.requires_grad = False
+    def _configure_encoder_training(self, mode: str, freeze_image: bool, freeze_text: bool) -> None:
+        mode = str(mode).lower()
+        if mode == "full":
+            if freeze_image:
+                _freeze(self.clip.vision_model)
+                _freeze(self.clip.visual_projection)
+            if freeze_text:
+                _freeze(self.clip.text_model)
+                _freeze(self.clip.text_projection)
+            return
+        if mode == "frozen":
+            _freeze(self.clip.vision_model)
+            _freeze(self.clip.visual_projection)
+            _freeze(self.clip.text_model)
+            _freeze(self.clip.text_projection)
+            return
+        if mode == "partial":
+            _freeze(self.clip.vision_model)
+            _freeze(self.clip.visual_projection)
+            _freeze(self.clip.text_model)
+            _freeze(self.clip.text_projection)
+            vision_layers = getattr(getattr(self.clip.vision_model, "encoder", None), "layers", None)
+            text_layers = getattr(getattr(self.clip.text_model, "encoder", None), "layers", None)
+            if vision_layers is not None and len(vision_layers) > 0:
+                _unfreeze(vision_layers[-1])
+            if text_layers is not None and len(text_layers) > 0:
+                _unfreeze(text_layers[-1])
+            _unfreeze(self.clip.visual_projection)
+            _unfreeze(self.clip.text_projection)
+            if hasattr(self.clip.vision_model, "post_layernorm"):
+                _unfreeze(self.clip.vision_model.post_layernorm)
+            if hasattr(self.clip.text_model, "final_layer_norm"):
+                _unfreeze(self.clip.text_model.final_layer_norm)
+            return
+        raise ValueError("encoder_train_mode must be full, partial, or frozen.")
 
     def _image_feature(self, pixel_values: torch.Tensor) -> torch.Tensor:
         outputs = self.clip.vision_model(pixel_values=pixel_values)
@@ -126,12 +163,10 @@ class FlexibleCLIPNet(nn.Module, MissingModalityMixin):
             device = pixel_values.device
         else:
             raise ValueError("No input was provided.")
-
         use_image = setting in ("image", "image_only", "both", "multimodal", "full_multimodal")
         use_text = setting in ("text", "text_only", "both", "multimodal", "full_multimodal")
         image_feat = self._image_feature(pixel_values) if use_image else self._missing("image", batch_size, device)
         text_feat = self._text_feature(input_ids, attention_mask) if use_text else self._missing("text", batch_size, device)
-
         if self.fusion_stage == "late" or self.missing_mode == "separate_heads":
             if use_image and use_text:
                 return 0.5 * (self.image_classifier(image_feat) + self.text_classifier(text_feat))
@@ -158,6 +193,7 @@ class ResNetRobertaNet(nn.Module, MissingModalityMixin):
         fusion_style: str = "concat_product_absdiff",
         fusion_stage: str = "early",
         missing_mode: str = "learned",
+        encoder_train_mode: str = "full",
     ):
         super().__init__()
         weights = ResNet18_Weights.DEFAULT if pretrained_image else None
@@ -176,13 +212,30 @@ class ResNetRobertaNet(nn.Module, MissingModalityMixin):
         self.fusion = FusionHead(hidden_dim, num_classes, dropout, fusion_style)
         self.image_classifier = nn.Linear(hidden_dim, num_classes)
         self.text_classifier = nn.Linear(hidden_dim, num_classes)
+        self._configure_encoder_training(encoder_train_mode, freeze_image_backbone, freeze_text_backbone)
 
-        if freeze_image_backbone:
-            for p in self.image_encoder.parameters():
-                p.requires_grad = False
-        if freeze_text_backbone:
-            for p in self.text_encoder.parameters():
-                p.requires_grad = False
+    def _configure_encoder_training(self, mode: str, freeze_image: bool, freeze_text: bool) -> None:
+        mode = str(mode).lower()
+        if mode == "full":
+            if freeze_image:
+                _freeze(self.image_encoder)
+            if freeze_text:
+                _freeze(self.text_encoder)
+            return
+        if mode == "frozen":
+            _freeze(self.image_encoder)
+            _freeze(self.text_encoder)
+            return
+        if mode == "partial":
+            _freeze(self.image_encoder)
+            _freeze(self.text_encoder)
+            _unfreeze(self.image_encoder.layer4)
+            encoder = getattr(self.text_encoder, "encoder", None)
+            layers = getattr(encoder, "layer", None)
+            if layers is not None and len(layers) > 0:
+                _unfreeze(layers[-1])
+            return
+        raise ValueError("encoder_train_mode must be full, partial, or frozen.")
 
     def _text_feature(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         outputs = self.text_encoder(input_ids=input_ids, attention_mask=attention_mask)
@@ -202,12 +255,10 @@ class ResNetRobertaNet(nn.Module, MissingModalityMixin):
             device = pixel_values.device
         else:
             raise ValueError("No input was provided.")
-
         use_image = setting in ("image", "image_only", "both", "multimodal", "full_multimodal")
         use_text = setting in ("text", "text_only", "both", "multimodal", "full_multimodal")
         image_feat = self._image_feature(pixel_values) if use_image else self._missing("image", batch_size, device)
         text_feat = self._text_feature(input_ids, attention_mask) if use_text else self._missing("text", batch_size, device)
-
         if self.fusion_stage == "late" or self.missing_mode == "separate_heads":
             if use_image and use_text:
                 return 0.5 * (self.image_classifier(image_feat) + self.text_classifier(text_feat))
@@ -229,6 +280,7 @@ def build_architecture(cfg: dict) -> nn.Module:
         fusion_style=model_cfg.get("fusion_style", "concat_product_absdiff"),
         fusion_stage=model_cfg.get("fusion_stage", "early"),
         missing_mode=model_cfg.get("missing_mode", "learned"),
+        encoder_train_mode=model_cfg.get("encoder_train_mode", "full"),
     )
     if arch == "clip_dual":
         return FlexibleCLIPNet(model_name=model_cfg["image_model_name"], **common)
