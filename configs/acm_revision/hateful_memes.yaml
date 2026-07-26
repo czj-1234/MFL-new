@@ -14,8 +14,10 @@ strict_split:
   shadow_val_ratio: 0.20
   target_ratio: 0.40
   group_key: null
-  deduplicate: true
-  near_duplicate_check: true
+  group_near_duplicates: true
+  text_hamming_threshold: 3
+  image_hamming_threshold: 4
+  min_text_tokens_for_near: 3
 
 model:
   architecture: clip_dual
