@@ -2,6 +2,14 @@ name: ACM Revision CI
 
 on:
   workflow_dispatch:
+  push:
+    branches: [acm-transactions-revision]
+    paths:
+      - 'src/acm_revision/**'
+      - 'configs/acm_revision/**'
+      - 'tests/test_acm_revision_protocol.py'
+      - 'requirements.txt'
+      - '.github/workflows/acm-revision-ci.yml'
   pull_request:
     branches: [main]
     paths:
