@@ -7,10 +7,11 @@ ROUNDS="${3:-30}"
 BASE_CONFIG="configs/acm_revision/hateful_memes.yaml"
 GPU_MIN_FREE_MIB="${GPU_MIN_FREE_MIB:-16000}"
 NUM_CLIENTS=12
-TOTAL_SAMPLES=2000
+SAMPLES_PER_CLIENT=200
+TOTAL_SAMPLES=$((NUM_CLIENTS * SAMPLES_PER_CLIENT))
 
-# Keep diagnostic outputs separate from formal E1 results and older 20-client curves.
-TAG="n12_total2000_c${CONCENTRATION//./p}_r${ROUNDS}"
+# Keep diagnostic outputs separate from formal E1 results and older curves.
+TAG="n12_s200_total${TOTAL_SAMPLES}_c${CONCENTRATION//./p}_r${ROUNDS}"
 ROOT="results/acm_revision/diagnostics/modality_exclusive_curve_seed42_${TAG}"
 CFG_ROOT="configs/acm_revision/generated/modality_exclusive_curve"
 LOG_ROOT="logs/acm_revision/modality_exclusive_curve"
@@ -45,15 +46,8 @@ with open(base_path, "r", encoding="utf-8") as f:
 cfg["seed"] = 42
 cfg["federated"]["num_clients"] = 12
 cfg["federated"]["partition_mode"] = "fixed"
-# 12 does not divide 2000. Use 160/170/170 within each repeated
-# (modality, dominant-label) group: 4 groups x 500 = exactly 2000.
-# All sizes are multiples of 10, so 50/50 through 90/10 remain exact.
-cfg["federated"]["samples_per_client"] = None
-cfg["federated"]["client_sample_counts"] = [
-    160, 160, 160, 160,
-    170, 170, 170, 170,
-    170, 170, 170, 170,
-]
+cfg["federated"]["samples_per_client"] = 200
+cfg["federated"].pop("client_sample_counts", None)
 cfg["federated"]["rounds"] = rounds
 cfg["federated"]["participation_rate"] = 1.0
 cfg["federated"]["local_epochs"] = 1
@@ -68,7 +62,7 @@ cfg["evaluation"]["num_workers"] = 2
 cfg["experiment"]["population"] = "target"
 cfg["experiment"]["setting_name"] = "modality_exclusive"
 cfg["experiment"]["concentration"] = concentration
-cfg["experiment"]["job_id"] = f"modality_exclusive_seed42_n12_total2000_c{concentration}_r{rounds}"
+cfg["experiment"]["job_id"] = f"modality_exclusive_seed42_n12_s200_c{concentration}_r{rounds}"
 cfg["experiment"]["output_root"] = result_root
 
 # Utility/convergence diagnostic only. Keep lightweight progress marker files,
@@ -82,7 +76,7 @@ with open(cfg_path, "w", encoding="utf-8") as f:
 
 print(
     f"Generated: setting=modality_exclusive seed=42 concentration={concentration} "
-    f"rounds={rounds} clients=12 total_samples=2000 client_sizes=160/170 batch=16 local_epochs=1"
+    f"rounds={rounds} clients=12 samples/client=200 total_samples=2400 batch=16 local_epochs=1"
 )
 PY
 
@@ -172,14 +166,14 @@ wait_for_gpu_free
 echo "============================================================"
 echo "START modality_exclusive convergence curve"
 echo "GPU=${GPU} seed=42 concentration=${CONCENTRATION} rounds=${ROUNDS}"
-echo "12 clients, exactly 2000 unique samples total (160/170 per client)"
+echo "12 clients x 200 samples = 2400 unique samples total"
 echo "batch=16, local_epochs=1, FedAvg"
 echo "Evaluation: round 1, every 5 rounds, and final round"
 echo "Log: ${LOG}"
 echo "============================================================"
 
 PYTHONUNBUFFERED=1 CUDA_VISIBLE_DEVICES="${GPU}" \
-  python -m src.acm_revision.custom_curve_runner --config "${CFG}" > "${LOG}" 2>&1 &
+  python -m src.acm_revision.cli run-fl --config "${CFG}" > "${LOG}" 2>&1 &
 TRAIN_PID=$!
 
 cleanup() {
@@ -206,7 +200,7 @@ find "${ROOT_FROM_CFG}" -type d -name updates -prune -exec rm -rf {} + 2>/dev/nu
 find "${ROOT_FROM_CFG}" -type f -name best_model.pt -delete 2>/dev/null || true
 
 echo "============================================================"
-echo "[DONE] modality_exclusive n=12 total=2000 c=${CONCENTRATION}, ${ROUNDS} rounds"
+echo "[DONE] modality_exclusive n=12 s=200 total=2400 c=${CONCENTRATION}, ${ROUNDS} rounds"
 echo "Result root: ${ROOT_FROM_CFG}"
 echo "Check round_metrics.csv for rounds 1,5,10,...,${ROUNDS}."
 echo "============================================================"
