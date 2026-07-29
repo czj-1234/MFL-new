@@ -3,7 +3,7 @@ set -uo pipefail
 
 GPU="${1:-1}"
 CONCENTRATION="${2:-0.5}"
-ROUNDS="${3:-50}"
+ROUNDS="${3:-30}"
 BASE_CONFIG="configs/acm_revision/hateful_memes.yaml"
 GPU_MIN_FREE_MIB="${GPU_MIN_FREE_MIB:-16000}"
 NUM_CLIENTS=12
@@ -19,7 +19,7 @@ LOG="${LOG_ROOT}/modality_exclusive_seed42_${TAG}.log"
 
 if [[ "${GPU}" == *","* ]]; then
   echo "Usage: $0 [single-gpu-id] [concentration] [rounds]" >&2
-  echo "Example: $0 1 0.5 50" >&2
+  echo "Example: $0 1 0.5 30" >&2
   exit 2
 fi
 
