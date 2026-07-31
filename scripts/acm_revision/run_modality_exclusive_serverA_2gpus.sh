@@ -3,7 +3,7 @@ set -euo pipefail
 
 GPU0="${1:-0}"
 GPU1="${2:-1}"
-ROUNDS=120
+ROUNDS=150
 SEEDS=(42 43 44 45 46)
 JOB_SCRIPT="scripts/acm_revision/run_modality_exclusive_curve.sh"
 
@@ -22,7 +22,8 @@ echo "Server A: two-GPU queue"
 echo "GPU ${GPU0}: concentrations 0.5 and 0.8"
 echo "GPU ${GPU1}: concentrations 0.6 and 0.9"
 echo "Seeds: ${SEEDS[*]} | rounds/job: ${ROUNDS}"
-echo "Completed exact 120-round jobs are skipped locally."
+echo "Completed exact 150-round jobs are skipped locally."
+echo "Older 30/120-round results are kept separately and will not be treated as complete."
 echo "============================================================"
 
 run_queue() {
@@ -33,7 +34,7 @@ run_queue() {
 
   for seed in "${SEEDS[@]}"; do
     for concentration in "${concentrations[@]}"; do
-      echo "[SERVER A] GPU=${gpu} seed=${seed} concentration=${concentration}"
+      echo "[SERVER A] GPU=${gpu} seed=${seed} concentration=${concentration} rounds=${ROUNDS}"
       bash "${JOB_SCRIPT}" "${gpu}" "${concentration}" "${ROUNDS}" "${seed}"
     done
   done
@@ -60,4 +61,4 @@ if (( STATUS0 != 0 || STATUS1 != 0 )); then
   exit 1
 fi
 
-echo "[DONE] Server A completed its assigned jobs."
+echo "[DONE] Server A completed its assigned 150-round jobs."
