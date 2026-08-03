@@ -4,7 +4,7 @@ set -euo pipefail
 GPU="${1:-1}"
 ROUNDS=150
 SEEDS=(42 43 44 45 46)
-CONCENTRATIONS=(0.7 1.0)
+CONCENTRATIONS=(0.9 1.0)
 POPULATIONS=(shadow_train shadow_val target)
 JOB_SCRIPT="scripts/acm_revision/run_privacy_capture_job.sh"
 SMOKE_SCRIPT="scripts/acm_revision/smoke_test_privacy_pipeline.sh"
