@@ -47,6 +47,18 @@ def _matching_layout(delta: Mapping[str, torch.Tensor], group: str):
     return names, sizes
 
 
+def _sample_unique_indices(rng: np.random.Generator, population_size: int, sample_size: int) -> np.ndarray:
+    """Sample a small unique coordinate set without allocating O(population_size) memory."""
+    if sample_size >= population_size:
+        return np.arange(population_size, dtype=np.int64)
+    selected = np.empty((0,), dtype=np.int64)
+    while selected.size < sample_size:
+        need = sample_size - selected.size
+        batch = rng.integers(0, population_size, size=max(need * 3, 1024), dtype=np.int64)
+        selected = np.unique(np.concatenate([selected, batch]))
+    return np.sort(selected[:sample_size])
+
+
 def _coordinate_sketch_pair(
     raw_delta: Mapping[str, torch.Tensor],
     observed_delta: Mapping[str, torch.Tensor],
@@ -61,7 +73,7 @@ def _coordinate_sketch_pair(
 
     k = min(int(sketch_dim), original_dim)
     rng = np.random.default_rng(_stable_seed(seed, group, original_dim))
-    sampled = np.sort(rng.choice(original_dim, size=k, replace=False).astype(np.int64))
+    sampled = _sample_unique_indices(rng, original_dim, k)
     raw_out = np.empty(k, dtype=np.float32)
     obs_out = np.empty(k, dtype=np.float32)
 
