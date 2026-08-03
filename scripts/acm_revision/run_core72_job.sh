@@ -132,7 +132,8 @@ reference_rounds = [x for x in [1, 10, 30, 50, 75, 100, 125, 150] if x <= rounds
 cfg["update_capture"]["checkpoint_rounds"] = reference_rounds if reference_checkpoint_job else []
 cfg["update_capture"]["model_checkpoint_rounds"] = reference_rounds if reference_checkpoint_job else []
 cfg["update_capture"]["retain_for_identical_checkpoint_contrast"] = reference_checkpoint_job
-cfg["update_capture"]["storage_dtype"] = "float16"
+# lr=1e-6 produces small update values; float32 avoids privacy-signal loss from float16 quantisation.
+cfg["update_capture"]["storage_dtype"] = "float32"
 
 with open(cfg_path, "w", encoding="utf-8") as f:
     yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
