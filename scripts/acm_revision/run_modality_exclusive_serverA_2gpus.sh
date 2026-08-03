@@ -78,7 +78,10 @@ if [[ "${RUN_PRIVACY_POSTPROCESS:-1}" == "1" ]]; then
       --rounds "${ROUNDS}" \
       --seeds "42,43,44,45,46" \
       --output-root "${POST_ROOT}"
+    ctag="${concentration//./p}"
+    python -m src.acm_revision.privacy_validate \
+      --output-dir "${POST_ROOT}/c${ctag}_r${ROUNDS}"
   done
 fi
 
-echo "[DONE] Server A privacy capture and post-processing completed."
+echo "[DONE] Server A privacy capture and validated post-processing completed."
