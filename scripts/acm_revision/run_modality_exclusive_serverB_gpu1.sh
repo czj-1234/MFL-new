@@ -5,26 +5,48 @@ GPU="${1:-1}"
 ROUNDS=150
 SEEDS=(42 43 44 45 46)
 CONCENTRATIONS=(0.7 1.0)
-JOB_SCRIPT="scripts/acm_revision/run_modality_exclusive_curve.sh"
+POPULATIONS=(shadow_train shadow_val target)
+JOB_SCRIPT="scripts/acm_revision/run_privacy_capture_job.sh"
+SMOKE_SCRIPT="scripts/acm_revision/smoke_test_privacy_pipeline.sh"
+RESULT_ROOT="results/acm_revision/privacy_capture_r${ROUNDS}"
+POST_ROOT="results/acm_revision/privacy_postprocess_r${ROUNDS}"
 
-if [[ ! -f "${JOB_SCRIPT}" ]]; then
-  echo "Missing ${JOB_SCRIPT}. Run this script from the repository root." >&2
-  exit 2
+for file in "${JOB_SCRIPT}" "${SMOKE_SCRIPT}"; do
+  [[ -f "${file}" ]] || { echo "Missing ${file}. Run from repository root." >&2; exit 2; }
+done
+
+if [[ "${RUN_PRIVACY_SMOKE:-1}" == "1" ]]; then
+  bash "${SMOKE_SCRIPT}" "${GPU}"
 fi
 
 echo "============================================================"
-echo "Server B: single-GPU queue"
+echo "Server B COMPLETE privacy queue"
 echo "GPU ${GPU}: concentrations ${CONCENTRATIONS[*]}"
-echo "Seeds: ${SEEDS[*]} | rounds/job: ${ROUNDS}"
-echo "Completed exact 150-round jobs are skipped locally."
-echo "Older 30/120-round results are kept separately and will not be treated as complete."
+echo "Seeds: ${SEEDS[*]}"
+echo "Populations per seed/concentration: ${POPULATIONS[*]}"
+echo "Rounds/job: ${ROUNDS}"
+echo "Total on Server B: 30 FL jobs"
 echo "============================================================"
 
-for seed in "${SEEDS[@]}"; do
-  for concentration in "${CONCENTRATIONS[@]}"; do
-    echo "[SERVER B] GPU=${GPU} seed=${seed} concentration=${concentration} rounds=${ROUNDS}"
-    bash "${JOB_SCRIPT}" "${GPU}" "${concentration}" "${ROUNDS}" "${seed}"
+for concentration in "${CONCENTRATIONS[@]}"; do
+  for seed in "${SEEDS[@]}"; do
+    for population in "${POPULATIONS[@]}"; do
+      echo "[SERVER B] GPU=${GPU} c=${concentration} seed=${seed} population=${population}"
+      bash "${JOB_SCRIPT}" "${GPU}" "${concentration}" "${ROUNDS}" "${seed}" "${population}"
+    done
   done
 done
 
-echo "[DONE] Server B completed its assigned 150-round jobs."
+if [[ "${RUN_PRIVACY_POSTPROCESS:-1}" == "1" ]]; then
+  for concentration in "${CONCENTRATIONS[@]}"; do
+    echo "[POSTPROCESS] Server B concentration=${concentration}"
+    CUDA_VISIBLE_DEVICES="${GPU}" python -m src.acm_revision.privacy_postprocess \
+      --root "${RESULT_ROOT}" \
+      --concentration "${concentration}" \
+      --rounds "${ROUNDS}" \
+      --seeds "42,43,44,45,46" \
+      --output-root "${POST_ROOT}"
+  done
+fi
+
+echo "[DONE] Server B privacy capture and post-processing completed."
