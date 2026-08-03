@@ -8,10 +8,11 @@ ROUNDS=2
 JOB_SCRIPT="scripts/acm_revision/run_privacy_capture_job.sh"
 ROOT="results/acm_revision/privacy_capture_r${ROUNDS}"
 OUT="results/acm_revision/privacy_smoke_postprocess"
-PASS_MARKER="${OUT}/c0p7_r2/SMOKE_PASS"
+OUTPUT_DIR="${OUT}/c0p7_r2"
+PASS_MARKER="${OUTPUT_DIR}/SMOKE_PASS"
 
-if [[ -f "${PASS_MARKER}" ]]; then
-  echo "[SMOKE SKIP] Existing PASS marker: ${PASS_MARKER}"
+if [[ -f "${PASS_MARKER}" && -f "${OUTPUT_DIR}/VALIDATION_PASS" ]]; then
+  echo "[SMOKE SKIP] Existing validated PASS marker: ${PASS_MARKER}"
   exit 0
 fi
 
@@ -33,15 +34,18 @@ python -m src.acm_revision.privacy_postprocess \
   --output-root "${OUT}" \
   --smoke
 
-REPORT="${OUT}/c0p7_r2/postprocess_report.json"
-python - "${REPORT}" "${PASS_MARKER}" <<'PY'
+python -m src.acm_revision.privacy_validate \
+  --output-dir "${OUTPUT_DIR}" \
+  --smoke
+
+python - "${OUTPUT_DIR}/validation_report.json" "${PASS_MARKER}" <<'PY'
 import json
 import pathlib
 import sys
 report_path, marker_path = map(pathlib.Path, sys.argv[1:])
 report = json.loads(report_path.read_text(encoding="utf-8"))
 if report.get("status") != "PASS":
-    raise SystemExit(f"Smoke postprocess did not pass: {report}")
+    raise SystemExit(f"Smoke validation did not pass: {report}")
 marker_path.parent.mkdir(parents=True, exist_ok=True)
 marker_path.write_text("PASS\n", encoding="utf-8")
 print(f"[SMOKE PASS] {marker_path}")
