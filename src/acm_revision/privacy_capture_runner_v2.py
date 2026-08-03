@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import errno
 import json
+import os
+import shutil
+import tempfile
+import time
 from pathlib import Path
 from typing import Dict, Mapping, Sequence
 
@@ -67,6 +72,103 @@ def _feature_hash_projection_pair(
     if offset != original_dim:
         raise AssertionError(f"Projection consumed {offset}/{original_dim} coordinates")
     return raw_out.astype(np.float32), obs_out.astype(np.float32), original_dim
+
+
+def _local_spool_dir() -> Path:
+    """Return a node-local spool directory for building NPZ archives.
+
+    Results often live on NFS. Building ZIP archives directly on NFS keeps an
+    open remote file handle for the whole compression operation and can fail
+    with errno 116 (ESTALE). Compression is therefore completed on local disk
+    first, then the finished archive is copied to the result filesystem.
+    """
+    base_dir = Path(os.environ.get("MFL_LOCAL_TMPDIR", tempfile.gettempdir()))
+    spool = base_dir / f"mfl_npz_spool_{os.getuid()}"
+    spool.mkdir(parents=True, exist_ok=True)
+    return spool
+
+
+def _copy_with_fsync(source: Path, destination: Path) -> None:
+    with source.open("rb") as src, destination.open("wb") as dst:
+        shutil.copyfileobj(src, dst, length=8 * 1024 * 1024)
+        dst.flush()
+        os.fsync(dst.fileno())
+
+
+def _validate_npz(path: Path) -> None:
+    if not path.exists() or path.stat().st_size <= 128:
+        raise OSError(errno.EIO, f"Capture archive is missing or too small: {path}")
+    with np.load(path, allow_pickle=False) as archive:
+        if "__capture_info_json" not in archive.files:
+            raise OSError(errno.EIO, f"Capture archive is incomplete: {path}")
+
+
+def _robust_savez_compressed(path: Path, arrays: Dict[str, np.ndarray]) -> None:
+    """Save an NPZ safely when the result directory may be on NFS.
+
+    The archive is compressed entirely on node-local storage. The completed
+    file is then copied to a uniquely named sibling and atomically renamed.
+    ESTALE/EIO/EAGAIN/ETIMEDOUT errors are retried with a fresh destination
+    handle. A failed attempt never leaves the final path looking complete.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    spool = _local_spool_dir()
+    fd, temp_name = tempfile.mkstemp(prefix="capture_", suffix=".npz", dir=spool)
+    os.close(fd)
+    local_tmp = Path(temp_name)
+
+    try:
+        np.savez_compressed(local_tmp, **arrays)
+        _validate_npz(local_tmp)
+
+        retryable = {
+            getattr(errno, "ESTALE", 116),
+            errno.EIO,
+            errno.EAGAIN,
+            getattr(errno, "ETIMEDOUT", 110),
+        }
+        max_attempts = int(os.environ.get("MFL_NFS_WRITE_RETRIES", "6"))
+        last_error: OSError | None = None
+
+        for attempt in range(1, max_attempts + 1):
+            partial = path.with_name(
+                f".{path.name}.partial.{os.getpid()}.{attempt}"
+            )
+            try:
+                partial.unlink(missing_ok=True)
+                _copy_with_fsync(local_tmp, partial)
+                os.replace(partial, path)
+                _validate_npz(path)
+                return
+            except OSError as exc:
+                last_error = exc
+                try:
+                    partial.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                if exc.errno not in retryable or attempt >= max_attempts:
+                    raise
+                delay = min(30, 2 ** (attempt - 1))
+                print(
+                    f"[NFS WRITE RETRY] attempt={attempt}/{max_attempts} "
+                    f"errno={exc.errno} path={path} sleep={delay}s",
+                    flush=True,
+                )
+                time.sleep(delay)
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                except OSError:
+                    pass
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Failed to save capture archive: {path}")
+    finally:
+        try:
+            local_tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _save_capture_npz_factory_v2(cfg: dict):
@@ -169,8 +271,7 @@ def _save_capture_npz_factory_v2(cfg: dict):
         arrays["__capture_info_json"] = np.frombuffer(
             json.dumps(capture_info, sort_keys=True).encode("utf-8"), dtype=np.uint8
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(path, **arrays)
+        _robust_savez_compressed(path, arrays)
         return dimensions
 
     return save_capture_npz
