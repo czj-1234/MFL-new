@@ -25,32 +25,29 @@ fi
 
 echo "============================================================"
 echo "Server A COMPLETE privacy queue"
-echo "GPU ${GPU0}: concentrations 0.5 and 0.8"
-echo "GPU ${GPU1}: concentrations 0.6 and 0.9"
+echo "GPU ${GPU0}: concentration 0.5"
+echo "GPU ${GPU1}: concentration 0.7"
 echo "Seeds: ${SEEDS[*]}"
 echo "Populations per seed/concentration: ${POPULATIONS[*]}"
 echo "Rounds/job: ${ROUNDS}"
-echo "Total on Server A: 60 FL jobs"
+echo "Total on Server A: 30 FL jobs"
 echo "============================================================"
 
 run_queue() {
   local gpu="$1"
-  shift
-  local concentrations=("$@")
-  local concentration seed population
-  for concentration in "${concentrations[@]}"; do
-    for seed in "${SEEDS[@]}"; do
-      for population in "${POPULATIONS[@]}"; do
-        echo "[SERVER A] GPU=${gpu} c=${concentration} seed=${seed} population=${population}"
-        bash "${JOB_SCRIPT}" "${gpu}" "${concentration}" "${ROUNDS}" "${seed}" "${population}"
-      done
+  local concentration="$2"
+  local seed population
+  for seed in "${SEEDS[@]}"; do
+    for population in "${POPULATIONS[@]}"; do
+      echo "[SERVER A] GPU=${gpu} c=${concentration} seed=${seed} population=${population}"
+      bash "${JOB_SCRIPT}" "${gpu}" "${concentration}" "${ROUNDS}" "${seed}" "${population}"
     done
   done
 }
 
-run_queue "${GPU0}" 0.5 0.8 &
+run_queue "${GPU0}" 0.5 &
 PID0=$!
-run_queue "${GPU1}" 0.6 0.9 &
+run_queue "${GPU1}" 0.7 &
 PID1=$!
 
 cleanup() {
@@ -70,7 +67,7 @@ if (( STATUS0 != 0 || STATUS1 != 0 )); then
 fi
 
 if [[ "${RUN_PRIVACY_POSTPROCESS:-1}" == "1" ]]; then
-  for concentration in 0.5 0.6 0.8 0.9; do
+  for concentration in 0.5 0.7; do
     echo "[POSTPROCESS] Server A concentration=${concentration}"
     CUDA_VISIBLE_DEVICES="${GPU0}" python -m src.acm_revision.privacy_postprocess \
       --root "${RESULT_ROOT}" \
