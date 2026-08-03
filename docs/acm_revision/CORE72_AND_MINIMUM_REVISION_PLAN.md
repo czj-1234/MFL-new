@@ -47,6 +47,8 @@ The 0.5 condition retains nominal client roles only for attribution diagnostics.
 
 ### Captured observations
 
+All stored privacy features use float32 because the FL learning rate is 1e-6 and float16 may quantise away small update signals.
+
 Every round, exact:
 
 - classifier bias
