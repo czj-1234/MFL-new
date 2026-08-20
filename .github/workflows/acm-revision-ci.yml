@@ -1,0 +1,64 @@
+name: ACM Revision CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [acm-transactions-revision]
+    paths:
+      - 'src/acm_revision/**'
+      - 'configs/acm_revision/**'
+      - 'scripts/acm_revision/**'
+      - 'tests/test_acm_revision_protocol.py'
+      - 'requirements.txt'
+      - '.github/workflows/acm-revision-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/acm_revision/**'
+      - 'configs/acm_revision/**'
+      - 'scripts/acm_revision/**'
+      - 'tests/test_acm_revision_protocol.py'
+      - 'requirements.txt'
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile revision Python modules
+        run: python -m compileall -q src/acm_revision tests/test_acm_revision_protocol.py
+      - name: Validate revision YAML files
+        run: |
+          pip install PyYAML
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          for path in Path('configs/acm_revision').glob('*.yaml'):
+              with path.open('r', encoding='utf-8') as f:
+                  yaml.safe_load(f)
+              print('OK', path)
+          PY
+      - name: Validate revision shell scripts
+        run: |
+          for path in scripts/acm_revision/*.sh; do
+            bash -n "$path"
+          done
+
+  protocol-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy Pillow pandas scikit-learn scipy PyYAML pytest torch
+      - name: Run strict-protocol unit tests
+        env:
+          PYTHONPATH: .
+        run: pytest -q tests/test_acm_revision_protocol.py
