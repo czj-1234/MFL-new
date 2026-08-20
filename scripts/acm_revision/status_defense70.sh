@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="${DEFENSE70_LOG_ROOT:-logs/acm_revision/defense70_r150}"
 STATE="${DEFENSE70_STATE_ROOT:-${ROOT}/state}"
 RUNTIME="${ROOT}/runtime"
+CHECKPOINT_ROOT="${DEFENSE70_CHECKPOINT_ROOT:-checkpoints/acm_revision/defense70_r150}"
 
 DONE=0
 FAILED=0
@@ -15,6 +16,8 @@ echo "---------------"
 echo "PASS jobs      : ${DONE}/70"
 echo "FAILED markers : ${FAILED}"
 echo "Remaining      : $((70 - DONE))"
+echo "Checkpoint root: ${CHECKPOINT_ROOT}"
+echo "Checkpoint step: ${DEFENSE70_CHECKPOINT_EVERY:-15} rounds"
 
 for S in A B; do
   PIDFILE="${RUNTIME}/server${S}.pid"
@@ -31,8 +34,8 @@ for S in A B; do
 done
 
 echo
-echo "Latest active resume checkpoints:"
-find results/acm_revision/defense70_r150 -type f -path '*/resume/round_*.pt' 2>/dev/null | sort | tail -n 30 || true
+echo "Latest external resume checkpoints:"
+find "${CHECKPOINT_ROOT}" -type f -name 'round_*.pt' 2>/dev/null | sort | tail -n 30 || true
 
 echo
 echo "GPU processes:"
