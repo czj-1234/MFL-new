@@ -8,6 +8,8 @@ JOBS_FILE="${DEFENSE70_JOBS_FILE:-configs/acm_revision/generated/defense70/jobs.
 LOG_ROOT="${DEFENSE70_LOG_ROOT:-logs/acm_revision/defense70_r150}"
 STATE_ROOT="${DEFENSE70_STATE_ROOT:-logs/acm_revision/defense70_r150/state}"
 RUNTIME_ROOT="${LOG_ROOT}/runtime"
+PREP_STATUS="${DEFENSE70_PREP_STATUS_DIR:-logs/acm_revision/defense70_r150/prep}/status.json"
+PREP_LOG="${DEFENSE70_PREP_STATUS_DIR:-logs/acm_revision/defense70_r150/prep}/prepare.log"
 TOTAL_ROUNDS=150
 
 if [[ "${SERVER}" != "A" && "${SERVER}" != "B" ]]; then
@@ -15,15 +17,61 @@ if [[ "${SERVER}" != "A" && "${SERVER}" != "B" ]]; then
   exit 2
 fi
 
-if [[ ! -f "${JOBS_FILE}" ]]; then
-  echo "[ERROR] Missing ${JOBS_FILE}" >&2
-  echo "Defense70 cannot start until the 70 generated configs and jobs.tsv exist." >&2
-  exit 2
-fi
+# During the first launch jobs.tsv does not exist yet by design. Keep the UI
+# alive and show the shadow-only preparation stage instead of reporting a false
+# scheduler failure. Once the locked 70-job matrix appears, switch to the normal
+# round-level dashboard automatically.
+while [[ ! -f "${JOBS_FILE}" ]]; do
+  printf '\033[2J\033[H'
+  echo "============================================================================================"
+  echo "DEFENSE70 SERVER ${SERVER} — PREPARATION"
+  echo "============================================================================================"
+  PIDFILE="${RUNTIME_ROOT}/server${SERVER}.pid"
+  if [[ -f "${PIDFILE}" ]]; then
+    PID="$(cat "${PIDFILE}" 2>/dev/null || true)"
+    if [[ "${PID}" =~ ^[0-9]+$ ]] && kill -0 "${PID}" 2>/dev/null; then
+      echo "Scheduler: RUNNING  PID=${PID}"
+    else
+      echo "Scheduler: NOT RUNNING"
+    fi
+  else
+    echo "Scheduler: STARTING / PID file not written yet"
+  fi
+
+  if [[ -f "${PREP_STATUS}" ]]; then
+    python - "${PREP_STATUS}" <<'PY'
+import json, pathlib, sys
+try:
+    obj = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+    print(f"Stage:   {obj.get('stage','UNKNOWN')}")
+    print(f"Message: {obj.get('message','')}")
+except Exception as exc:
+    print(f"Stage: status file is being updated ({exc})")
+PY
+  elif [[ "${SERVER}" == "B" ]]; then
+    echo "Stage:   WAITING"
+    echo "Message: waiting for Server A to finish the one-time shadow-only preparation"
+  else
+    echo "Stage:   STARTING"
+    echo "Message: waiting for the preparation process to publish its first status"
+  fi
+
+  echo "--------------------------------------------------------------------------------------------"
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=index,memory.used,memory.total,utilization.gpu \
+      --format=csv,noheader,nounits 2>/dev/null | \
+      awk -F',' '{gsub(/ /,"",$0); split($0,a,","); printf "GPU %s: mem %s/%s MiB | util %s%%\n",a[1],a[2],a[3],a[4]}' || true
+  fi
+  echo "--------------------------------------------------------------------------------------------"
+  echo "Formal jobs have not started yet. This is expected on the first launch."
+  echo "Preparation log: ${PREP_LOG}"
+  echo "Ctrl+C closes ONLY this monitor; the background preparation/training process keeps running."
+  echo "Refresh every ${REFRESH}s."
+  sleep "${REFRESH}"
+done
 
 python - "${SERVER}" "${JOBS_FILE}" "${LOG_ROOT}" "${STATE_ROOT}" "${RUNTIME_ROOT}" "${REFRESH}" "${TOTAL_ROUNDS}" <<'PY'
 import csv
-import json
 import os
 import pathlib
 import subprocess
@@ -91,6 +139,7 @@ def read_jobs():
                     "population": exp.get("population", "target"),
                     "seed": cfg.get("seed"),
                     "defense": cfg.get("defense", {}).get("name", "none"),
+                    "op": exp.get("defense70_operating_point", "unknown"),
                 })
                 local_idx += 1
             global_idx += 1
@@ -115,7 +164,8 @@ def max_round(metadata_path):
 
 
 def marker_exists(kind, job_id):
-    return (state_root / kind / f"{job_id}.{ 'done' if kind == 'done' else 'failed'}").exists()
+    suffix = "done" if kind == "done" else "failed"
+    return (state_root / kind / f"{job_id}.{suffix}").exists()
 
 
 def server_alive():
@@ -183,11 +233,10 @@ try:
 
         alive, pid = server_alive()
         pct = 100.0 * round_sum / (len(jobs) * total_rounds)
-
         print("\033[2J\033[H", end="")
-        print("=" * 92)
+        print("=" * 100)
         print(f"DEFENSE70 SERVER {server} — LIVE PROGRESS     {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("=" * 92)
+        print("=" * 100)
         print(f"Scheduler: {'RUNNING' if alive else 'NOT RUNNING'}" + (f"  PID={pid}" if pid else ""))
         print(
             f"Jobs: DONE {done}/35 | RUNNING {active} | STARTING {starting} | "
@@ -196,36 +245,36 @@ try:
         print(f"Round progress: {round_sum}/{len(jobs)*total_rounds} = {pct:5.1f}%")
         for line in gpu_summary():
             print(line)
-        print("-" * 92)
+        print("-" * 100)
         print("ACTIVE / STARTING")
         shown = 0
-        for status, r, j in data:
-            if status not in {"RUNNING", "STARTING"}:
+        for status_name, r, j in data:
+            if status_name not in {"RUNNING", "STARTING"}:
                 continue
             shown += 1
             bar_n = int(20 * r / total_rounds)
             bar = "#" * bar_n + "-" * (20 - bar_n)
             print(
-                f"GPU{j['gpu']}/S{j['slot']}  {status:8s}  [{bar}] {r:3d}/{total_rounds}  "
-                f"{j['job_id']}"
+                f"GPU{j['gpu']}/S{j['slot']}  {status_name:8s}  [{bar}] {r:3d}/{total_rounds}  "
+                f"{j['op']} | {j['population']} seed={j['seed']}"
             )
         if shown == 0:
             print("(none yet)")
 
-        print("-" * 92)
-        finished = [(status, r, j) for status, r, j in data if status == "DONE"][-5:]
+        print("-" * 100)
+        finished = [(s, r, j) for s, r, j in data if s == "DONE"][-5:]
         print("MOST RECENT COMPLETED / CURRENT COMPLETED SET (up to 5 shown)")
         if finished:
-            for status, r, j in finished:
-                print(f"DONE  {r:3d}/{total_rounds}  {j['job_id']}")
+            for _, r, j in finished:
+                print(f"DONE  {r:3d}/{total_rounds}  {j['op']} | {j['population']} seed={j['seed']}")
         else:
             print("(none yet)")
 
-        print("-" * 92)
+        print("-" * 100)
         print(f"Refresh every {refresh}s. Ctrl+C closes ONLY this monitor; background training keeps running.")
         print(f"Re-open anytime: bash scripts/acm_revision/watch_defense70_progress.sh {server}")
         sys.stdout.flush()
         time.sleep(refresh)
 except KeyboardInterrupt:
-    print("\nProgress monitor closed. Defense70 background training was NOT stopped.")
+    print("\nProgress monitor closed. Defense70 background preparation/training was NOT stopped.")
 PY
