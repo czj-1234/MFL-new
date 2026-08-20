@@ -10,4 +10,14 @@ export DEFENSE70_CHECKPOINT_EVERY="${DEFENSE70_CHECKPOINT_EVERY:-15}"
 export DEFENSE70_CHECKPOINT_KEEP_LAST="${DEFENSE70_CHECKPOINT_KEEP_LAST:-2}"
 export MFL_NFS_WRITE_RETRIES="${MFL_NFS_WRITE_RETRIES:-8}"
 
-exec bash scripts/acm_revision/run_defense70_server.sh A "${1:-0}" "${2:-1}"
+GPU0="${1:-0}"
+GPU1="${2:-1}"
+
+# Server A owns the one-time scientific preparation. This step is idempotent:
+# if the locked shadow-only manifest and 70 generated configs already pass the
+# audit, it returns immediately. Otherwise it runs/resumes the shadow reference,
+# fits the bases, tunes on shadow_val only, freezes parameters, then generates
+# jobs.tsv. No target data are used here.
+bash scripts/acm_revision/prepare_defense70.sh "${GPU0}"
+
+exec bash scripts/acm_revision/run_defense70_server.sh A "${GPU0}" "${GPU1}"
