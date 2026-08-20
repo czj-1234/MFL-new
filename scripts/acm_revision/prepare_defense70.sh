@@ -31,6 +31,14 @@ PY
   echo "[$(date '+%F %T')] [DEFENSE70 PREP] ${stage}: ${message}" | tee -a "${LOG_FILE}"
 }
 
+on_error() {
+  local rc=$?
+  set +e
+  status "FAILED" "preparation exited with code ${rc}; inspect ${LOG_FILE}"
+  exit "${rc}"
+}
+trap on_error ERR
+
 ready_check() {
   [[ -f "${MANIFEST}" && -f "${JOBS_FILE}" ]] || return 1
   python - "${MANIFEST}" "${JOBS_FILE}" <<'PY'
@@ -68,6 +76,7 @@ fi
 
 if ready_check; then
   status "READY" "locked shadow-only parameters and all 70 formal configs already exist"
+  trap - ERR
   exit 0
 fi
 
@@ -99,6 +108,7 @@ for round in 1 10 30 50 75 100 125 150; do
   CKPT="${REF_RUN_DIR}/checkpoints/round_$(printf '%04d' "${round}").pt"
   if [[ ! -f "${CKPT}" ]]; then
     status "FAILED" "reference run finished without required checkpoint ${CKPT}"
+    trap - ERR
     exit 3
   fi
 done
@@ -122,8 +132,10 @@ python -m src.acm_revision.defense70_plan \
 
 if ! ready_check; then
   status "FAILED" "post-generation audit failed; formal training was not started"
+  trap - ERR
   exit 4
 fi
 
 status "READY" "Defense70 preparation complete: 70 formal configs are locked and target data were not used for defense selection"
+trap - ERR
 echo "Defense70 is READY. jobs.tsv=${JOBS_FILE}"
