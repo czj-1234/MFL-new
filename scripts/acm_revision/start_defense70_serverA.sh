@@ -8,11 +8,21 @@ mkdir -p "${RUNTIME}"
 
 PIDFILE="${RUNTIME}/serverA.pid"
 MASTERLOG="${RUNTIME}/serverA.nohup.log"
+MONITOR="scripts/acm_revision/watch_defense70_progress.sh"
+
+attach_monitor() {
+  if [[ -t 1 && -f "${MONITOR}" ]]; then
+    echo "Opening live Defense70 progress view..."
+    echo "Ctrl+C closes only the progress view; background training keeps running."
+    exec bash "${MONITOR}" A
+  fi
+}
 
 if [[ -f "${PIDFILE}" ]]; then
   OLD_PID="$(cat "${PIDFILE}" 2>/dev/null || true)"
   if [[ "${OLD_PID}" =~ ^[0-9]+$ ]] && kill -0 "${OLD_PID}" 2>/dev/null; then
     echo "Server A already running: PID=${OLD_PID}"
+    attach_monitor
     exit 0
   fi
 fi
@@ -25,4 +35,11 @@ echo "${PID}" > "${PIDFILE}"
 echo "Server A started safely in background."
 echo "PID=${PID}"
 echo "Master log: ${MASTERLOG}"
-echo "Check: tail -f ${MASTERLOG}"
+echo "Background training is protected from SSH disconnect."
+
+# Give the scheduler a moment to validate jobs.tsv and launch workers.
+sleep 2
+attach_monitor
+
+echo "Live monitor not attached (non-interactive shell)."
+echo "Use: bash scripts/acm_revision/watch_defense70_progress.sh A"
