@@ -19,7 +19,7 @@ if [[ "${GPU0}" == "${GPU1}" ]]; then
   exit 2
 fi
 [[ -f "${JOBS_FILE}" ]] || { echo "[ERROR] Missing ${JOBS_FILE}" >&2; exit 2; }
-[[ -x "${JOB_SCRIPT}" ]] || { echo "[ERROR] Missing/executable ${JOB_SCRIPT}" >&2; exit 2; }
+[[ -f "${JOB_SCRIPT}" ]] || { echo "[ERROR] Missing ${JOB_SCRIPT}" >&2; exit 2; }
 
 mkdir -p "${STATE_ROOT}/server${SERVER}"
 
