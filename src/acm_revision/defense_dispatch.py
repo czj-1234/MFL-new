@@ -12,7 +12,6 @@ from .defenses import (
     delta_to_state,
     flatten_delta,
     load_basis,
-    project_out,
     state_delta,
     transform_vector,
 )
@@ -71,15 +70,17 @@ def _apply_exact(delta, cfg: dict, seed: int) -> dict:
         return {"group": group, "skipped": True, "reason": "empty group"}
     before_norm = float(np.linalg.norm(vector))
 
-    # The formal proposed layer filters reuse the same frozen basis for tens of
-    # thousands of client updates. Cache it once per worker instead of reopening
-    # a potentially large NPZ (e.g. the fusion basis) for every client/round.
+    # Defense70 fit writes orthonormal columns. Cache and use them directly;
+    # re-running a D-by-r QR on the ~1.3M-dimensional fusion basis for every
+    # client update would add needless CPU/memory overhead.
     basis_path = cfg.get("basis_path")
     if str(cfg.get("name")) == "contrast_filter" and basis_path:
         basis = _cached_exact_basis(str(basis_path), group)
         if cfg.get("rank") is not None:
             basis = basis[:, : int(cfg["rank"])]
-        transformed = project_out(vector, basis, alpha=float(cfg.get("alpha", 1.0)))
+        b = np.asarray(basis, dtype=np.float32)
+        projection = b @ (b.T @ vector)
+        transformed = (vector - float(cfg.get("alpha", 1.0)) * projection).astype(np.float32)
     else:
         transformed = transform_vector(vector, cfg, seed=seed, group=group)
 
