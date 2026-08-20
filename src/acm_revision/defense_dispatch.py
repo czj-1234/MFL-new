@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Mapping
 
 import numpy as np
@@ -10,6 +11,8 @@ from .defenses import (
     apply_vector_to_delta,
     delta_to_state,
     flatten_delta,
+    load_basis,
+    project_out,
     state_delta,
     transform_vector,
 )
@@ -28,6 +31,16 @@ _HASH_NAMES = {
 }
 
 
+@lru_cache(maxsize=32)
+def _cached_exact_basis(path: str, group: str) -> np.ndarray:
+    return load_basis(path, group=group)
+
+
+@lru_cache(maxsize=32)
+def _cached_hash_basis(path: str, group: str) -> np.ndarray:
+    return load_hash_basis(path, group=group)
+
+
 def _apply_hash(delta, cfg: dict, seed: int) -> dict:
     group = str(cfg.get("group", "full_update"))
     basis_path = cfg.get("basis_path")
@@ -35,7 +48,7 @@ def _apply_hash(delta, cfg: dict, seed: int) -> dict:
         raise ValueError(f"{cfg.get('name')} requires basis_path")
     projection_dim = int(cfg.get("projection_dim", 512))
     projection_seed = int(cfg.get("projection_seed", 20260820))
-    basis = load_hash_basis(basis_path, group=group)
+    basis = _cached_hash_basis(str(basis_path), group)
     detail = project_delta_inplace(
         delta,
         group=group,
@@ -57,7 +70,19 @@ def _apply_exact(delta, cfg: dict, seed: int) -> dict:
     if vector.size == 0:
         return {"group": group, "skipped": True, "reason": "empty group"}
     before_norm = float(np.linalg.norm(vector))
-    transformed = transform_vector(vector, cfg, seed=seed, group=group)
+
+    # The formal proposed layer filters reuse the same frozen basis for tens of
+    # thousands of client updates. Cache it once per worker instead of reopening
+    # a potentially large NPZ (e.g. the fusion basis) for every client/round.
+    basis_path = cfg.get("basis_path")
+    if str(cfg.get("name")) == "contrast_filter" and basis_path:
+        basis = _cached_exact_basis(str(basis_path), group)
+        if cfg.get("rank") is not None:
+            basis = basis[:, : int(cfg["rank"])]
+        transformed = project_out(vector, basis, alpha=float(cfg.get("alpha", 1.0)))
+    else:
+        transformed = transform_vector(vector, cfg, seed=seed, group=group)
+
     apply_vector_to_delta(delta, transformed, layout)
     return {
         "group": group,
@@ -91,6 +116,11 @@ def apply_defense_to_state(
     if name in _HASH_NAMES:
         delta = state_delta(before_state, after_state)
         detail = _apply_hash(delta, defense_cfg, seed)
+        return delta_to_state(before_state, delta), {"name": name, **detail}
+
+    if name == "contrast_filter" and defense_cfg.get("basis_path"):
+        delta = state_delta(before_state, after_state)
+        detail = _apply_exact(delta, defense_cfg, seed)
         return delta_to_state(before_state, delta), {"name": name, **detail}
 
     if name == "streaming_clip_gaussian":
