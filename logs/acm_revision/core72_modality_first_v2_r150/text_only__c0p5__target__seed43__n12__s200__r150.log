@@ -1,0 +1,265 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 7502.14it/s]
+{
+  "run_id": "hateful_memes__clip_dual__target__text_only__c0.5__n12__p1.0__fedavg__seed43__def-none",
+  "population": "target",
+  "seed": 43,
+  "setting_name": "text_only",
+  "concentration": 0.5,
+  "num_clients": 12,
+  "participation_rate": 1.0,
+  "rounds": 150,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "none",
+    "group": "classifier_head"
+  },
+  "runtime_seconds": 35165.845472574234,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__target__text_only__c0.5__n12__p1.0__fedavg__seed43__def-none",
+    "round": 95,
+    "val_loss": 0.6725800461769104,
+    "val_acc": 0.586,
+    "val_macro_f1": 0.5819853876631166,
+    "val_macro_precision": 0.5878709591944886,
+    "val_macro_recall": 0.584908226784657,
+    "val_balanced_acc": 0.584908226784657,
+    "val_auroc": 0.6192251684242531,
+    "test_loss": 0.6655972337722779,
+    "test_acc": 0.607,
+    "test_macro_f1": 0.603420873382275,
+    "test_macro_precision": 0.608433734939759,
+    "test_macro_recall": 0.6053421368547419,
+    "test_balanced_acc": 0.6053421368547419,
+    "test_auroc": 0.6424289715886355
+  },
+  "strict_data_overlap_allowed": false,
+  "capture_manifest": {
+    "run_dir": "results/acm_revision/core72_modality_first_v2_r150/text_only__c0p5__target__seed43__n12__s200__r150/hateful_memes__clip_dual__target__text_only__c0.5__n12__p1.0__fedavg__seed43__def-none",
+    "n_updates": 1800,
+    "rounds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150
+    ],
+    "milestone_rounds_present": [
+      1,
+      5,
+      10,
+      20,
+      30,
+      50,
+      75,
+      100,
+      125,
+      150
+    ],
+    "groups": {
+      "classifier_bias": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_weight": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_head": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "fusion": {
+        "n_available": 120,
+        "representations": [
+          "exact"
+        ]
+      },
+      "image_encoder": {
+        "n_available": 120,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "text_encoder": {
+        "n_available": 120,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "missing_modality": {
+        "n_available": 120,
+        "representations": [
+          "exact"
+        ]
+      },
+      "all_shared": {
+        "n_available": 120,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "full_update": {
+        "n_available": 120,
+        "representations": [
+          "deterministic_signed_feature_hash_full_group"
+        ]
+      }
+    },
+    "status": "PASS",
+    "failures": []
+  }
+}

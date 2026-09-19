@@ -1,0 +1,283 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights:   8%|▊         | 47/590 [00:00<00:01, 381.21it/s]Loading weights:  15%|█▍        | 86/590 [00:00<00:01, 282.45it/s]Loading weights:  20%|█▉        | 116/590 [00:00<00:01, 252.30it/s]Loading weights:  24%|██▍       | 142/590 [00:00<00:02, 209.05it/s]Loading weights:  31%|███▏      | 185/590 [00:00<00:01, 265.12it/s]Loading weights:  38%|███▊      | 224/590 [00:00<00:01, 288.72it/s]Loading weights:  44%|████▎     | 257/590 [00:00<00:01, 297.90it/s]Loading weights:  49%|████▉     | 289/590 [00:01<00:00, 303.38it/s]Loading weights:  55%|█████▍    | 322/590 [00:01<00:00, 294.22it/s]Loading weights:  60%|█████▉    | 353/590 [00:01<00:00, 240.93it/s]Loading weights:  64%|██████▍   | 379/590 [00:01<00:01, 204.75it/s]Loading weights:  68%|██████▊   | 402/590 [00:01<00:01, 181.74it/s]Loading weights:  72%|███████▏  | 422/590 [00:01<00:00, 183.66it/s]Loading weights:  75%|███████▌  | 445/590 [00:01<00:00, 189.33it/s]Loading weights:  80%|████████  | 472/590 [00:02<00:00, 203.09it/s]Loading weights:  85%|████████▍ | 499/590 [00:02<00:00, 193.35it/s]Loading weights:  90%|████████▉ | 529/590 [00:02<00:00, 217.45it/s]Loading weights:  94%|█████████▎| 552/590 [00:02<00:00, 197.98it/s]Loading weights:  97%|█████████▋| 574/590 [00:02<00:00, 199.74it/s]Loading weights: 100%|██████████| 590/590 [00:02<00:00, 232.65it/s]
+[ROUND RESUME] run=hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca checkpoint=round_0045.pt completed_round=45; continuing at round 46
+[ROUND CHECKPOINT] completed_round=60 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0060.pt
+[ROUND CHECKPOINT] completed_round=75 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0075.pt
+[ROUND CHECKPOINT] completed_round=90 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0090.pt
+[ROUND CHECKPOINT] completed_round=105 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0105.pt
+[ROUND CHECKPOINT] completed_round=120 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0120.pt
+[ROUND CHECKPOINT] completed_round=135 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0135.pt
+[ROUND CHECKPOINT] completed_round=150 saved=results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca/resume/round_0150.pt
+{
+  "run_id": "hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca",
+  "population": "target",
+  "seed": 44,
+  "setting_name": "modality_exclusive",
+  "concentration": 0.7,
+  "num_clients": 12,
+  "participation_rate": 1.0,
+  "rounds": 150,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "implicit_hash_pca",
+    "group": "full_update",
+    "basis_path": "results/acm_revision/defense70_prep/bases/full_update_pca.npz",
+    "rank": 1,
+    "alpha": 0.25,
+    "projection_dim": 512,
+    "projection_seed": 20260820,
+    "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+  },
+  "runtime_seconds": 112012.48406100273,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca",
+    "round": 150,
+    "val_loss": 0.6999802570343018,
+    "val_acc": 0.566,
+    "val_macro_f1": 0.5610681618667346,
+    "val_macro_precision": 0.5675,
+    "val_macro_recall": 0.5648093325438863,
+    "val_balanced_acc": 0.5648093325438863,
+    "val_auroc": 0.600342449312701,
+    "test_loss": 0.6974004278182984,
+    "test_acc": 0.569,
+    "test_macro_f1": 0.5600024909371744,
+    "test_macro_precision": 0.5713913676063553,
+    "test_macro_recall": 0.5663665466186474,
+    "test_balanced_acc": 0.5663665466186474,
+    "test_auroc": 0.6133613445378151
+  },
+  "strict_data_overlap_allowed": false,
+  "round_resume": {
+    "enabled": true,
+    "checkpoint_every": 15,
+    "keep_last": 2,
+    "resumed_from_round": 45
+  },
+  "capture_manifest": {
+    "run_dir": "results/acm_revision/defense70_r150/pca_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_pca",
+    "n_updates": 1800,
+    "rounds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150
+    ],
+    "milestone_rounds_present": [
+      1,
+      10,
+      30,
+      50,
+      75,
+      100,
+      125,
+      150
+    ],
+    "groups": {
+      "classifier_bias": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_weight": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_head": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "fusion": {
+        "n_available": 96,
+        "representations": [
+          "exact"
+        ]
+      },
+      "image_encoder": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "text_encoder": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "missing_modality": {
+        "n_available": 96,
+        "representations": [
+          "exact"
+        ]
+      },
+      "all_shared": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "full_update": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_signed_feature_hash_full_group"
+        ]
+      }
+    },
+    "status": "PASS",
+    "failures": []
+  }
+}

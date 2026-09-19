@@ -1,0 +1,151 @@
+
+==============================================================================
+[1/10] clipgauss_strong
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] clipgauss_strong :: classifier_head
+[ATTACK] clipgauss_strong :: fusion
+[ATTACK] clipgauss_strong :: image_encoder
+[ATTACK] clipgauss_strong :: text_encoder
+[ATTACK] clipgauss_strong :: all_shared
+[ATTACK] clipgauss_strong :: full_update
+[PASS]
+
+==============================================================================
+[2/10] clipgauss_weak
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] clipgauss_weak :: classifier_head
+[ATTACK] clipgauss_weak :: fusion
+[ATTACK] clipgauss_weak :: image_encoder
+[ATTACK] clipgauss_weak :: text_encoder
+[ATTACK] clipgauss_weak :: all_shared
+[ATTACK] clipgauss_weak :: full_update
+[PASS]
+
+==============================================================================
+[3/10] pca_strong
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] pca_strong :: classifier_head
+[ATTACK] pca_strong :: fusion
+[ATTACK] pca_strong :: image_encoder
+[ATTACK] pca_strong :: text_encoder
+[ATTACK] pca_strong :: all_shared
+[ATTACK] pca_strong :: full_update
+[PASS]
+
+==============================================================================
+[4/10] pca_weak
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] pca_weak :: classifier_head
+[ATTACK] pca_weak :: fusion
+[ATTACK] pca_weak :: image_encoder
+[ATTACK] pca_weak :: text_encoder
+[ATTACK] pca_weak :: all_shared
+[ATTACK] pca_weak :: full_update
+[PASS]
+
+==============================================================================
+[5/10] proposed_head_ablation
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] proposed_head_ablation :: classifier_head
+[ATTACK] proposed_head_ablation :: fusion
+[ATTACK] proposed_head_ablation :: image_encoder
+[ATTACK] proposed_head_ablation :: text_encoder
+[ATTACK] proposed_head_ablation :: all_shared
+[ATTACK] proposed_head_ablation :: full_update
+[PASS]
+
+==============================================================================
+[6/10] proposed_single_fullbasis
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] proposed_single_fullbasis :: classifier_head
+[ATTACK] proposed_single_fullbasis :: fusion
+[ATTACK] proposed_single_fullbasis :: image_encoder
+[ATTACK] proposed_single_fullbasis :: text_encoder
+[ATTACK] proposed_single_fullbasis :: all_shared
+[ATTACK] proposed_single_fullbasis :: full_update
+[PASS]
+
+==============================================================================
+[7/10] proposed_system_strong
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] proposed_system_strong :: classifier_head
+[ATTACK] proposed_system_strong :: fusion
+[ATTACK] proposed_system_strong :: image_encoder
+[ATTACK] proposed_system_strong :: text_encoder
+[ATTACK] proposed_system_strong :: all_shared
+[ATTACK] proposed_system_strong :: full_update
+[PASS]
+
+==============================================================================
+[8/10] proposed_system_weak
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] proposed_system_weak :: classifier_head
+[ATTACK] proposed_system_weak :: fusion
+[ATTACK] proposed_system_weak :: image_encoder
+[ATTACK] proposed_system_weak :: text_encoder
+[ATTACK] proposed_system_weak :: all_shared
+[ATTACK] proposed_system_weak :: full_update
+[PASS]
+
+==============================================================================
+[9/10] random_strong
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] random_strong :: classifier_head
+Traceback (most recent call last):
+  File "<stdin>", line 139, in <module>
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/core72_postprocess.py", line 74, in strict_per_target
+    base = make_attack_split(subset, protocol, seed=42)
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/attacks.py", line 139, in make_attack_split
+    raise ValueError(f"cross_partition requires populations {sorted(required)}, observed {sorted(observed)}")
+ValueError: cross_partition requires populations ['shadow_train', 'shadow_val', 'target'], observed ['shadow_val', 'target']
+
+==============================================================================
+[10/10] random_weak
+==============================================================================
+[DISCOVER] validated FL runs: 7
+[ATTACK] random_weak :: classifier_head
+[ATTACK] random_weak :: fusion
+[ATTACK] random_weak :: image_encoder
+[ATTACK] random_weak :: text_encoder
+[ATTACK] random_weak :: all_shared
+[ATTACK] random_weak :: full_update
+[PASS]
+[BASELINE] Added no-defense Core72 c=0.7 baseline.
+{
+  "status": "PARTIAL",
+  "completed_defenses": [
+    "clipgauss_strong",
+    "clipgauss_weak",
+    "pca_strong",
+    "pca_weak",
+    "proposed_head_ablation",
+    "proposed_single_fullbasis",
+    "proposed_system_strong",
+    "proposed_system_weak",
+    "random_weak"
+  ],
+  "failed_defenses": [
+    "random_strong"
+  ],
+  "expected_defenses": [
+    "clipgauss_strong",
+    "clipgauss_weak",
+    "pca_strong",
+    "pca_weak",
+    "proposed_head_ablation",
+    "proposed_single_fullbasis",
+    "proposed_system_strong",
+    "proposed_system_weak",
+    "random_strong",
+    "random_weak"
+  ]
+}

@@ -1,0 +1,92 @@
+seed: 42
+
+data:
+  name: hateful_memes
+  train_json: data/processed/hateful_train.json
+  val_json: data/processed/hateful_val.json
+  test_json: data/processed/hateful_test.json
+  pools_dir: data/processed/acm_revision/hateful_memes
+  num_classes: 2
+  eval_label_source: label
+
+strict_split:
+  shadow_train_ratio: 0.40
+  shadow_val_ratio: 0.20
+  target_ratio: 0.40
+  group_key: null
+  exact_deduplicate: true
+  group_near_duplicates: true
+  text_hamming_threshold: 3
+  image_hamming_threshold: 4
+  min_text_tokens_for_near: 3
+  stratify_keys: [label]
+  size_weight: 1.0
+  stratify_weight: 2.0
+  family_structure_weight: 2.0
+  family_count_weight: 1.0
+  family_size_bins: [1, 2, 4, 8]
+  refinement_passes: 4
+  swap_attempts_per_pass: 10000
+
+model:
+  architecture: clip_dual
+  tokenizer_name: openai/clip-vit-large-patch14
+  text_model_name: openai/clip-vit-large-patch14
+  image_model_name: openai/clip-vit-large-patch14
+  hidden_dim: 512
+  dropout: 0.5
+  freeze_image_backbone: false
+  freeze_text_backbone: false
+  encoder_train_mode: full
+  pretrained_image: true
+  fusion_style: concat_product_absdiff
+  fusion_stage: early
+  missing_mode: learned
+
+federated:
+  num_clients: 20
+  partition_mode: fixed
+  samples_per_client: 100
+  rounds: 25
+  participation_rate: 1.0
+  min_participants: 2
+  local_epochs: 1
+  optimizer: adamw
+  lr: 0.000001
+  weight_decay: 0.05
+  batch_size: 32
+  max_local_steps: null
+  aggregation: fedavg
+  fedprox_mu: 0.0
+  momentum: 0.9
+
+evaluation:
+  eval_batch_size: 64
+  eval_every: 5
+  max_text_len: 77
+  num_workers: 8
+
+experiment:
+  population: target
+  setting_name: modality_exclusive
+  concentration: 0.7
+  output_root: results/acm_revision
+
+update_capture:
+  save_all_checkpoints: true
+  checkpoint_rounds: [1, 5, 10, 15, 20, 25]
+  storage_dtype: float16
+  groups:
+    - classifier_bias
+    - classifier_weight
+    - classifier_head
+    - fusion
+    - image_encoder
+    - text_encoder
+    - missing_modality
+    - all_shared
+    - full_update
+
+defense:
+  name: none
+  group: classifier_head

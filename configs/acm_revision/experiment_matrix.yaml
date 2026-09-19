@@ -1,0 +1,585 @@
+datasets:
+  hateful_memes: configs/acm_revision/hateful_memes.yaml
+  mvsa_multiple: configs/acm_revision/mvsa_multiple.yaml
+
+# Ten genuinely independent FL runs. Every seed regenerates client assignment,
+# model initialization, data order and local-optimization randomness.
+seeds: &seeds [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+main_concentrations: &main_concentrations [0.5, 0.6, 0.7, 0.8, 0.9]
+all_concentrations: &all_concentrations [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+core_settings: &core_settings [image_only, text_only, modality_exclusive]
+all_settings: &all_settings [image_only, text_only, modality_exclusive, full_multimodal]
+
+profiles:
+  # E1 — Task performance / FL validity.
+  E1_task_performance:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: target
+      federated:
+        num_clients: 20
+        samples_per_client: 100
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    vary:
+      seed: *seeds
+      experiment.setting_name: *all_settings
+      experiment.concentration: *main_concentrations
+
+  # E2 — Strict dominant-label leakage. The three population cases are
+  # independent data/client populations. Shadow-train and target use the same
+  # per-client sample budget; shadow-val is only for tuning.
+  E2_strict_leakage:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      federated:
+        num_clients: 20
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - experiment.population: shadow_train
+        federated.samples_per_client: 100
+      - experiment.population: shadow_val
+        federated.samples_per_client: 50
+      - experiment.population: target
+        federated.samples_per_client: 100
+    vary:
+      seed: *seeds
+      experiment.setting_name: *core_settings
+      experiment.concentration: *main_concentrations
+
+  # E3 — Cross-regime modality amplification including complete-modality and
+  # the 100/0 extreme control. Strict attack protocols are run after FL.
+  E3_modality_amplification:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      federated:
+        num_clients: 20
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - experiment.population: shadow_train
+        federated.samples_per_client: 100
+      - experiment.population: shadow_val
+        federated.samples_per_client: 50
+      - experiment.population: target
+        federated.samples_per_client: 100
+    vary:
+      seed: *seeds
+      experiment.setting_name: *all_settings
+      experiment.concentration: *all_concentrations
+
+  # E4 — Independent experimental units, client scale and partial participation.
+  # Keep the total assigned client-data budget fixed at 1500 examples so the
+  # 20/50/100-client comparison changes system scale without changing total data.
+  E4_scale_participation:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - federated.num_clients: 20
+        federated.samples_per_client: 75
+      - federated.num_clients: 50
+        federated.samples_per_client: 30
+      - federated.num_clients: 100
+        federated.samples_per_client: 15
+    vary:
+      seed: *seeds
+      experiment.population: [shadow_train, target]
+      federated.participation_rate: [0.1, 0.2, 0.5, 1.0]
+
+  # E5 — Confounder controls reuse E2 update populations. This profile creates
+  # the canonical FL inputs; run-attacks predicts dominant label, modality,
+  # client identity, round stage and arbitrary balanced random groups.
+  E5_confounder_controls:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - experiment.population: shadow_train
+        federated.samples_per_client: 100
+      - experiment.population: shadow_val
+        federated.samples_per_client: 50
+      - experiment.population: target
+        federated.samples_per_client: 100
+    vary:
+      seed: *seeds
+
+  # E6 — Strong attack family and label-distribution inference reuse the same
+  # strict FL populations; the attack CLI adds LR/SVM/RF/boosting/XGB/MLP,
+  # analytical baselines and trajectory models.
+  E6_attack_family:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - experiment.population: shadow_train
+        federated.samples_per_client: 100
+      - experiment.population: shadow_val
+        federated.samples_per_client: 50
+      - experiment.population: target
+        federated.samples_per_client: 100
+    vary:
+      seed: *seeds
+
+  # E7 — Layer-wise/full-update leakage. All layer vectors are captured by the
+  # base config; attack analysis is performed after these strict FL runs.
+  E7_layer_full_update:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - experiment.population: shadow_train
+        federated.samples_per_client: 100
+      - experiment.population: shadow_val
+        federated.samples_per_client: 50
+      - experiment.population: target
+        federated.samples_per_client: 100
+    vary:
+      seed: *seeds
+
+  # E8 — Mechanism and architecture-component ablations. Each case changes one
+  # scientific factor relative to the canonical CLIP early-fusion model.
+  E8_mechanism_ablations:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: target
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 100
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - model.fusion_style: concat_product_absdiff
+        model.fusion_stage: early
+        model.missing_mode: learned
+        model.encoder_train_mode: full
+      - model.fusion_style: concat
+      - model.fusion_style: product
+      - model.fusion_style: absdiff
+      - model.fusion_stage: late
+      - model.missing_mode: zero
+      - model.missing_mode: fixed
+      - model.missing_mode: separate_heads
+      - model.encoder_train_mode: frozen
+      - model.encoder_train_mode: partial
+    vary:
+      seed: *seeds
+
+  # E9 — Reference trajectories for identical-checkpoint matched contrast.
+  # collect-contrast is run over the saved checkpoints after these jobs finish.
+  E9_identical_checkpoint_contrast:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: shadow_train
+        setting_name: modality_exclusive
+      federated:
+        num_clients: 20
+        samples_per_client: 100
+        participation_rate: 1.0
+        aggregation: fedavg
+      update_capture:
+        save_all_checkpoints: true
+      defense:
+        name: none
+    vary:
+      seed: *seeds
+      experiment.concentration: [0.7, 0.9]
+
+  # E10A — Basis-free privacy/compression baselines. Every candidate must be
+  # evaluated on shadow_val first; only the frozen selection is run on target.
+  E10A_defense_baselines:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 50
+        participation_rate: 1.0
+        aggregation: fedavg
+    cases:
+      - defense.name: none
+        defense.group: full_update
+      - defense.name: clip
+        defense.group: full_update
+        defense.clip_norm: 0.01
+      - defense.name: clip
+        defense.group: full_update
+        defense.clip_norm: 0.05
+      - defense.name: clip
+        defense.group: full_update
+        defense.clip_norm: 0.1
+      - defense.name: clip_gaussian
+        defense.group: full_update
+        defense.clip_norm: 0.05
+        defense.noise_multiplier: 0.25
+      - defense.name: clip_gaussian
+        defense.group: full_update
+        defense.clip_norm: 0.05
+        defense.noise_multiplier: 0.5
+      - defense.name: clip_gaussian
+        defense.group: full_update
+        defense.clip_norm: 0.05
+        defense.noise_multiplier: 1.0
+      - defense.name: local_dp
+        defense.group: full_update
+        defense.clip_norm: 0.05
+        defense.noise_multiplier: 0.5
+      - defense.name: local_dp
+        defense.group: full_update
+        defense.clip_norm: 0.05
+        defense.noise_multiplier: 1.0
+      - defense.name: local_dp
+        defense.group: full_update
+        defense.clip_norm: 0.05
+        defense.noise_multiplier: 2.0
+      - defense.name: quantization
+        defense.group: full_update
+        defense.bits: 2
+      - defense.name: quantization
+        defense.group: full_update
+        defense.bits: 4
+      - defense.name: quantization
+        defense.group: full_update
+        defense.bits: 8
+      - defense.name: sparsification
+        defense.group: full_update
+        defense.keep_fraction: 0.05
+      - defense.name: sparsification
+        defense.group: full_update
+        defense.keep_fraction: 0.1
+      - defense.name: sparsification
+        defense.group: full_update
+        defense.keep_fraction: 0.25
+      - defense.name: random_projection
+        defense.group: full_update
+        defense.rank: 2
+      - defense.name: random_projection
+        defense.group: full_update
+        defense.rank: 4
+      - defense.name: random_projection
+        defense.group: full_update
+        defense.rank: 8
+      - defense.name: topk
+        defense.group: full_update
+        defense.keep_fraction: 0.05
+      - defense.name: topk
+        defense.group: full_update
+        defense.keep_fraction: 0.1
+      - defense.name: topk
+        defense.group: full_update
+        defense.keep_fraction: 0.25
+    vary:
+      seed: *seeds
+      experiment.population: [shadow_val, target]
+
+  # E10B — Head/layer/full variants of the proposed filter. basis_path points to
+  # files generated from E9 shadow_train contrasts. Replace the paths only when
+  # a dataset-specific basis has been fitted; no target update may be used.
+  E10B_contrast_filter_hateful:
+    datasets: [hateful_memes]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 50
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: contrast_filter
+    cases:
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 1
+        defense.alpha: 0.25
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 2
+        defense.alpha: 0.5
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 4
+        defense.alpha: 0.75
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 8
+        defense.alpha: 1.0
+      - defense.group: all_shared
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 4
+        defense.alpha: 0.5
+      - defense.group: all_shared
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 8
+        defense.alpha: 1.0
+      - defense.group: full_update
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 4
+        defense.alpha: 0.5
+      - defense.group: full_update
+        defense.basis_path: artifacts/acm_revision/hateful_memes/contrast_basis.npz
+        defense.rank: 8
+        defense.alpha: 1.0
+    vary:
+      seed: *seeds
+      experiment.population: [shadow_val, target]
+
+  E10B_contrast_filter_mvsa:
+    datasets: [mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 50
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: contrast_filter
+    cases:
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 1
+        defense.alpha: 0.25
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 2
+        defense.alpha: 0.5
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 4
+        defense.alpha: 0.75
+      - defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 8
+        defense.alpha: 1.0
+      - defense.group: all_shared
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 4
+        defense.alpha: 0.5
+      - defense.group: all_shared
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 8
+        defense.alpha: 1.0
+      - defense.group: full_update
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 4
+        defense.alpha: 0.5
+      - defense.group: full_update
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/contrast_basis.npz
+        defense.rank: 8
+        defense.alpha: 1.0
+    vary:
+      seed: *seeds
+      experiment.population: [shadow_val, target]
+
+  # E10C — Rank-matched basis baselines. Files are produced by
+  # `fit-baseline-basis` from shadow_train updates. These paths intentionally
+  # make the provenance explicit and auditable.
+  E10C_basis_baselines_hateful:
+    datasets: [hateful_memes]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 50
+        participation_rate: 1.0
+    cases:
+      - defense.name: rank_matched_pca
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/pca_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+      - defense.name: rank_matched_random_subspace
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/random_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+      - defense.name: supervised_sensitive_direction
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/supervised_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+      - defense.name: gradient_orthogonalization
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/hateful_memes/orthogonal_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+    vary:
+      seed: *seeds
+      experiment.population: [shadow_val, target]
+
+  E10C_basis_baselines_mvsa:
+    datasets: [mvsa_multiple]
+    fixed:
+      experiment:
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 50
+        participation_rate: 1.0
+    cases:
+      - defense.name: rank_matched_pca
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/pca_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+      - defense.name: rank_matched_random_subspace
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/random_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+      - defense.name: supervised_sensitive_direction
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/supervised_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+      - defense.name: gradient_orthogonalization
+        defense.group: classifier_head
+        defense.basis_path: artifacts/acm_revision/mvsa_multiple/orthogonal_classifier_head.npz
+        defense.rank: 4
+        defense.alpha: 1.0
+    vary:
+      seed: *seeds
+      experiment.population: [shadow_val, target]
+
+  # E11A — Two substantially different architectures. Paired architecture
+  # cases also change tokenizer/text model for ResNet+RoBERTa.
+  E11A_architecture_generalization:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: target
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 100
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    cases:
+      - model.architecture: clip_dual
+      - model.architecture: resnet_roberta
+        model.tokenizer_name: roberta-base
+        model.text_model_name: roberta-base
+        model.hidden_dim: 256
+    vary:
+      seed: *seeds
+
+  # E11B — Aggregation, optimizer, local epochs and batch-size robustness.
+  E11B_optimization_generalization:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: target
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        samples_per_client: 100
+        participation_rate: 1.0
+      defense:
+        name: none
+    default_fedprox_mu: 0.001
+    vary:
+      seed: *seeds
+      federated.aggregation: [fedavg, fedprox]
+      federated.optimizer: [adamw, sgd]
+      federated.local_epochs: [1, 2, 5]
+      federated.batch_size: [16, 32, 64]
+
+  # E11C — Client-scale + participation robustness with both aggregators.
+  # Use the same 1500 assigned examples at 20/50/100 clients so client-scale
+  # comparisons are not confounded by a changing total local-data budget.
+  E11C_system_generalization:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: target
+        setting_name: modality_exclusive
+        concentration: 0.7
+      defense:
+        name: none
+    default_fedprox_mu: 0.001
+    cases:
+      - federated.num_clients: 20
+        federated.samples_per_client: 75
+      - federated.num_clients: 50
+        federated.samples_per_client: 30
+      - federated.num_clients: 100
+        federated.samples_per_client: 15
+    vary:
+      seed: *seeds
+      federated.participation_rate: [0.1, 0.2, 0.5, 1.0]
+      federated.aggregation: [fedavg, fedprox]
+
+  # E11D — Explicit client-data-size robustness at a fixed 20-client system.
+  E11D_client_data_size:
+    datasets: [hateful_memes, mvsa_multiple]
+    fixed:
+      experiment:
+        population: target
+        setting_name: modality_exclusive
+        concentration: 0.7
+      federated:
+        num_clients: 20
+        participation_rate: 1.0
+        aggregation: fedavg
+      defense:
+        name: none
+    vary:
+      seed: *seeds
+      federated.samples_per_client: [25, 50, 75, 100]

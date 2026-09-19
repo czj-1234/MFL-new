@@ -1,0 +1,3 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 18249.55it/s]
+[ROUND RESUME] run=hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_random checkpoint=round_0105.pt completed_round=105; continuing at round 106

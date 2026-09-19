@@ -1,0 +1,109 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights:  12%|█▏        | 69/590 [00:00<00:00, 688.80it/s]Loading weights:  23%|██▎       | 138/590 [00:00<00:00, 642.16it/s]Loading weights:  34%|███▍      | 203/590 [00:00<00:00, 585.81it/s]Loading weights:  45%|████▍     | 263/590 [00:00<00:00, 590.16it/s]Loading weights:  73%|███████▎  | 433/590 [00:00<00:00, 965.02it/s]Loading weights:  90%|█████████ | 532/590 [00:00<00:00, 830.86it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 853.66it/s]
+{
+  "run_id": "hateful_memes__clip_dual__shadow_val__modality_exclusive__c0.7__n4__p1.0__fedavg__seed992__def-none",
+  "population": "shadow_val",
+  "seed": 992,
+  "setting_name": "modality_exclusive",
+  "concentration": 0.7,
+  "num_clients": 4,
+  "participation_rate": 1.0,
+  "rounds": 2,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "none",
+    "group": "classifier_head"
+  },
+  "runtime_seconds": 218.4994649887085,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__shadow_val__modality_exclusive__c0.7__n4__p1.0__fedavg__seed992__def-none",
+    "round": 1,
+    "val_loss": 0.6935238251686097,
+    "val_acc": 0.52,
+    "val_macro_f1": 0.506059009483667,
+    "val_macro_precision": 0.5201737607036236,
+    "val_macro_recall": 0.5180586004384631,
+    "val_balanced_acc": 0.5180586004384631,
+    "val_auroc": 0.5088732777519963,
+    "test_loss": 0.693330696105957,
+    "test_acc": 0.504,
+    "test_macro_f1": 0.48700764110392647,
+    "test_macro_precision": 0.500635162601626,
+    "test_macro_recall": 0.5005602240896359,
+    "test_balanced_acc": 0.5005602240896359,
+    "test_auroc": 0.5086034413765507
+  },
+  "strict_data_overlap_allowed": false,
+  "capture_manifest": {
+    "run_dir": "results/acm_revision/core72_modality_first_v2_smoke_r2/modality_exclusive__c0p7__shadow_val__seed992__n4__s8__r2/hateful_memes__clip_dual__shadow_val__modality_exclusive__c0.7__n4__p1.0__fedavg__seed992__def-none",
+    "n_updates": 8,
+    "rounds": [
+      1,
+      2
+    ],
+    "milestone_rounds_present": [
+      1,
+      2
+    ],
+    "groups": {
+      "classifier_bias": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_weight": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_head": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "fusion": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "image_encoder": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "text_encoder": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "missing_modality": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "all_shared": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "full_update": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_signed_feature_hash_full_group"
+        ]
+      }
+    },
+    "status": "PASS",
+    "failures": []
+  }
+}

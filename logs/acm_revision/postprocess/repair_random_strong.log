@@ -1,0 +1,57 @@
+[DISCOVER] random_strong
+[DISCOVER] validated FL runs: 7
+[INFO] shadow_train rows= 1116 round_min= 1 round_max= 93 unique_rounds= 93
+[INFO] strict temporal attacker trains on rounds <= 60, which are fully present in this shadow_train metadata.
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+<stdin>:114: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+[PATCH] availability fallback rows filled: {'classifier_bias': 1116, 'classifier_weight': 1116, 'classifier_head': 1116, 'fusion': 1116, 'image_encoder': 1116, 'text_encoder': 1116, 'missing_modality': 1116, 'all_shared': 1116, 'full_update': 1116}
+[CHECK] classifier_head: populations=['shadow_train', 'shadow_val', 'target'], rows=11916
+[CHECK] fusion: populations=['shadow_train', 'shadow_val', 'target'], rows=636
+[CHECK] image_encoder: populations=['shadow_train', 'shadow_val', 'target'], rows=636
+[CHECK] text_encoder: populations=['shadow_train', 'shadow_val', 'target'], rows=636
+[CHECK] all_shared: populations=['shadow_train', 'shadow_val', 'target'], rows=636
+[CHECK] full_update: populations=['shadow_train', 'shadow_val', 'target'], rows=636
+[CLEAN] removing old partial random_strong postprocess: results/acm_revision/defense70_postprocess_r150/random_strong/modality_exclusive__c0p7__r150
+[ATTACK] random_strong :: classifier_head
+[ATTACK] random_strong :: fusion
+[ATTACK] random_strong :: image_encoder
+[ATTACK] random_strong :: text_encoder
+[ATTACK] random_strong :: all_shared
+[ATTACK] random_strong :: full_update
+[PASS] random_strong repaired and re-evaluated.
+{
+  "status": "PASS",
+  "completed_defenses": [
+    "clipgauss_strong",
+    "clipgauss_weak",
+    "pca_strong",
+    "pca_weak",
+    "proposed_head_ablation",
+    "proposed_single_fullbasis",
+    "proposed_system_strong",
+    "proposed_system_weak",
+    "random_strong",
+    "random_weak"
+  ],
+  "failed_or_missing_defenses": [],
+  "expected_defenses": [
+    "clipgauss_strong",
+    "clipgauss_weak",
+    "pca_strong",
+    "pca_weak",
+    "proposed_head_ablation",
+    "proposed_single_fullbasis",
+    "proposed_system_strong",
+    "proposed_system_weak",
+    "random_strong",
+    "random_weak"
+  ],
+  "primary_comparison_protocol": "cross_partition_temporal"
+}

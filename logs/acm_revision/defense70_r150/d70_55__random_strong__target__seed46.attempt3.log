@@ -1,0 +1,278 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights:  50%|█████     | 295/590 [00:00<00:00, 2593.97it/s]Loading weights:  94%|█████████▍| 555/590 [00:01<00:00, 339.38it/s] Loading weights: 100%|██████████| 590/590 [00:01<00:00, 418.55it/s]
+[ROUND RESUME] run=hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random checkpoint=round_0120.pt completed_round=120; continuing at round 121
+[ROUND CHECKPOINT] completed_round=135 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random/resume/round_0135.pt
+[ROUND CHECKPOINT] completed_round=150 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random/resume/round_0150.pt
+{
+  "run_id": "hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random",
+  "population": "target",
+  "seed": 46,
+  "setting_name": "modality_exclusive",
+  "concentration": 0.7,
+  "num_clients": 12,
+  "participation_rate": 1.0,
+  "rounds": 150,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "implicit_hash_random",
+    "group": "full_update",
+    "basis_path": "results/acm_revision/defense70_prep/bases/full_update_random.npz",
+    "rank": 5,
+    "alpha": 1.0,
+    "projection_dim": 512,
+    "projection_seed": 20260820,
+    "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+  },
+  "runtime_seconds": 87936.44159197807,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random",
+    "round": 135,
+    "val_loss": 0.6661156210899353,
+    "val_acc": 0.614,
+    "val_macro_f1": 0.6069422551331711,
+    "val_macro_precision": 0.620351345798233,
+    "val_macro_recall": 0.6124801971483893,
+    "val_balanced_acc": 0.6124801971483893,
+    "val_auroc": 0.6500616088716775,
+    "test_loss": 0.6577734270095825,
+    "test_acc": 0.623,
+    "test_macro_f1": 0.6172087511968573,
+    "test_macro_precision": 0.6272388515834777,
+    "test_macro_recall": 0.6207883153261304,
+    "test_balanced_acc": 0.6207883153261304,
+    "test_auroc": 0.673017206882753
+  },
+  "strict_data_overlap_allowed": false,
+  "round_resume": {
+    "enabled": true,
+    "checkpoint_every": 15,
+    "keep_last": 2,
+    "resumed_from_round": 120
+  },
+  "capture_manifest": {
+    "run_dir": "results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random",
+    "n_updates": 1800,
+    "rounds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150
+    ],
+    "milestone_rounds_present": [
+      1,
+      10,
+      30,
+      50,
+      75,
+      100,
+      125,
+      150
+    ],
+    "groups": {
+      "classifier_bias": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_weight": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_head": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "fusion": {
+        "n_available": 96,
+        "representations": [
+          "exact"
+        ]
+      },
+      "image_encoder": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "text_encoder": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "missing_modality": {
+        "n_available": 96,
+        "representations": [
+          "exact"
+        ]
+      },
+      "all_shared": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "full_update": {
+        "n_available": 96,
+        "representations": [
+          "deterministic_signed_feature_hash_full_group"
+        ]
+      }
+    },
+    "status": "PASS",
+    "failures": []
+  }
+}

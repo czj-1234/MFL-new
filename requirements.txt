@@ -8,6 +8,7 @@ tokenizers
 pandas
 numpy
 scikit-learn
+scipy
 
 Pillow
 PyYAML
@@ -17,3 +18,5 @@ matplotlib
 seaborn
 
 xgboost
+opacus
+pytest
