@@ -1,0 +1,1084 @@
+[2026-08-20 22:04:42] [DEFENSE70 PREP] STEP1_REFERENCE: checking resumable shadow_train seed142 reference trajectory
+[2026-08-20 22:07:28] [DEFENSE70 PREP] STEP1_REFERENCE: running/resuming the 150-round shadow-only reference on GPU 0; this is preparation, not one of the 70 formal runs
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights:   3%|▎         | 20/590 [00:00<00:02, 197.35it/s]Loading weights:   7%|▋         | 40/590 [00:00<00:02, 184.14it/s]Loading weights:  10%|█         | 59/590 [00:00<00:03, 149.16it/s]Loading weights:  13%|█▎        | 75/590 [00:00<00:03, 150.65it/s]Loading weights:  16%|█▋        | 96/590 [00:00<00:03, 162.74it/s]Loading weights:  19%|█▉        | 113/590 [00:00<00:03, 137.40it/s]Loading weights:  22%|██▏       | 128/590 [00:00<00:03, 125.39it/s]Loading weights:  24%|██▍       | 142/590 [00:01<00:03, 113.18it/s]Loading weights:  26%|██▌       | 154/590 [00:01<00:03, 113.50it/s]Loading weights:  29%|██▉       | 174/590 [00:01<00:03, 134.21it/s]Loading weights:  34%|███▍      | 200/590 [00:01<00:02, 162.94it/s]Loading weights:  38%|███▊      | 227/590 [00:01<00:01, 184.96it/s]Loading weights:  43%|████▎     | 251/590 [00:01<00:01, 194.63it/s]Loading weights:  47%|████▋     | 278/590 [00:01<00:01, 200.84it/s]Loading weights:  51%|█████     | 299/590 [00:01<00:01, 196.65it/s]Loading weights:  54%|█████▍    | 319/590 [00:01<00:01, 176.31it/s]Loading weights:  58%|█████▊    | 343/590 [00:02<00:01, 190.36it/s]Loading weights:  63%|██████▎   | 374/590 [00:02<00:00, 216.79it/s]Loading weights:  67%|██████▋   | 397/590 [00:02<00:00, 204.64it/s]Loading weights:  71%|███████▏  | 421/590 [00:02<00:00, 202.39it/s]Loading weights:  75%|███████▍  | 442/590 [00:02<00:00, 200.03it/s]Loading weights:  78%|███████▊  | 463/590 [00:02<00:00, 192.18it/s]Loading weights:  82%|████████▏ | 483/590 [00:02<00:00, 177.22it/s]Loading weights:  85%|████████▍ | 501/590 [00:02<00:00, 171.35it/s]Loading weights:  88%|████████▊ | 519/590 [00:03<00:00, 163.58it/s]Loading weights:  91%|█████████ | 536/590 [00:03<00:00, 155.55it/s]Loading weights: 100%|██████████| 590/590 [00:03<00:00, 185.74it/s]
+[ROUND RESUME] no checkpoint found; starting run=hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none from round 1
+[ROUND CHECKPOINT] completed_round=5 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0005.pt
+[ROUND CHECKPOINT] completed_round=10 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0010.pt
+[ROUND CHECKPOINT] completed_round=15 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0015.pt
+[ROUND CHECKPOINT] completed_round=20 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0020.pt
+[ROUND CHECKPOINT] completed_round=25 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0025.pt
+[ROUND CHECKPOINT] completed_round=30 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0030.pt
+[ROUND CHECKPOINT] completed_round=35 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0035.pt
+[ROUND CHECKPOINT] completed_round=40 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0040.pt
+[ROUND CHECKPOINT] completed_round=45 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0045.pt
+[ROUND CHECKPOINT] completed_round=50 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0050.pt
+[ROUND CHECKPOINT] completed_round=55 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0055.pt
+[ROUND CHECKPOINT] completed_round=60 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0060.pt
+[ROUND CHECKPOINT] completed_round=65 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0065.pt
+[ROUND CHECKPOINT] completed_round=70 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0070.pt
+[ROUND CHECKPOINT] completed_round=75 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0075.pt
+[ROUND CHECKPOINT] completed_round=80 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0080.pt
+[ROUND CHECKPOINT] completed_round=85 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0085.pt
+[ROUND CHECKPOINT] completed_round=90 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0090.pt
+[ROUND CHECKPOINT] completed_round=95 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0095.pt
+[ROUND CHECKPOINT] completed_round=100 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0100.pt
+[ROUND CHECKPOINT] completed_round=105 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0105.pt
+[ROUND CHECKPOINT] completed_round=110 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0110.pt
+[ROUND CHECKPOINT] completed_round=115 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0115.pt
+[ROUND CHECKPOINT] completed_round=120 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0120.pt
+[ROUND CHECKPOINT] completed_round=125 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0125.pt
+[ROUND CHECKPOINT] completed_round=130 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0130.pt
+[ROUND CHECKPOINT] completed_round=135 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0135.pt
+[ROUND CHECKPOINT] completed_round=140 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0140.pt
+[ROUND CHECKPOINT] completed_round=145 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0145.pt
+[ROUND CHECKPOINT] completed_round=150 saved=results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none/resume/round_0150.pt
+{
+  "run_id": "hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none",
+  "population": "shadow_train",
+  "seed": 142,
+  "setting_name": "modality_exclusive",
+  "concentration": 0.7,
+  "num_clients": 12,
+  "participation_rate": 1.0,
+  "rounds": 150,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "none",
+    "group": "classifier_head"
+  },
+  "runtime_seconds": 21541.10101532936,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none",
+    "round": 125,
+    "val_loss": 0.6771740922927857,
+    "val_acc": 0.59,
+    "val_macro_f1": 0.5897226525130989,
+    "val_macro_precision": 0.5899038461538462,
+    "val_macro_recall": 0.5897729273015314,
+    "val_balanced_acc": 0.5897729273015314,
+    "val_auroc": 0.6150325646893153,
+    "test_loss": 0.672523106098175,
+    "test_acc": 0.614,
+    "test_macro_f1": 0.6136971385566283,
+    "test_macro_precision": 0.6137874685592528,
+    "test_macro_recall": 0.6136854741896758,
+    "test_balanced_acc": 0.6136854741896758,
+    "test_auroc": 0.6511924769907963
+  },
+  "strict_data_overlap_allowed": false,
+  "round_resume": {
+    "enabled": true,
+    "checkpoint_every": 5,
+    "keep_last": 2,
+    "resumed_from_round": 0
+  },
+  "capture_manifest": {
+    "run_dir": "results/acm_revision/defense70_prep/reference/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-none",
+    "n_updates": 1800,
+    "rounds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150
+    ],
+    "milestone_rounds_present": [
+      1,
+      10,
+      30,
+      50,
+      75,
+      100,
+      125,
+      150
+    ],
+    "groups": {
+      "classifier_bias": {
+        "n_available": 0,
+        "representations": []
+      },
+      "classifier_weight": {
+        "n_available": 0,
+        "representations": []
+      },
+      "classifier_head": {
+        "n_available": 1800,
+        "representations": [
+          "exact"
+        ]
+      },
+      "fusion": {
+        "n_available": 0,
+        "representations": []
+      },
+      "image_encoder": {
+        "n_available": 0,
+        "representations": []
+      },
+      "text_encoder": {
+        "n_available": 0,
+        "representations": []
+      },
+      "missing_modality": {
+        "n_available": 0,
+        "representations": []
+      },
+      "all_shared": {
+        "n_available": 0,
+        "representations": []
+      },
+      "full_update": {
+        "n_available": 0,
+        "representations": []
+      }
+    },
+    "status": "PASS",
+    "failures": []
+  }
+}
+[2026-08-21 04:07:41] [DEFENSE70 PREP] STEP2_BASIS: building matched label-composition bases from shadow_train and calibrating rank/alpha on shadow_val only
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 7600.55it/s]
+[DEFENSE70 PREP 2/4] collecting matched shadow-train contrasts
+[DEFENSE70 PREP 3/4] shadow-validation rank/attenuation calibration
+[DEFENSE70 PREP 4/4] parameters locked; target data were not used
+{
+  "manifest": "results/acm_revision/defense70_prep/locked_params.yaml",
+  "status": "LOCKED",
+  "selected": {
+    "weak": {
+      "rank": 1,
+      "alpha": 0.25
+    },
+    "strong": {
+      "rank": 5,
+      "alpha": 1.0
+    },
+    "head_ablation": {
+      "rank": 5,
+      "alpha": 1.0
+    },
+    "single_full_update_basis": {
+      "rank": 5,
+      "alpha": 1.0
+    },
+    "clip_gaussian_weak": {
+      "clip_norm": 0.054724333695563246,
+      "noise_l2_ratio": 0.05
+    },
+    "clip_gaussian_strong": {
+      "clip_norm": 0.04176438133579316,
+      "noise_l2_ratio": 0.15
+    }
+  }
+}
+[2026-08-21 05:49:52] [DEFENSE70 PREP] STEP3_GENERATE: generating the frozen 10 operating points x 7 independent runs
+{
+  "status": "PASS",
+  "protocol": "Defense70-v1",
+  "locked_manifest": "results/acm_revision/defense70_prep/locked_params.yaml",
+  "target_data_used_for_basis_or_tuning": false,
+  "n_operating_points": 10,
+  "n_runs_per_operating_point": 7,
+  "n_formal_runs": 70,
+  "operating_points": [
+    {
+      "op_id": "proposed_head_ablation",
+      "family": "proposed",
+      "tier": "ablation",
+      "defense": {
+        "name": "contrast_filter",
+        "group": "classifier_head",
+        "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+        "rank": 5,
+        "alpha": 1.0
+      }
+    },
+    {
+      "op_id": "proposed_system_weak",
+      "family": "proposed",
+      "tier": "weak",
+      "defense": {
+        "name": "layerwise_mixed_filter",
+        "protocol_name": "contrast_aware_system_wide_layerwise",
+        "layers": [
+          {
+            "name": "contrast_filter",
+            "group": "classifier_head",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25
+          },
+          {
+            "name": "contrast_filter",
+            "group": "fusion",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25
+          },
+          {
+            "name": "contrast_filter",
+            "group": "missing_modality",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "image_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "text_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          }
+        ],
+        "all_defense_parameters_frozen_before_formal_target_runs": true
+      }
+    },
+    {
+      "op_id": "proposed_system_strong",
+      "family": "proposed",
+      "tier": "strong",
+      "defense": {
+        "name": "layerwise_mixed_filter",
+        "protocol_name": "contrast_aware_system_wide_layerwise",
+        "layers": [
+          {
+            "name": "contrast_filter",
+            "group": "classifier_head",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0
+          },
+          {
+            "name": "contrast_filter",
+            "group": "fusion",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0
+          },
+          {
+            "name": "contrast_filter",
+            "group": "missing_modality",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "image_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "text_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          }
+        ],
+        "all_defense_parameters_frozen_before_formal_target_runs": true
+      }
+    },
+    {
+      "op_id": "proposed_single_fullbasis",
+      "family": "proposed",
+      "tier": "full_update_basis_ablation",
+      "defense": {
+        "name": "implicit_hash_contrast",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+        "rank": 5,
+        "alpha": 1.0,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "pca_weak",
+      "family": "rank_matched_pca",
+      "tier": "weak",
+      "defense": {
+        "name": "implicit_hash_pca",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_pca.npz",
+        "rank": 1,
+        "alpha": 0.25,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "pca_strong",
+      "family": "rank_matched_pca",
+      "tier": "strong",
+      "defense": {
+        "name": "implicit_hash_pca",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_pca.npz",
+        "rank": 5,
+        "alpha": 1.0,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "random_weak",
+      "family": "rank_matched_random_subspace",
+      "tier": "weak",
+      "defense": {
+        "name": "implicit_hash_random",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_random.npz",
+        "rank": 1,
+        "alpha": 0.25,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "random_strong",
+      "family": "rank_matched_random_subspace",
+      "tier": "strong",
+      "defense": {
+        "name": "implicit_hash_random",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_random.npz",
+        "rank": 5,
+        "alpha": 1.0,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "clipgauss_weak",
+      "family": "clip_gaussian",
+      "tier": "weak",
+      "defense": {
+        "name": "streaming_clip_gaussian",
+        "group": "full_update",
+        "clip_norm": 0.054724333695563246,
+        "noise_l2_ratio": 0.05,
+        "calibrated_on_shadow_val_only": true
+      }
+    },
+    {
+      "op_id": "clipgauss_strong",
+      "family": "clip_gaussian",
+      "tier": "strong",
+      "defense": {
+        "name": "streaming_clip_gaussian",
+        "group": "full_update",
+        "clip_norm": 0.04176438133579316,
+        "noise_l2_ratio": 0.15,
+        "calibrated_on_shadow_val_only": true
+      }
+    }
+  ],
+  "formal_populations": [
+    {
+      "population": "shadow_train",
+      "seed": 142,
+      "samples_per_client": 200
+    },
+    {
+      "population": "shadow_val",
+      "seed": 242,
+      "samples_per_client": 100
+    },
+    {
+      "population": "target",
+      "seed": 42,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 43,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 44,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 45,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 46,
+      "samples_per_client": 200
+    }
+  ],
+  "jobs": [
+    {
+      "job_id": "d70_00__proposed_head_ablation__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_00__proposed_head_ablation__shadow_train__seed142.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_01__proposed_head_ablation__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_01__proposed_head_ablation__shadow_val__seed242.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_02__proposed_head_ablation__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_02__proposed_head_ablation__target__seed42.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_03__proposed_head_ablation__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_03__proposed_head_ablation__target__seed43.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_04__proposed_head_ablation__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_04__proposed_head_ablation__target__seed44.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_05__proposed_head_ablation__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_05__proposed_head_ablation__target__seed45.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_06__proposed_head_ablation__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_06__proposed_head_ablation__target__seed46.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_07__proposed_system_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_07__proposed_system_weak__shadow_train__seed142.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_08__proposed_system_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_08__proposed_system_weak__shadow_val__seed242.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_09__proposed_system_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_09__proposed_system_weak__target__seed42.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_10__proposed_system_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_10__proposed_system_weak__target__seed43.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_11__proposed_system_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_11__proposed_system_weak__target__seed44.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_12__proposed_system_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_12__proposed_system_weak__target__seed45.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_13__proposed_system_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_13__proposed_system_weak__target__seed46.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_14__proposed_system_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_14__proposed_system_strong__shadow_train__seed142.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_15__proposed_system_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_15__proposed_system_strong__shadow_val__seed242.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_16__proposed_system_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_16__proposed_system_strong__target__seed42.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_17__proposed_system_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_17__proposed_system_strong__target__seed43.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_18__proposed_system_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_18__proposed_system_strong__target__seed44.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_19__proposed_system_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_19__proposed_system_strong__target__seed45.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_20__proposed_system_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_20__proposed_system_strong__target__seed46.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_21__proposed_single_fullbasis__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_21__proposed_single_fullbasis__shadow_train__seed142.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_22__proposed_single_fullbasis__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_22__proposed_single_fullbasis__shadow_val__seed242.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_23__proposed_single_fullbasis__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_23__proposed_single_fullbasis__target__seed42.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_24__proposed_single_fullbasis__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_24__proposed_single_fullbasis__target__seed43.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_25__proposed_single_fullbasis__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_25__proposed_single_fullbasis__target__seed44.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_26__proposed_single_fullbasis__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_26__proposed_single_fullbasis__target__seed45.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_27__proposed_single_fullbasis__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_27__proposed_single_fullbasis__target__seed46.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_28__pca_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_28__pca_weak__shadow_train__seed142.yaml",
+      "operating_point": "pca_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_29__pca_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_29__pca_weak__shadow_val__seed242.yaml",
+      "operating_point": "pca_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_30__pca_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_30__pca_weak__target__seed42.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_31__pca_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_31__pca_weak__target__seed43.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_32__pca_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_32__pca_weak__target__seed44.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_33__pca_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_33__pca_weak__target__seed45.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_34__pca_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_34__pca_weak__target__seed46.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_35__pca_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_35__pca_strong__shadow_train__seed142.yaml",
+      "operating_point": "pca_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_36__pca_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_36__pca_strong__shadow_val__seed242.yaml",
+      "operating_point": "pca_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_37__pca_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_37__pca_strong__target__seed42.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_38__pca_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_38__pca_strong__target__seed43.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_39__pca_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_39__pca_strong__target__seed44.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_40__pca_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_40__pca_strong__target__seed45.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_41__pca_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_41__pca_strong__target__seed46.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_42__random_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_42__random_weak__shadow_train__seed142.yaml",
+      "operating_point": "random_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_43__random_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_43__random_weak__shadow_val__seed242.yaml",
+      "operating_point": "random_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_44__random_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_44__random_weak__target__seed42.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_45__random_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_45__random_weak__target__seed43.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_46__random_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_46__random_weak__target__seed44.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_47__random_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_47__random_weak__target__seed45.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_48__random_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_48__random_weak__target__seed46.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_49__random_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_49__random_strong__shadow_train__seed142.yaml",
+      "operating_point": "random_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_50__random_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_50__random_strong__shadow_val__seed242.yaml",
+      "operating_point": "random_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_51__random_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_51__random_strong__target__seed42.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_52__random_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_52__random_strong__target__seed43.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_53__random_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_53__random_strong__target__seed44.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_54__random_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_54__random_strong__target__seed45.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_55__random_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_55__random_strong__target__seed46.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_56__clipgauss_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_56__clipgauss_weak__shadow_train__seed142.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_57__clipgauss_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_57__clipgauss_weak__shadow_val__seed242.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_58__clipgauss_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_58__clipgauss_weak__target__seed42.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_59__clipgauss_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_59__clipgauss_weak__target__seed43.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_60__clipgauss_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_60__clipgauss_weak__target__seed44.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_61__clipgauss_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_61__clipgauss_weak__target__seed45.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_62__clipgauss_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_62__clipgauss_weak__target__seed46.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_63__clipgauss_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_63__clipgauss_strong__shadow_train__seed142.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_64__clipgauss_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_64__clipgauss_strong__shadow_val__seed242.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_65__clipgauss_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_65__clipgauss_strong__target__seed42.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_66__clipgauss_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_66__clipgauss_strong__target__seed43.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_67__clipgauss_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_67__clipgauss_strong__target__seed44.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_68__clipgauss_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_68__clipgauss_strong__target__seed45.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_69__clipgauss_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_69__clipgauss_strong__target__seed46.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 46
+    }
+  ]
+}
+[2026-08-21 05:49:55] [DEFENSE70 PREP] READY: Defense70 preparation complete: 70 formal configs are locked and target data were not used for defense selection
+[2026-08-29 09:50:17] [DEFENSE70 PREP] READY: locked shadow-only parameters and all 70 formal configs already exist
+[2026-09-04 01:47:36] [DEFENSE70 PREP] READY: locked shadow-only parameters and all 70 formal configs already exist
+[2026-09-05 19:56:54] [DEFENSE70 PREP] READY: locked shadow-only parameters and all 70 formal configs already exist

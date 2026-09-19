@@ -1,0 +1,757 @@
+{
+  "status": "PASS",
+  "protocol": "Defense70-v1",
+  "locked_manifest": "results/acm_revision/defense70_prep/locked_params.yaml",
+  "target_data_used_for_basis_or_tuning": false,
+  "n_operating_points": 10,
+  "n_runs_per_operating_point": 7,
+  "n_formal_runs": 70,
+  "operating_points": [
+    {
+      "op_id": "proposed_head_ablation",
+      "family": "proposed",
+      "tier": "ablation",
+      "defense": {
+        "name": "contrast_filter",
+        "group": "classifier_head",
+        "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+        "rank": 5,
+        "alpha": 1.0
+      }
+    },
+    {
+      "op_id": "proposed_system_weak",
+      "family": "proposed",
+      "tier": "weak",
+      "defense": {
+        "name": "layerwise_mixed_filter",
+        "protocol_name": "contrast_aware_system_wide_layerwise",
+        "layers": [
+          {
+            "name": "contrast_filter",
+            "group": "classifier_head",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25
+          },
+          {
+            "name": "contrast_filter",
+            "group": "fusion",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25
+          },
+          {
+            "name": "contrast_filter",
+            "group": "missing_modality",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "image_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "text_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 1,
+            "alpha": 0.25,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          }
+        ],
+        "all_defense_parameters_frozen_before_formal_target_runs": true
+      }
+    },
+    {
+      "op_id": "proposed_system_strong",
+      "family": "proposed",
+      "tier": "strong",
+      "defense": {
+        "name": "layerwise_mixed_filter",
+        "protocol_name": "contrast_aware_system_wide_layerwise",
+        "layers": [
+          {
+            "name": "contrast_filter",
+            "group": "classifier_head",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0
+          },
+          {
+            "name": "contrast_filter",
+            "group": "fusion",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0
+          },
+          {
+            "name": "contrast_filter",
+            "group": "missing_modality",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "image_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          },
+          {
+            "name": "implicit_hash_contrast",
+            "group": "text_encoder",
+            "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+            "rank": 5,
+            "alpha": 1.0,
+            "projection_dim": 512,
+            "projection_seed": 20260820,
+            "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+          }
+        ],
+        "all_defense_parameters_frozen_before_formal_target_runs": true
+      }
+    },
+    {
+      "op_id": "proposed_single_fullbasis",
+      "family": "proposed",
+      "tier": "full_update_basis_ablation",
+      "defense": {
+        "name": "implicit_hash_contrast",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/contrast_bases.npz",
+        "rank": 5,
+        "alpha": 1.0,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "pca_weak",
+      "family": "rank_matched_pca",
+      "tier": "weak",
+      "defense": {
+        "name": "implicit_hash_pca",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_pca.npz",
+        "rank": 1,
+        "alpha": 0.25,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "pca_strong",
+      "family": "rank_matched_pca",
+      "tier": "strong",
+      "defense": {
+        "name": "implicit_hash_pca",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_pca.npz",
+        "rank": 5,
+        "alpha": 1.0,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "random_weak",
+      "family": "rank_matched_random_subspace",
+      "tier": "weak",
+      "defense": {
+        "name": "implicit_hash_random",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_random.npz",
+        "rank": 1,
+        "alpha": 0.25,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "random_strong",
+      "family": "rank_matched_random_subspace",
+      "tier": "strong",
+      "defense": {
+        "name": "implicit_hash_random",
+        "group": "full_update",
+        "basis_path": "results/acm_revision/defense70_prep/bases/full_update_random.npz",
+        "rank": 5,
+        "alpha": 1.0,
+        "projection_dim": 512,
+        "projection_seed": 20260820,
+        "basis_interpretation": "implicit_original_space_basis_B_equals_HtU"
+      }
+    },
+    {
+      "op_id": "clipgauss_weak",
+      "family": "clip_gaussian",
+      "tier": "weak",
+      "defense": {
+        "name": "streaming_clip_gaussian",
+        "group": "full_update",
+        "clip_norm": 0.054724333695563246,
+        "noise_l2_ratio": 0.05,
+        "calibrated_on_shadow_val_only": true
+      }
+    },
+    {
+      "op_id": "clipgauss_strong",
+      "family": "clip_gaussian",
+      "tier": "strong",
+      "defense": {
+        "name": "streaming_clip_gaussian",
+        "group": "full_update",
+        "clip_norm": 0.04176438133579316,
+        "noise_l2_ratio": 0.15,
+        "calibrated_on_shadow_val_only": true
+      }
+    }
+  ],
+  "formal_populations": [
+    {
+      "population": "shadow_train",
+      "seed": 142,
+      "samples_per_client": 200
+    },
+    {
+      "population": "shadow_val",
+      "seed": 242,
+      "samples_per_client": 100
+    },
+    {
+      "population": "target",
+      "seed": 42,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 43,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 44,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 45,
+      "samples_per_client": 200
+    },
+    {
+      "population": "target",
+      "seed": 46,
+      "samples_per_client": 200
+    }
+  ],
+  "jobs": [
+    {
+      "job_id": "d70_00__proposed_head_ablation__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_00__proposed_head_ablation__shadow_train__seed142.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_01__proposed_head_ablation__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_01__proposed_head_ablation__shadow_val__seed242.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_02__proposed_head_ablation__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_02__proposed_head_ablation__target__seed42.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_03__proposed_head_ablation__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_03__proposed_head_ablation__target__seed43.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_04__proposed_head_ablation__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_04__proposed_head_ablation__target__seed44.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_05__proposed_head_ablation__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_05__proposed_head_ablation__target__seed45.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_06__proposed_head_ablation__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_06__proposed_head_ablation__target__seed46.yaml",
+      "operating_point": "proposed_head_ablation",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_07__proposed_system_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_07__proposed_system_weak__shadow_train__seed142.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_08__proposed_system_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_08__proposed_system_weak__shadow_val__seed242.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_09__proposed_system_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_09__proposed_system_weak__target__seed42.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_10__proposed_system_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_10__proposed_system_weak__target__seed43.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_11__proposed_system_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_11__proposed_system_weak__target__seed44.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_12__proposed_system_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_12__proposed_system_weak__target__seed45.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_13__proposed_system_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_13__proposed_system_weak__target__seed46.yaml",
+      "operating_point": "proposed_system_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_14__proposed_system_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_14__proposed_system_strong__shadow_train__seed142.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_15__proposed_system_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_15__proposed_system_strong__shadow_val__seed242.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_16__proposed_system_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_16__proposed_system_strong__target__seed42.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_17__proposed_system_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_17__proposed_system_strong__target__seed43.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_18__proposed_system_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_18__proposed_system_strong__target__seed44.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_19__proposed_system_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_19__proposed_system_strong__target__seed45.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_20__proposed_system_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_20__proposed_system_strong__target__seed46.yaml",
+      "operating_point": "proposed_system_strong",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_21__proposed_single_fullbasis__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_21__proposed_single_fullbasis__shadow_train__seed142.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_22__proposed_single_fullbasis__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_22__proposed_single_fullbasis__shadow_val__seed242.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_23__proposed_single_fullbasis__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_23__proposed_single_fullbasis__target__seed42.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_24__proposed_single_fullbasis__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_24__proposed_single_fullbasis__target__seed43.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_25__proposed_single_fullbasis__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_25__proposed_single_fullbasis__target__seed44.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_26__proposed_single_fullbasis__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_26__proposed_single_fullbasis__target__seed45.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_27__proposed_single_fullbasis__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_27__proposed_single_fullbasis__target__seed46.yaml",
+      "operating_point": "proposed_single_fullbasis",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_28__pca_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_28__pca_weak__shadow_train__seed142.yaml",
+      "operating_point": "pca_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_29__pca_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_29__pca_weak__shadow_val__seed242.yaml",
+      "operating_point": "pca_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_30__pca_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_30__pca_weak__target__seed42.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_31__pca_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_31__pca_weak__target__seed43.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_32__pca_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_32__pca_weak__target__seed44.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_33__pca_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_33__pca_weak__target__seed45.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_34__pca_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_34__pca_weak__target__seed46.yaml",
+      "operating_point": "pca_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_35__pca_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_35__pca_strong__shadow_train__seed142.yaml",
+      "operating_point": "pca_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_36__pca_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_36__pca_strong__shadow_val__seed242.yaml",
+      "operating_point": "pca_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_37__pca_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_37__pca_strong__target__seed42.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_38__pca_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_38__pca_strong__target__seed43.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_39__pca_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_39__pca_strong__target__seed44.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_40__pca_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_40__pca_strong__target__seed45.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_41__pca_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_41__pca_strong__target__seed46.yaml",
+      "operating_point": "pca_strong",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_42__random_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_42__random_weak__shadow_train__seed142.yaml",
+      "operating_point": "random_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_43__random_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_43__random_weak__shadow_val__seed242.yaml",
+      "operating_point": "random_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_44__random_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_44__random_weak__target__seed42.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_45__random_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_45__random_weak__target__seed43.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_46__random_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_46__random_weak__target__seed44.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_47__random_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_47__random_weak__target__seed45.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_48__random_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_48__random_weak__target__seed46.yaml",
+      "operating_point": "random_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_49__random_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_49__random_strong__shadow_train__seed142.yaml",
+      "operating_point": "random_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_50__random_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_50__random_strong__shadow_val__seed242.yaml",
+      "operating_point": "random_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_51__random_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_51__random_strong__target__seed42.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_52__random_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_52__random_strong__target__seed43.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_53__random_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_53__random_strong__target__seed44.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_54__random_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_54__random_strong__target__seed45.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_55__random_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_55__random_strong__target__seed46.yaml",
+      "operating_point": "random_strong",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_56__clipgauss_weak__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_56__clipgauss_weak__shadow_train__seed142.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_57__clipgauss_weak__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_57__clipgauss_weak__shadow_val__seed242.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_58__clipgauss_weak__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_58__clipgauss_weak__target__seed42.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_59__clipgauss_weak__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_59__clipgauss_weak__target__seed43.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_60__clipgauss_weak__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_60__clipgauss_weak__target__seed44.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_61__clipgauss_weak__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_61__clipgauss_weak__target__seed45.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_62__clipgauss_weak__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_62__clipgauss_weak__target__seed46.yaml",
+      "operating_point": "clipgauss_weak",
+      "population": "target",
+      "seed": 46
+    },
+    {
+      "job_id": "d70_63__clipgauss_strong__shadow_train__seed142",
+      "config_path": "configs/acm_revision/generated/defense70/d70_63__clipgauss_strong__shadow_train__seed142.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "shadow_train",
+      "seed": 142
+    },
+    {
+      "job_id": "d70_64__clipgauss_strong__shadow_val__seed242",
+      "config_path": "configs/acm_revision/generated/defense70/d70_64__clipgauss_strong__shadow_val__seed242.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "shadow_val",
+      "seed": 242
+    },
+    {
+      "job_id": "d70_65__clipgauss_strong__target__seed42",
+      "config_path": "configs/acm_revision/generated/defense70/d70_65__clipgauss_strong__target__seed42.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 42
+    },
+    {
+      "job_id": "d70_66__clipgauss_strong__target__seed43",
+      "config_path": "configs/acm_revision/generated/defense70/d70_66__clipgauss_strong__target__seed43.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 43
+    },
+    {
+      "job_id": "d70_67__clipgauss_strong__target__seed44",
+      "config_path": "configs/acm_revision/generated/defense70/d70_67__clipgauss_strong__target__seed44.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 44
+    },
+    {
+      "job_id": "d70_68__clipgauss_strong__target__seed45",
+      "config_path": "configs/acm_revision/generated/defense70/d70_68__clipgauss_strong__target__seed45.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 45
+    },
+    {
+      "job_id": "d70_69__clipgauss_strong__target__seed46",
+      "config_path": "configs/acm_revision/generated/defense70/d70_69__clipgauss_strong__target__seed46.yaml",
+      "operating_point": "clipgauss_strong",
+      "population": "target",
+      "seed": 46
+    }
+  ]
+}

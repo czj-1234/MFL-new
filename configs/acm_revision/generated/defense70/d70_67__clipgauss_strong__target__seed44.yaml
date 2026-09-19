@@ -1,0 +1,122 @@
+seed: 44
+data:
+  name: hateful_memes
+  train_json: data/processed/hateful_train.json
+  val_json: data/processed/hateful_val.json
+  test_json: data/processed/hateful_test.json
+  pools_dir: data/processed/acm_revision/hateful_memes
+  num_classes: 2
+  eval_label_source: label
+strict_split:
+  shadow_train_ratio: 0.4
+  shadow_val_ratio: 0.2
+  target_ratio: 0.4
+  group_key: null
+  exact_deduplicate: true
+  group_near_duplicates: true
+  text_hamming_threshold: 3
+  image_hamming_threshold: 4
+  min_text_tokens_for_near: 3
+  stratify_keys:
+  - label
+  size_weight: 1.0
+  stratify_weight: 2.0
+  family_structure_weight: 2.0
+  family_count_weight: 1.0
+  family_size_bins:
+  - 1
+  - 2
+  - 4
+  - 8
+  refinement_passes: 4
+  swap_attempts_per_pass: 10000
+model:
+  architecture: clip_dual
+  tokenizer_name: openai/clip-vit-large-patch14
+  text_model_name: openai/clip-vit-large-patch14
+  image_model_name: openai/clip-vit-large-patch14
+  hidden_dim: 512
+  dropout: 0.5
+  freeze_image_backbone: false
+  freeze_text_backbone: false
+  encoder_train_mode: full
+  pretrained_image: true
+  fusion_style: concat_product_absdiff
+  fusion_stage: early
+  missing_mode: learned
+federated:
+  num_clients: 12
+  partition_mode: fixed
+  samples_per_client: 200
+  rounds: 150
+  participation_rate: 1.0
+  min_participants: 12
+  local_epochs: 1
+  optimizer: adamw
+  lr: 1.0e-06
+  weight_decay: 0.05
+  batch_size: 16
+  max_local_steps: null
+  aggregation: fedavg
+  fedprox_mu: 0.0
+  momentum: 0.9
+evaluation:
+  eval_batch_size: 64
+  eval_every: 5
+  max_text_len: 77
+  num_workers: 2
+experiment:
+  population: target
+  setting_name: modality_exclusive
+  concentration: 0.7
+  output_root: results/acm_revision/defense70_r150/clipgauss_strong
+  defense70_operating_point: clipgauss_strong
+  defense70_family: clip_gaussian
+  defense70_tier: strong
+  defense70_locked_manifest: results/acm_revision/defense70_prep/locked_params.yaml
+  target_used_for_defense_selection: false
+  job_id: d70_67__clipgauss_strong__target__seed44
+update_capture:
+  save_all_checkpoints: false
+  checkpoint_rounds: []
+  model_checkpoint_rounds: []
+  storage_dtype: float32
+defense:
+  name: streaming_clip_gaussian
+  group: full_update
+  clip_norm: 0.04176438133579316
+  noise_l2_ratio: 0.15
+  calibrated_on_shadow_val_only: true
+privacy_capture:
+  every_round_exact_groups:
+  - classifier_bias
+  - classifier_weight
+  - classifier_head
+  milestone_exact_groups:
+  - fusion
+  - missing_modality
+  milestone_sketch_groups:
+  - image_encoder
+  - text_encoder
+  - all_shared
+  - full_update
+  full_group_projection_groups:
+  - full_update
+  full_group_projection_dim: 8192
+  full_group_projection_seed: 20260804
+  milestone_rounds:
+  - 1
+  - 10
+  - 30
+  - 50
+  - 75
+  - 100
+  - 125
+  - 150
+  sketch_dim: 16384
+  sketch_seed: 20260803
+  representation_scope_note: Classifier head is captured exactly each round. Fusion/missing
+    groups are exact at milestones. Encoder/all_shared use deterministic coordinate
+    sketches. full_update uses an 8192-d signed feature-hash in which every transmitted
+    coordinate contributes; it is a compressed full-model observation, not an exact
+    flat vector.

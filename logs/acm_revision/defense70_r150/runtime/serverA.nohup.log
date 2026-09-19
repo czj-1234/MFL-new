@@ -1,0 +1,231 @@
+[2026-09-05 19:56:54] [DEFENSE70 PREP] READY: locked shadow-only parameters and all 70 formal configs already exist
+============================================================
+DEFENSE70 SERVER A
+GPU 0 slot0=9 slot1=9
+GPU 1 slot0=9 slot1=8
+Each run uses rolling round-level checkpoints and resumes automatically.
+============================================================
+[SERVER A] GPU=0 SLOT=0 JOB=d70_00__proposed_head_ablation__shadow_train__seed142
+[SKIP PASS] d70_00__proposed_head_ablation__shadow_train__seed142
+[SERVER A] GPU=0 SLOT=0 JOB=d70_08__proposed_system_weak__shadow_val__seed242
+[SKIP PASS] d70_08__proposed_system_weak__shadow_val__seed242
+[SERVER A] GPU=0 SLOT=0 JOB=d70_16__proposed_system_strong__target__seed42
+[SKIP PASS] d70_16__proposed_system_strong__target__seed42
+[SERVER A] GPU=0 SLOT=0 JOB=d70_24__proposed_single_fullbasis__target__seed43
+[SKIP PASS] d70_24__proposed_single_fullbasis__target__seed43
+[SERVER A] GPU=0 SLOT=0 JOB=d70_32__pca_weak__target__seed44
+[SKIP PASS] d70_32__pca_weak__target__seed44
+[SERVER A] GPU=0 SLOT=0 JOB=d70_40__pca_strong__target__seed45
+[STARTUP LOCK] d70_40__pca_strong__target__seed45 waiting for GPU=0
+[2026-09-05 19:56:56] GPU=0 ready free=45410 MiB
+============================================================
+START JOB=d70_40__pca_strong__target__seed45
+GPU=0
+POPULATION=target
+ROUNDS=150
+DEFENSE=implicit_hash_pca
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/pca_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_pca
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_40__pca_strong__target__seed45
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_40__pca_strong__target__seed45.yaml
+LOG=logs/acm_revision/defense70_r150/d70_40__pca_strong__target__seed45.attempt1.log
+============================================================
+[SERVER A] GPU=0 SLOT=1 JOB=d70_02__proposed_head_ablation__target__seed42
+[SKIP PASS] d70_02__proposed_head_ablation__target__seed42
+[SERVER A] GPU=0 SLOT=1 JOB=d70_10__proposed_system_weak__target__seed43
+[SKIP PASS] d70_10__proposed_system_weak__target__seed43
+[SERVER A] GPU=0 SLOT=1 JOB=d70_18__proposed_system_strong__target__seed44
+[SKIP PASS] d70_18__proposed_system_strong__target__seed44
+[SERVER A] GPU=0 SLOT=1 JOB=d70_26__proposed_single_fullbasis__target__seed45
+[SKIP PASS] d70_26__proposed_single_fullbasis__target__seed45
+[SERVER A] GPU=0 SLOT=1 JOB=d70_34__pca_weak__target__seed46
+[SKIP PASS] d70_34__pca_weak__target__seed46
+[SERVER A] GPU=0 SLOT=1 JOB=d70_42__random_weak__shadow_train__seed142
+[SKIP PASS] d70_42__random_weak__shadow_train__seed142
+[SERVER A] GPU=0 SLOT=1 JOB=d70_50__random_strong__shadow_val__seed242
+[STARTUP LOCK] d70_50__random_strong__shadow_val__seed242 waiting for GPU=0
+[SERVER A] GPU=1 SLOT=0 JOB=d70_04__proposed_head_ablation__target__seed44
+[SKIP PASS] d70_04__proposed_head_ablation__target__seed44
+[SERVER A] GPU=1 SLOT=0 JOB=d70_12__proposed_system_weak__target__seed45
+[SKIP PASS] d70_12__proposed_system_weak__target__seed45
+[SERVER A] GPU=1 SLOT=0 JOB=d70_20__proposed_system_strong__target__seed46
+[SKIP PASS] d70_20__proposed_system_strong__target__seed46
+[SERVER A] GPU=1 SLOT=0 JOB=d70_28__pca_weak__shadow_train__seed142
+[SKIP PASS] d70_28__pca_weak__shadow_train__seed142
+[SERVER A] GPU=1 SLOT=0 JOB=d70_36__pca_strong__shadow_val__seed242
+[SKIP PASS] d70_36__pca_strong__shadow_val__seed242
+[SERVER A] GPU=1 SLOT=0 JOB=d70_44__random_weak__target__seed42
+[STARTUP LOCK] d70_44__random_weak__target__seed42 waiting for GPU=1
+[2026-09-05 19:57:12] GPU=1 ready free=45486 MiB
+============================================================
+START JOB=d70_44__random_weak__target__seed42
+GPU=1
+POPULATION=target
+ROUNDS=150
+DEFENSE=implicit_hash_random
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/random_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed42__def-implicit_hash_random
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_44__random_weak__target__seed42
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_44__random_weak__target__seed42.yaml
+LOG=logs/acm_revision/defense70_r150/d70_44__random_weak__target__seed42.attempt1.log
+============================================================
+[SERVER A] GPU=1 SLOT=1 JOB=d70_06__proposed_head_ablation__target__seed46
+[SKIP PASS] d70_06__proposed_head_ablation__target__seed46
+[SERVER A] GPU=1 SLOT=1 JOB=d70_14__proposed_system_strong__shadow_train__seed142
+[SKIP PASS] d70_14__proposed_system_strong__shadow_train__seed142
+[SERVER A] GPU=1 SLOT=1 JOB=d70_22__proposed_single_fullbasis__shadow_val__seed242
+[SKIP PASS] d70_22__proposed_single_fullbasis__shadow_val__seed242
+[SERVER A] GPU=1 SLOT=1 JOB=d70_30__pca_weak__target__seed42
+[SKIP PASS] d70_30__pca_weak__target__seed42
+[SERVER A] GPU=1 SLOT=1 JOB=d70_38__pca_strong__target__seed43
+[SKIP PASS] d70_38__pca_strong__target__seed43
+[SERVER A] GPU=1 SLOT=1 JOB=d70_46__random_weak__target__seed44
+[STARTUP LOCK] d70_46__random_weak__target__seed44 waiting for GPU=1
+[STARTED] d70_40__pca_strong__target__seed45; GPU=0; free_after=45407 MiB
+[2026-09-05 19:58:26] GPU=0 ready free=45407 MiB
+============================================================
+START JOB=d70_50__random_strong__shadow_val__seed242
+GPU=0
+POPULATION=shadow_val
+ROUNDS=150
+DEFENSE=implicit_hash_random
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__shadow_val__modality_exclusive__c0.7__n12__p1.0__fedavg__seed242__def-implicit_hash_random
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_50__random_strong__shadow_val__seed242
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_50__random_strong__shadow_val__seed242.yaml
+LOG=logs/acm_revision/defense70_r150/d70_50__random_strong__shadow_val__seed242.attempt1.log
+============================================================
+[STARTED] d70_44__random_weak__target__seed42; GPU=1; free_after=45483 MiB
+[2026-09-05 19:58:42] GPU=1 ready free=45483 MiB
+============================================================
+START JOB=d70_46__random_weak__target__seed44
+GPU=1
+POPULATION=target
+ROUNDS=150
+DEFENSE=implicit_hash_random
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/random_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed44__def-implicit_hash_random
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_46__random_weak__target__seed44
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_46__random_weak__target__seed44.yaml
+LOG=logs/acm_revision/defense70_r150/d70_46__random_weak__target__seed44.attempt1.log
+============================================================
+[STARTED] d70_50__random_strong__shadow_val__seed242; GPU=0; free_after=45407 MiB
+[STARTED] d70_46__random_weak__target__seed44; GPU=1; free_after=35176 MiB
+[DONE PASS] d70_44__random_weak__target__seed42
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_44__random_weak__target__seed42
+[SERVER A] GPU=1 SLOT=0 JOB=d70_52__random_strong__target__seed43
+[SKIP PASS] d70_52__random_strong__target__seed43
+[SERVER A] GPU=1 SLOT=0 JOB=d70_60__clipgauss_weak__target__seed44
+[SKIP PASS] d70_60__clipgauss_weak__target__seed44
+[SERVER A] GPU=1 SLOT=0 JOB=d70_68__clipgauss_strong__target__seed45
+[SKIP PASS] d70_68__clipgauss_strong__target__seed45
+[DONE PASS] d70_46__random_weak__target__seed44
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_46__random_weak__target__seed44
+[SERVER A] GPU=1 SLOT=1 JOB=d70_54__random_strong__target__seed45
+[STARTUP LOCK] d70_54__random_strong__target__seed45 waiting for GPU=1
+[2026-09-06 04:09:07] GPU=1 ready free=45486 MiB
+============================================================
+START JOB=d70_54__random_strong__target__seed45
+GPU=1
+POPULATION=target
+ROUNDS=150
+DEFENSE=implicit_hash_random
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_54__random_strong__target__seed45
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_54__random_strong__target__seed45.yaml
+LOG=logs/acm_revision/defense70_r150/d70_54__random_strong__target__seed45.attempt1.log
+============================================================
+[STARTED] d70_54__random_strong__target__seed45; GPU=1; free_after=45483 MiB
+[DONE PASS] d70_40__pca_strong__target__seed45
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_40__pca_strong__target__seed45
+[SERVER A] GPU=0 SLOT=0 JOB=d70_48__random_weak__target__seed46
+[STARTUP LOCK] d70_48__random_weak__target__seed46 waiting for GPU=0
+[2026-09-06 06:42:32] GPU=0 ready free=32930 MiB
+============================================================
+START JOB=d70_48__random_weak__target__seed46
+GPU=0
+POPULATION=target
+ROUNDS=150
+DEFENSE=implicit_hash_random
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/random_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-implicit_hash_random
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_48__random_weak__target__seed46
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_48__random_weak__target__seed46.yaml
+LOG=logs/acm_revision/defense70_r150/d70_48__random_weak__target__seed46.attempt1.log
+============================================================
+[STARTED] d70_48__random_weak__target__seed46; GPU=0; free_after=31126 MiB
+[DONE PASS] d70_54__random_strong__target__seed45
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_54__random_strong__target__seed45
+[SERVER A] GPU=1 SLOT=1 JOB=d70_62__clipgauss_weak__target__seed46
+[STARTUP LOCK] d70_62__clipgauss_weak__target__seed46 waiting for GPU=1
+[2026-09-06 09:06:34] GPU=1 ready free=45486 MiB
+============================================================
+START JOB=d70_62__clipgauss_weak__target__seed46
+GPU=1
+POPULATION=target
+ROUNDS=150
+DEFENSE=streaming_clip_gaussian
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/clipgauss_weak/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed46__def-streaming_clip_gaussian
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_62__clipgauss_weak__target__seed46
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_62__clipgauss_weak__target__seed46.yaml
+LOG=logs/acm_revision/defense70_r150/d70_62__clipgauss_weak__target__seed46.attempt1.log
+============================================================
+[STARTED] d70_62__clipgauss_weak__target__seed46; GPU=1; free_after=45483 MiB
+[DONE PASS] d70_48__random_weak__target__seed46
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_48__random_weak__target__seed46
+[SERVER A] GPU=0 SLOT=0 JOB=d70_56__clipgauss_weak__shadow_train__seed142
+[STARTUP LOCK] d70_56__clipgauss_weak__shadow_train__seed142 waiting for GPU=0
+[2026-09-06 12:16:53] GPU=0 ready free=41742 MiB
+============================================================
+START JOB=d70_56__clipgauss_weak__shadow_train__seed142
+GPU=0
+POPULATION=shadow_train
+ROUNDS=150
+DEFENSE=streaming_clip_gaussian
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/clipgauss_weak/hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-streaming_clip_gaussian
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_56__clipgauss_weak__shadow_train__seed142
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_56__clipgauss_weak__shadow_train__seed142.yaml
+LOG=logs/acm_revision/defense70_r150/d70_56__clipgauss_weak__shadow_train__seed142.attempt1.log
+============================================================
+[STARTED] d70_56__clipgauss_weak__shadow_train__seed142; GPU=0; free_after=41742 MiB
+[DONE PASS] d70_50__random_strong__shadow_val__seed242
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_50__random_strong__shadow_val__seed242
+[SERVER A] GPU=0 SLOT=1 JOB=d70_58__clipgauss_weak__target__seed42
+[SKIP PASS] d70_58__clipgauss_weak__target__seed42
+[SERVER A] GPU=0 SLOT=1 JOB=d70_66__clipgauss_strong__target__seed43
+[SKIP PASS] d70_66__clipgauss_strong__target__seed43
+[DONE PASS] d70_62__clipgauss_weak__target__seed46
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_62__clipgauss_weak__target__seed46
+[DONE PASS] d70_56__clipgauss_weak__shadow_train__seed142
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_56__clipgauss_weak__shadow_train__seed142
+[SERVER A] GPU=0 SLOT=0 JOB=d70_64__clipgauss_strong__shadow_val__seed242
+[STARTUP LOCK] d70_64__clipgauss_strong__shadow_val__seed242 waiting for GPU=0
+[2026-09-07 19:20:13] GPU=0 ready free=45410 MiB
+============================================================
+START JOB=d70_64__clipgauss_strong__shadow_val__seed242
+GPU=0
+POPULATION=shadow_val
+ROUNDS=150
+DEFENSE=streaming_clip_gaussian
+CHECKPOINT_EVERY=15
+RESULT_DIR=results/acm_revision/defense70_r150/clipgauss_strong/hateful_memes__clip_dual__shadow_val__modality_exclusive__c0.7__n12__p1.0__fedavg__seed242__def-streaming_clip_gaussian
+CHECKPOINT_DIR=checkpoints/acm_revision/defense70_r150/d70_64__clipgauss_strong__shadow_val__seed242
+ATTEMPT=1/3
+CONFIG=logs/acm_revision/defense70_r150/runtime_configs/d70_64__clipgauss_strong__shadow_val__seed242.yaml
+LOG=logs/acm_revision/defense70_r150/d70_64__clipgauss_strong__shadow_val__seed242.attempt1.log
+============================================================
+[STARTED] d70_64__clipgauss_strong__shadow_val__seed242; GPU=0; free_after=41742 MiB
+[DONE PASS] d70_64__clipgauss_strong__shadow_val__seed242
+[CHECKPOINTS KEPT] checkpoints/acm_revision/defense70_r150/d70_64__clipgauss_strong__shadow_val__seed242
+[DONE PASS] Server A: all 35 jobs passed.

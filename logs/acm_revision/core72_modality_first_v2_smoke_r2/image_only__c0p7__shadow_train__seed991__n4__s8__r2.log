@@ -1,0 +1,109 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 9851.59it/s]
+{
+  "run_id": "hateful_memes__clip_dual__shadow_train__image_only__c0.7__n4__p1.0__fedavg__seed991__def-none",
+  "population": "shadow_train",
+  "seed": 991,
+  "setting_name": "image_only",
+  "concentration": 0.7,
+  "num_clients": 4,
+  "participation_rate": 1.0,
+  "rounds": 2,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "none",
+    "group": "classifier_head"
+  },
+  "runtime_seconds": 229.51718759536743,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__shadow_train__image_only__c0.7__n4__p1.0__fedavg__seed991__def-none",
+    "round": 2,
+    "val_loss": 0.6949069271087647,
+    "val_acc": 0.496,
+    "val_macro_f1": 0.43012211668928085,
+    "val_macro_precision": 0.48553927941983765,
+    "val_macro_recall": 0.49199084668192217,
+    "val_balanced_acc": 0.49199084668192217,
+    "val_auroc": 0.4646109039701717,
+    "test_loss": 0.6956663236618043,
+    "test_acc": 0.499,
+    "test_macro_f1": 0.42296462577355565,
+    "test_macro_precision": 0.48393026612755297,
+    "test_macro_recall": 0.49193677470988395,
+    "test_balanced_acc": 0.49193677470988395,
+    "test_auroc": 0.44914965986394556
+  },
+  "strict_data_overlap_allowed": false,
+  "capture_manifest": {
+    "run_dir": "results/acm_revision/core72_modality_first_v2_smoke_r2/image_only__c0p7__shadow_train__seed991__n4__s8__r2/hateful_memes__clip_dual__shadow_train__image_only__c0.7__n4__p1.0__fedavg__seed991__def-none",
+    "n_updates": 8,
+    "rounds": [
+      1,
+      2
+    ],
+    "milestone_rounds_present": [
+      1,
+      2
+    ],
+    "groups": {
+      "classifier_bias": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_weight": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "classifier_head": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "fusion": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "image_encoder": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "text_encoder": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "missing_modality": {
+        "n_available": 8,
+        "representations": [
+          "exact"
+        ]
+      },
+      "all_shared": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_coordinate_sketch"
+        ]
+      },
+      "full_update": {
+        "n_available": 8,
+        "representations": [
+          "deterministic_signed_feature_hash_full_group"
+        ]
+      }
+    },
+    "status": "PASS",
+    "failures": []
+  }
+}

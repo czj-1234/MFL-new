@@ -1,0 +1,19 @@
+# Defense70 seed43 failure check commands
+
+FAILED_JOB="d70_03__proposed_head_ablation__target__seed43"
+
+echo "===== FAILED MARKER ====="
+cat "logs/acm_revision/defense70_r150/state/failed/${FAILED_JOB}.failed"
+
+echo
+echo "===== AVAILABLE LOGS ====="
+ls -lt logs/acm_revision/defense70_r150/${FAILED_JOB}.attempt*.log
+
+echo
+LAST_LOG=$(ls -t logs/acm_revision/defense70_r150/${FAILED_JOB}.attempt*.log | head -1)
+echo "===== LAST LOG: $LAST_LOG ====="
+tail -n 200 "$LAST_LOG"
+
+echo
+echo "===== FILTERED ERRORS ====="
+grep -Ei "traceback|error|exception|cuda|out of memory|oom|killed|estale|dimension|basis|no space" "$LAST_LOG" | tail -80

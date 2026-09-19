@@ -1,0 +1,39 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 8260.50it/s]
+{
+  "run_id": "hateful_memes__clip_dual__target__text_only__c0.6__n20__p1.0__fedavg__seed47__def-none",
+  "population": "target",
+  "seed": 47,
+  "setting_name": "text_only",
+  "concentration": 0.6,
+  "num_clients": 20,
+  "participation_rate": 1.0,
+  "rounds": 25,
+  "architecture": "clip_dual",
+  "aggregation": "fedavg",
+  "optimizer": "adamw",
+  "defense": {
+    "name": "none",
+    "group": "classifier_head"
+  },
+  "runtime_seconds": 11378.550720214844,
+  "best": {
+    "run_id": "hateful_memes__clip_dual__target__text_only__c0.6__n20__p1.0__fedavg__seed47__def-none",
+    "round": 25,
+    "val_loss": 0.6931252951622009,
+    "val_acc": 0.532,
+    "val_macro_f1": 0.4724406608469807,
+    "val_macro_precision": 0.5496810772501772,
+    "val_macro_recall": 0.5280440383415212,
+    "val_balanced_acc": 0.5280440383415212,
+    "val_auroc": 0.5062809044502408,
+    "test_loss": 0.6919825925827027,
+    "test_acc": 0.536,
+    "test_macro_f1": 0.4785204366042689,
+    "test_macro_precision": 0.5505071215724869,
+    "test_macro_recall": 0.5295718287314926,
+    "test_balanced_acc": 0.5295718287314926,
+    "test_auroc": 0.5335494197679072
+  },
+  "strict_data_overlap_allowed": false
+}

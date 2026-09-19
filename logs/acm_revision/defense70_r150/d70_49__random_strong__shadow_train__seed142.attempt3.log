@@ -1,0 +1,37 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 6387.91it/s]
+[ROUND RESUME] run=hateful_memes__clip_dual__shadow_train__modality_exclusive__c0.7__n12__p1.0__fedavg__seed142__def-implicit_hash_random checkpoint=round_0030.pt completed_round=30; continuing at round 31
+Traceback (most recent call last):
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/privacy_capture_runner_resume_v2.py", line 26, in <module>
+    main()
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/privacy_capture_runner_resume_v2.py", line 22, in main
+    base.main()
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/privacy_capture_runner.py", line 331, in main
+    print(json.dumps(run_from_config(args.config, args.population), ensure_ascii=False, indent=2))
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/privacy_capture_runner.py", line 306, in run_from_config
+    summary = fl.run_strict_fl(cfg, population=population)
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/fl_resume.py", line 369, in run_strict_fl
+    after_raw, local_metrics = base.local_train(
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/fl.py", line 251, in local_train
+    for batch in loader:
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 491, in __iter__
+    return self._get_iterator()
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 422, in _get_iterator
+    return _MultiProcessingDataLoaderIter(self)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1146, in __init__
+    w.start()
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/multiprocessing/process.py", line 121, in start
+    self._popen = self._Popen(self)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/multiprocessing/context.py", line 224, in _Popen
+    return _default_context.get_context().Process._Popen(process_obj)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/multiprocessing/context.py", line 281, in _Popen
+    return Popen(process_obj)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/multiprocessing/popen_fork.py", line 19, in __init__
+    self._launch(process_obj)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/multiprocessing/popen_fork.py", line 66, in _launch
+    self.pid = os.fork()
+OSError: [Errno 12] Cannot allocate memory

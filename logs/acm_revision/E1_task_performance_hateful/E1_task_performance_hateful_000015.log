@@ -1,0 +1,60 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 8328.17it/s]
+Traceback (most recent call last):
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/cli.py", line 318, in <module>
+    main()
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/cli.py", line 178, in main
+    print(json.dumps(run_strict_fl(cfg, population=population), ensure_ascii=False, indent=2))
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/fl.py", line 498, in run_strict_fl
+    after_raw, local_metrics = local_train(
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/fl.py", line 256, in local_train
+    logits = local_model(
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/architectures.py", line 169, in forward
+    text_feat = self._text_feature(input_ids, attention_mask) if use_text else self._missing("text", batch_size, device)
+  File "/data/deli/MFL-new/MFL-new/src/acm_revision/architectures.py", line 153, in _text_feature
+    outputs = self.clip.text_model(input_ids=input_ids, attention_mask=attention_mask)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/utils/generic.py", line 1032, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/utils/output_capturing.py", line 252, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/models/clip/modeling_clip.py", line 558, in forward
+    encoder_outputs: BaseModelOutput = self.encoder(
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/models/clip/modeling_clip.py", line 485, in forward
+    hidden_states = encoder_layer(
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/modeling_layers.py", line 93, in __call__
+    return super().__call__(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/models/clip/modeling_clip.py", line 382, in forward
+    hidden_states = self.mlp(hidden_states)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/models/clip/modeling_clip.py", line 350, in forward
+    hidden_states = self.activation_fn(hidden_states)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/deli/Data/miniconda3/envs/mfl/lib/python3.10/site-packages/transformers/activations.py", line 123, in forward
+    return input * torch.sigmoid(1.702 * input)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 30.00 MiB. GPU 0 has a total capacity of 44.43 GiB of which 32.12 MiB is free. Process 3089981 has 25.25 GiB memory in use. Including non-PyTorch memory, this process has 19.05 GiB memory in use. Of the allocated memory 18.01 GiB is allocated by PyTorch, and 740.90 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

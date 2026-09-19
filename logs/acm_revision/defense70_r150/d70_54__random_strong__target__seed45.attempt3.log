@@ -1,0 +1,10 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]Loading weights: 100%|██████████| 590/590 [00:00<00:00, 26032.39it/s]
+[ROUND RESUME] run=hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random checkpoint=round_0015.pt completed_round=15; continuing at round 16
+[ROUND CHECKPOINT] completed_round=30 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0030.pt
+[ROUND CHECKPOINT] completed_round=45 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0045.pt
+[ROUND CHECKPOINT] completed_round=60 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0060.pt
+[ROUND CHECKPOINT] completed_round=75 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0075.pt
+[ROUND CHECKPOINT] completed_round=90 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0090.pt
+[ROUND CHECKPOINT] completed_round=105 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0105.pt
+[ROUND CHECKPOINT] completed_round=120 saved=results/acm_revision/defense70_r150/random_strong/hateful_memes__clip_dual__target__modality_exclusive__c0.7__n12__p1.0__fedavg__seed45__def-implicit_hash_random/resume/round_0120.pt
