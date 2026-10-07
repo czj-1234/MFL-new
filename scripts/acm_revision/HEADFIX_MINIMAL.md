@@ -2,16 +2,15 @@
 
 Branch: `acm-headfix-minimal`
 
-This protocol changes only the classifier-head sensitive basis. The existing strong
-Defense70 bases are reused for fusion, missing-modality, image, and text groups.
+This branch now uses **HeadFix-Minimal-v2**.
 
-Formal matrix: 8 runs total
+The preparation stage is fully offline: it reuses the existing exact classifier-head
+updates from Core72 and does **not** retrain CLIP or rerun FL. It learns an iterative
+attacker-guided nullspace from shadow-train seeds 142/143 (rounds <= 60), validates
+on shadow-val seed 242 (rounds >= 61), and never uses target runs for basis selection.
 
-- shadow_train: 142, 143
-- shadow_val: 242
-- target: 42, 43, 44, 45, 46
-
-The queues contain exactly two runs per physical GPU.
+The formal matrix is generated only if the strongest shadow-validation attacker among
+LR/RF/MLP falls below the launch threshold (default 0.80).
 
 ## 1. Update both servers
 
@@ -23,98 +22,101 @@ git pull origin acm-headfix-minimal
 conda activate mfl
 ```
 
-## 2. Prepare the signed classifier-head basis on Server A only
-
-This reuses the existing Defense70 seed-142 reference checkpoints.
+## 2. Run the offline head search on Server A
 
 ```bash
 cd /data/deli/MFL-new/MFL-new
 conda activate mfl
-CUDA_VISIBLE_DEVICES=0 bash scripts/acm_revision/prepare_headfix.sh
+bash scripts/acm_revision/prepare_headfix.sh
 ```
 
-Inspect the locked validation result before launching the eight formal runs:
+`CUDA_VISIBLE_DEVICES=0` is harmless but unnecessary because this stage does not
+perform CLIP training.
+
+Progress is printed in the foreground:
+
+```text
+[HEADFIX 1/3] loading existing exact classifier-head updates ...
+[HEADFIX 2/3] iterative attacker-guided nullspace search ...
+[HEADFIX BASIS] learned direction 1/64
+...
+[HEADFIX 3/3] evaluating LR/RF/MLP on shadow validation
+[HEADFIX EVAL] rank=... worstAUC=... strongest=... relChange=...
+```
+
+If the best selected worst-case validation AUROC is above 0.80, the script exits
+without generating any formal queues. Do not run the expensive FL matrix in that case.
+
+Inspect:
 
 ```bash
 cat results/acm_revision/headfix_prep/locked_headfix.yaml
 ```
 
-The key field is `selected.shadow_val_oriented_auroc`. If it remains near 1.0,
-stop and inspect the basis before spending time on formal target runs.
+The key fields are:
 
-## 3. Copy the locked assets and generated configs to Server B
-
-Replace `SERVER_B` with the actual SSH host.
-
-```bash
-rsync -av results/acm_revision/headfix_prep/ \
-  SERVER_B:/data/deli/MFL-new/MFL-new/results/acm_revision/headfix_prep/
-
-rsync -av results/acm_revision/defense70_prep/bases/ \
-  SERVER_B:/data/deli/MFL-new/MFL-new/results/acm_revision/defense70_prep/bases/
-
-rsync -av results/acm_revision/defense70_prep/locked_params.yaml \
-  SERVER_B:/data/deli/MFL-new/MFL-new/results/acm_revision/defense70_prep/locked_params.yaml
-
-rsync -av configs/acm_revision/generated/headfix/ \
-  SERVER_B:/data/deli/MFL-new/MFL-new/configs/acm_revision/generated/headfix/
+```yaml
+status:
+selected:
+  rank:
+  alpha:
+  shadow_val_worst_oriented_auroc:
+  shadow_val_strongest_attack:
+  shadow_val_mean_relative_head_change:
 ```
 
-If both servers share the same filesystem, this copy step is unnecessary.
+## 3. Formal matrix if status=LOCKED
 
-## 4. Launch four queues
+Eight runs total:
 
-Server A:
+- shadow_train: 142, 143
+- shadow_val: 242
+- target: 42, 43, 44, 45, 46
 
-```bash
-cd /data/deli/MFL-new/MFL-new
-conda activate mfl
-mkdir -p logs/headfix
+Queues are split two jobs per physical GPU:
 
-nohup bash scripts/acm_revision/run_headfix_queue.sh \
-  configs/acm_revision/generated/headfix/serverA_gpu0.tsv 0 \
-  > logs/headfix/serverA_gpu0.queue.log 2>&1 &
+- Server A GPU0: shadow_train 142, target 42
+- Server A GPU1: shadow_train 143, shadow_val 242
+- Server B GPU0: target 43, target 44
+- Server B GPU1: target 45, target 46
 
-nohup bash scripts/acm_revision/run_headfix_queue.sh \
-  configs/acm_revision/generated/headfix/serverA_gpu1.tsv 1 \
-  > logs/headfix/serverA_gpu1.queue.log 2>&1 &
-```
+If the two servers do not share storage, copy the newly generated head-fix assets and
+configs to Server B before starting.
 
-Server B:
+## 4. Foreground execution
 
-```bash
-cd /data/deli/MFL-new/MFL-new
-conda activate mfl
-mkdir -p logs/headfix
-
-nohup bash scripts/acm_revision/run_headfix_queue.sh \
-  configs/acm_revision/generated/headfix/serverB_gpu0.tsv 0 \
-  > logs/headfix/serverB_gpu0.queue.log 2>&1 &
-
-nohup bash scripts/acm_revision/run_headfix_queue.sh \
-  configs/acm_revision/generated/headfix/serverB_gpu1.tsv 1 \
-  > logs/headfix/serverB_gpu1.queue.log 2>&1 &
-```
-
-Check progress:
+Server A GPU0:
 
 ```bash
-nvidia-smi
-tail -f logs/headfix/serverA_gpu0.queue.log
+bash scripts/acm_revision/run_headfix_queue.sh \
+  configs/acm_revision/generated/headfix/serverA_gpu0.tsv 0
 ```
 
-Each runner uses the resume-capable FL implementation, with a round checkpoint every
-five rounds.
-
-## 5. Gather Server B results onto Server A
+Server A GPU1:
 
 ```bash
-rsync -av \
-  SERVER_B:/data/deli/MFL-new/MFL-new/results/acm_revision/headfix_r150/ \
-  /data/deli/MFL-new/MFL-new/results/acm_revision/headfix_r150/
+bash scripts/acm_revision/run_headfix_queue.sh \
+  configs/acm_revision/generated/headfix/serverA_gpu1.tsv 1
 ```
 
-## 6. Run the same strict post-processing protocol as Core72
+Server B GPU0:
+
+```bash
+bash scripts/acm_revision/run_headfix_queue.sh \
+  configs/acm_revision/generated/headfix/serverB_gpu0.tsv 0
+```
+
+Server B GPU1:
+
+```bash
+bash scripts/acm_revision/run_headfix_queue.sh \
+  configs/acm_revision/generated/headfix/serverB_gpu1.tsv 1
+```
+
+The queues run in the foreground and also write per-job logs under `logs/headfix/`.
+The FL runner saves a resume checkpoint every five communication rounds.
+
+## 5. Post-process after gathering all eight runs
 
 ```bash
 python -m src.acm_revision.core72_postprocess \
@@ -128,7 +130,7 @@ python -m src.acm_revision.core72_postprocess \
   --target-seeds 42,43,44,45,46
 ```
 
-The new capture protocol is intentionally aligned to the final Core72 reference:
+The formal HeadFix capture protocol is aligned to the final Core72 reference:
 classifier head exact every round, milestone rounds
 `1,5,10,20,30,50,75,100,125,150`, 16,384-dimensional encoder/all-shared
 coordinate sketches, and a 2,048-dimensional full-update signed feature-hash
