@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CORE_ROOT="${1:-results/acm_revision/core72_r150}"
+CORE_ROOT="${1:-results/acm_revision/core72_modality_first_v2_r150}"
 HEADFIX_OUT="${2:-results/acm_revision/headfix_prep}"
 MAX_RANK="${3:-64}"
 TARGET_AUC="${4:-0.70}"
