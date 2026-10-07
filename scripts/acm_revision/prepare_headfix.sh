@@ -11,6 +11,7 @@ echo "[HEADFIX PREP] existing Core72 root=$CORE_ROOT"
 echo "[HEADFIX PREP] output_dir=$HEADFIX_OUT"
 echo "[HEADFIX PREP] max_rank=$MAX_RANK target_auc=$TARGET_AUC launch_auc=$LAUNCH_AUC"
 echo "[HEADFIX PREP] no CLIP/FL retraining is performed in this stage"
+rm -rf configs/acm_revision/generated/headfix
 
 python -m src.acm_revision.headfix_prepare \
   --core-root "$CORE_ROOT" \
