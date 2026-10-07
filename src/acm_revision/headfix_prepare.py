@@ -284,7 +284,7 @@ def _build_iterative_basis(
 
 
 def prepare(
-    core_root: str | Path = "results/acm_revision/core72_r150",
+    core_root: str | Path = "results/acm_revision/core72_modality_first_v2_r150",
     output_dir: str | Path = "results/acm_revision/headfix_prep",
     max_rank: int = MAX_RANK,
     target_auc: float = 0.70,
@@ -518,7 +518,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--core-root",
-        default="results/acm_revision/core72_r150",
+        default="results/acm_revision/core72_modality_first_v2_r150",
     )
     parser.add_argument(
         "--output-dir",
