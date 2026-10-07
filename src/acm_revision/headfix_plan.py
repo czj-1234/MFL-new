@@ -85,7 +85,7 @@ def _defense_cfg(old_manifest: dict, head_manifest: dict) -> dict:
 
     return {
         "name": "layerwise_mixed_filter",
-        "protocol_name": "minimal_signed_headfix_plus_existing_layerwise",
+        "protocol_name": "minimal_attacker_guided_headfix_plus_existing_layerwise",
         "layers": [
             _exact_filter("classifier_head", head_basis, head_rank, head_alpha),
             _exact_filter("fusion", old_basis, old_rank, old_alpha),
@@ -95,7 +95,7 @@ def _defense_cfg(old_manifest: dict, head_manifest: dict) -> dict:
         ],
         "all_defense_parameters_frozen_before_formal_target_runs": True,
         "minimal_headfix": {
-            "classifier_head_method": "signed_matched_label_composition",
+            "classifier_head_method": "iterative_attacker_guided_nullspace",
             "head_rank": head_rank,
             "head_alpha": head_alpha,
             "other_groups_reuse_original_strong_bases": True,
@@ -144,7 +144,7 @@ def _formal_config(
             "setting_name": "modality_exclusive",
             "concentration": 0.7,
             "output_root": "results/acm_revision/headfix_r150",
-            "headfix_protocol": "HeadFix-Minimal-v1",
+            "headfix_protocol": "HeadFix-Minimal-v2",
             "target_used_for_defense_selection": False,
         }
     )
@@ -248,7 +248,7 @@ def generate(
 
     audit = {
         "status": "PASS",
-        "protocol": "HeadFix-Minimal-v1",
+        "protocol": "HeadFix-Minimal-v2",
         "n_formal_runs": len(jobs),
         "capture": {
             "milestones": [1, 5, 10, 20, 30, 50, 75, 100, 125, 150],
