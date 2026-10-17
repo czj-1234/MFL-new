@@ -27,7 +27,7 @@ jobs:
         run: |
           for f in scripts/acm_revision/*.sh; do bash -n "$f"; done
       - name: Compile paper tooling
-        run: python -m py_compile src/acm_revision/paper_protocol_plan.py src/acm_revision/l2_budget.py src/acm_revision/defense_dispatch.py src/acm_revision/defense70_plan.py src/acm_revision/defense70_prepare.py src/acm_revision/headfix_plan.py scripts/acm_revision/paper_repro_preflight.py scripts/acm_revision/audit_headfix.py scripts/acm_revision/verify_paper_table7.py tests/test_paper_repro.py
+        run: python -m py_compile src/acm_revision/paper_protocol_plan.py src/acm_revision/l2_reference.py src/acm_revision/defense_dispatch.py src/acm_revision/defense70_plan.py src/acm_revision/defense70_prepare.py src/acm_revision/headfix_plan.py scripts/acm_revision/paper_repro_preflight.py scripts/acm_revision/audit_headfix.py scripts/acm_revision/verify_paper_table7.py tests/test_paper_repro.py
       - name: Generate all 72 canonical Core72 configs
         run: |
           python -m src.acm_revision.paper_protocol_plan --stage core --output /tmp/paper_repro_ci
@@ -43,6 +43,8 @@ jobs:
               assert c['experiment']['paper_repro_historical_result'] is False
           print('PASS canonical Core72:', len(configs))
           PY
+      - name: Validate integer L2 reference values
+        run: python -m src.acm_revision.l2_reference
       - name: Run code and protocol checks (no private datasets)
         run: python -m unittest discover -s tests -p 'test_paper_repro.py' -v
       - name: Generate code-only provenance status (not numerical reproduction)
@@ -52,17 +54,3 @@ jobs:
           name: source-preflight-report
           path: paper_preflight.json
 
-  l2-runtime:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install CPU Torch and protocol dependencies
-        run: |
-          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install numpy pandas PyYAML Pillow
-      - name: Run actual Torch-backed original-coordinate L2 budget test
-        run: |
-          python -m unittest discover -s tests -p 'test_paper_repro.py' -v
