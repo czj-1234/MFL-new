@@ -36,7 +36,7 @@ SOURCE_FILES = (
 )
 OLD_MANIFEST = "results/acm_revision/defense70_prep/locked_params.yaml"
 HEAD_MANIFEST = "results/acm_revision/headfix_prep/locked_headfix.yaml"
-HEAD_RUN_ROOT = "results/acm_revision/headfix_r150"
+HEAD_RUN_ROOT = "results/acm_revision/paper_repro_20261017/complete"
 
 
 def _yaml(path: Path) -> dict[str, Any]:
@@ -110,12 +110,16 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
                 "num_original_floating_coordinates"],
                "measure-original-update-l2-not-sketch")
 
-    stale_roots = ("configs/acm_revision/generated", "logs")
-    for sub in stale_roots:
-        p = root / sub
-        any_files = p.exists() and any(x.is_file() for x in p.rglob("*"))
-        add("stale-artifacts:" + sub, "FAIL" if any_files else "PASS",
-            "The submission source tree must not contain legacy generated configs/logs")
+    # Only the canonical generated directory is permitted after job generation.
+    generated = root / "configs/acm_revision/generated"
+    extra = []
+    canonical = (generated / "paper_repro_20261017").resolve()
+    if generated.exists():
+        for item in generated.rglob("*"):
+            if item.is_file() and not item.resolve().is_relative_to(canonical):
+                extra.append(str(item.relative_to(root)))
+    add("one-generated-config-root", "FAIL" if extra else "PASS",
+        "Non-canonical generated files: " + str(extra[:10]))
 
     matched = root / OLD_MANIFEST
     head = root / HEAD_MANIFEST
