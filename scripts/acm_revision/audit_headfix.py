@@ -62,6 +62,10 @@ def discover_runs(root):
             continue
         if int(summary.get("rounds", -1)) != 150 or capture.get("status") != "PASS":
             raise ValueError(f"Incomplete run or failed capture: {metadata_path.parent}")
+        recorded = capture.get("milestone_rounds_present")
+        if recorded is None or tuple(sorted(int(x) for x in recorded)) != PAPER_MILESTONE_ROUNDS:
+            raise ValueError(f"Capture is not exact eight-round paper protocol: {metadata_path.parent}")
+
         metrics = pd.read_csv(metadata_path.parent / "round_metrics.csv")
         if metrics.empty or int(metrics["round"].max()) != 150:
             raise ValueError(f"Run did not reach round 150: {metadata_path.parent}")
@@ -239,8 +243,6 @@ def main():
     parser.add_argument("--groups", default=",".join(GROUPS))
     parser.add_argument("--protocols", default=",".join(PROTOCOLS))
     parser.add_argument("--models", default="LR,RF,MLP")
-    parser.add_argument("--paper-milestones", action="store_true",
-                        help="Use only the eight recorded manuscript milestones for all CP/CPT attack inputs")
     parser.add_argument("--baseline-task-csv", default=(
         "results/acm_revision/core72_modality_first_v2_postprocess_r150/"
         "modality_exclusive__c0p7__r150/task_metrics_per_target_run.csv"))
@@ -254,11 +256,10 @@ def main():
         raise ValueError("Unknown group/protocol/model")
     runs = discover_runs(root)
     metadata = all_metadata(runs)
-    if args.paper_milestones:
-        metadata = metadata.loc[metadata["round"].astype(int).isin(PAPER_MILESTONE_ROUNDS)].copy()
-        if metadata.empty:
-            raise RuntimeError("Paper-milestone restriction removed every observation")
-        print(f"[PAPER PROTOCOL] attacking only rounds {PAPER_MILESTONE_ROUNDS}", flush=True)
+    metadata = metadata.loc[metadata["round"].astype(int).isin(PAPER_MILESTONE_ROUNDS)].copy()
+    if metadata.empty:
+        raise RuntimeError("Paper eight-round protocol has no observations")
+    print(f"[PAPER PROTOCOL] attacking only rounds {PAPER_MILESTONE_ROUNDS}", flush=True)
     print(f"[AUDIT] verified {len(runs)} complete runs; {len(metadata)} updates", flush=True)
     utility = utility_statistics(runs, args.baseline_task_csv, out)
     rows, per_seed_rows = [], []
@@ -307,8 +308,8 @@ def main():
         "target_validation_oriented_auroc": winner["target_auc_validation_oriented"],
         "target_pooled_auc_diagnostic": winner["target_auc_validation_oriented"],
         "target_mean_per_independent_run_auroc": float(selected["target_auc_validation_oriented"].mean()),
-        "paper_milestones": bool(args.paper_milestones),
-        "paper_milestone_rounds": list(PAPER_MILESTONE_ROUNDS) if args.paper_milestones else None,
+        "paper_milestones": True,
+        "paper_milestone_rounds": list(PAPER_MILESTONE_ROUNDS),
         "target_seed_statistics": bootstrap(selected["target_auc_validation_oriented"]),
         "target_per_seed": selected[["target_seed", "target_auc_validation_oriented"]].to_dict("records"),
         "n_candidates": len(attacks),
