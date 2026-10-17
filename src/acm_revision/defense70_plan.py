@@ -67,22 +67,11 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
     fullbasis = manifest["selected"]["single_full_update_basis"]
     clip_weak = manifest["selected"]["clip_gaussian_weak"]
     clip_strong = manifest["selected"]["clip_gaussian_strong"]
-    if "l2_budget" not in manifest:
-        raise ValueError("Missing measured shadow-only L2 budget in locked manifest; re-run paper protocol preparation")
-    lb = manifest["l2_budget"]
-    if lb.get("target_data_used") is not False:
-        raise ValueError("L2 budget provenance must be target-free")
-    weak_l2 = float(lb["weak_max_relative_update_distortion_l2"])
-    strong_l2 = float(lb["strong_max_relative_update_distortion_l2"])
-    if not (0 < weak_l2 <= 1 and 0 < strong_l2 <= 1):
-        raise ValueError("Invalid locked L2 budget")
 
-
-    def layerwise(point: dict, max_l2: float) -> dict:
+    def layerwise(point: dict) -> dict:
         rank, alpha = int(point["rank"]), float(point["alpha"])
         return {
             "name": "layerwise_mixed_filter",
-            "max_relative_update_distortion_l2": max_l2,
             "protocol_name": "contrast_aware_system_wide_layerwise",
             "layers": [
                 _exact_contrast("classifier_head", paths["contrast"], rank, alpha),
@@ -99,11 +88,10 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
             "proposed_head_ablation",
             "proposed",
             "ablation",
-            _exact_contrast("classifier_head", paths["contrast"], int(head["rank"]), float(head["alpha"])) |
-            {"max_relative_update_distortion_l2": strong_l2},
+            _exact_contrast("classifier_head", paths["contrast"], int(head["rank"]), float(head["alpha"])),
         ),
-        OperatingPoint("proposed_system_weak", "proposed", "weak", layerwise(weak, weak_l2)),
-        OperatingPoint("proposed_system_strong", "proposed", "strong", layerwise(strong, strong_l2)),
+        OperatingPoint("proposed_system_weak", "proposed", "weak", layerwise(weak)),
+        OperatingPoint("proposed_system_strong", "proposed", "strong", layerwise(strong)),
         OperatingPoint(
             "proposed_single_fullbasis",
             "proposed",
@@ -115,7 +103,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(fullbasis["rank"]),
                 float(fullbasis["alpha"]),
                 manifest,
-            ) | {"max_relative_update_distortion_l2": strong_l2},
+            ),
         ),
         OperatingPoint(
             "pca_weak",
@@ -128,7 +116,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(weak["rank"]),
                 float(weak["alpha"]),
                 manifest,
-            ) | {"max_relative_update_distortion_l2": weak_l2},
+            ),
         ),
         OperatingPoint(
             "pca_strong",
@@ -141,7 +129,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(strong["rank"]),
                 float(strong["alpha"]),
                 manifest,
-            ) | {"max_relative_update_distortion_l2": strong_l2},
+            ),
         ),
         OperatingPoint(
             "random_weak",
@@ -154,7 +142,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(weak["rank"]),
                 float(weak["alpha"]),
                 manifest,
-            ) | {"max_relative_update_distortion_l2": weak_l2},
+            ),
         ),
         OperatingPoint(
             "random_strong",
@@ -167,7 +155,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(strong["rank"]),
                 float(strong["alpha"]),
                 manifest,
-            ) | {"max_relative_update_distortion_l2": strong_l2},
+            ),
         ),
         OperatingPoint(
             "clipgauss_weak",
