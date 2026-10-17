@@ -20,7 +20,7 @@ from .orchestrator import load_yaml
 DEFAULT_EVERY_ROUND_GROUPS = ["classifier_bias", "classifier_weight", "classifier_head"]
 DEFAULT_MILESTONE_EXACT_GROUPS = ["fusion", "missing_modality"]
 DEFAULT_MILESTONE_SKETCH_GROUPS = ["image_encoder", "text_encoder", "all_shared", "full_update"]
-DEFAULT_MILESTONE_ROUNDS = [1, 5, 10, 20, 30, 50, 75, 100, 125, 150]
+DEFAULT_MILESTONE_ROUNDS = [1, 10, 30, 50, 75, 100, 125, 150]
 
 
 def _stable_seed(*parts: object) -> int:
