@@ -465,15 +465,6 @@ def fit_shadow_only_preparation(
 
     clip_weak = float(np.quantile(np.asarray(val_full_norms, dtype=np.float64), 0.75))
     clip_strong = float(np.quantile(np.asarray(val_full_norms, dtype=np.float64), 0.50))
-    # Predeclare a shared original-coordinate L2 distortion cap before any formal FL.
-    # Calibration uses ONLY seed-242 shadow validation and the selected matched
-    # filtering regime's measured 512-D *sketch* relative change as a target-free
-    # dimensionless cap. The cap itself is enforced later on the FULL ORIGINAL
-    # raw update (not the sketch) by defense_dispatch.apply_defense_to_state.
-    weak_l2_ratio = float(weak["shadow_val_mean_relative_sketch_change"])
-    strong_l2_ratio = float(strong["shadow_val_mean_relative_sketch_change"])
-    if not (0.0 < weak_l2_ratio <= 1.0 and 0.0 < strong_l2_ratio <= 1.0):
-        raise ValueError("Invalid shadow-only calibrated relative-L2 perturbation caps")
     manifest = {
         "protocol": "Defense70-v1",
         "status": "LOCKED",
@@ -532,18 +523,6 @@ def fit_shadow_only_preparation(
             "strong_grid": {"ranks": [3, 5], "alphas": [0.75, 1.0]},
             "selection_metric": "minimum shadow-validation dominant-label balanced accuracy; relative sketch change breaks ties",
             "candidate_results": tuning_rows,
-        },
-        "l2_budget": {
-            "definition": "L2(transmitted_update - raw_update) <= rho * L2(raw_update)",
-            "scope": "all_original_floating_coordinates_before_FedAvg",
-            "calibration_population": "shadow_val",
-            "calibration_seed": 242,
-            "calibration_source": "mean_relative_full_update_512D_sketch_change_of_selected_matched_configuration",
-            "warning": "Sketch-derived rho is a shadow-only design calibration; actual L2 cap is independently enforced in full update coordinates",
-            "weak_max_relative_update_distortion_l2": weak_l2_ratio,
-            "strong_max_relative_update_distortion_l2": strong_l2_ratio,
-            "applies_to": ["matched-contrast", "PCA", "random", "complete_ASLWF"],
-            "target_data_used": False,
         },
         "clip_calibration": {
             "weak_clip_quantile": 0.75,
