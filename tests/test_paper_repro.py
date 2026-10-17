@@ -94,6 +94,36 @@ class PaperReproGuards(unittest.TestCase):
                      "Table 6", "Table 7", "Table 8", "Table D1", "Table E3", "Table F1"):
             self.assertIn(name, text)
 
+    def test_actual_dispatch_budget_and_missing_budget_rejected(self):
+        try:
+            import torch
+            import numpy as np
+            import tempfile
+            from src.acm_revision.defense_dispatch import apply_defense_to_state
+        except ImportError:
+            self.skipTest("Full Torch/Numpy not installed; run in l2-runtime CI")
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "head.npz"
+            np.savez_compressed(path, classifier_head=np.array([[1.0], [0.0], [0.0]], dtype=np.float32))
+            before = {"fusion.classifier.weight": torch.tensor([0.0, 0.0, 0.0])}
+            trained = {"fusion.classifier.weight": torch.tensor([2.0, 1.0, 0.0])}
+            cfg = {
+                "name": "contrast_filter", "group": "classifier_head",
+                "basis_path": str(path), "rank": 1, "alpha": 1.0,
+                "max_relative_update_distortion_l2": .1,
+            }
+            defended, log = apply_defense_to_state(before, trained, cfg, seed=0)
+            self.assertTrue(log["l2_budget"]["budget_verified"])
+            raw = trained["fusion.classifier.weight"] - before["fusion.classifier.weight"]
+            transmitted = defended["fusion.classifier.weight"] - before["fusion.classifier.weight"]
+            measured = torch.linalg.vector_norm(transmitted - raw).item()
+            bound = .1 * torch.linalg.vector_norm(raw).item()
+            self.assertLessEqual(measured, bound + 1e-6)
+            self.assertTrue(log["l2_budget"]["is_active"])
+            del cfg["max_relative_update_distortion_l2"]
+            with self.assertRaises(ValueError):
+                apply_defense_to_state(before, trained, cfg, seed=0)
+
     def test_true_original_coordinate_l2_cap_runtime(self):
         try:
             import torch
