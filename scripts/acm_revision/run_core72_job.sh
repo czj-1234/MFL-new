@@ -100,7 +100,7 @@ exp["balanced_attribution_control"] = bool(concentration == 0.5)
 exp["job_id"] = f"core72_{setting}_c{concentration}_{population}_seed{seed}_n{num_clients}_s{samples_per_client}_r{rounds}"
 exp["output_root"] = output_root
 
-milestones = [x for x in [1, 5, 10, 20, 30, 50, 75, 100, 125, 150] if x <= rounds]
+milestones = [x for x in [1, 10, 30, 50, 75, 100, 125, 150] if x <= rounds]
 if rounds not in milestones:
     milestones.append(rounds)
 milestones = sorted(set(milestones))
