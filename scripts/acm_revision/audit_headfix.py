@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shadow-validation-selected all-surface HeadFix leakage and utility audit.
+"""Shadow-validation-selected all-surface paper attack audit (common shadow seed142).
 
 Run from the MFL-new repository root. Never retrains a federated model.
 """
@@ -26,7 +26,7 @@ GROUPS = (
     "missing_modality", "image_encoder", "text_encoder", "all_shared", "full_update",
 )
 PROTOCOLS = ("cross_partition", "cross_partition_temporal")
-EXPECTED = {"shadow_train": (142, 143), "shadow_val": (242,), "target": (42, 43, 44, 45, 46)}
+EXPECTED = {"shadow_train": (142,), "shadow_val": (242,), "target": (42, 43, 44, 45, 46)}
 SEED = 42
 PAPER_MILESTONE_ROUNDS = (1, 10, 30, 50, 75, 100, 125, 150)
 
@@ -319,6 +319,7 @@ def main():
             "The threat metric is restricted to evaluated models/protocols/surfaces.",
             "No target-label-based maximum is used to select the attack.",
             "Only observed (post-defense) updates are used by the attacker.",
+            "Common-shadow attack fitting uses seed142 across all three defense configurations; seed143 remains basis-training-only for complete ASLWF.",
             "Full-update uses the captured 2048-dimensional signed-hash representation."
         ]
     }
