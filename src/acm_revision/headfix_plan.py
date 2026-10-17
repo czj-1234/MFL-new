@@ -78,6 +78,11 @@ def _defense_cfg(old_manifest: dict, head_manifest: dict) -> dict:
     old_strong = old_manifest["selected"]["strong"]
     old_rank = int(old_strong["rank"])
     old_alpha = float(old_strong["alpha"])
+    if "l2_budget" not in old_manifest:
+        raise ValueError("Complete ASLWF requires the same locked strong L2 budget as matched/PCA/random; no bypass")
+    strong_l2 = float(old_manifest["l2_budget"]["strong_max_relative_update_distortion_l2"])
+    if not (0 < strong_l2 <= 1):
+        raise ValueError("Invalid strong relative L2 perturbation budget")
 
     head_basis = str(head_manifest["basis"]["path"])
     head_rank = int(head_manifest["selected"]["rank"])
@@ -85,7 +90,8 @@ def _defense_cfg(old_manifest: dict, head_manifest: dict) -> dict:
 
     return {
         "name": "layerwise_mixed_filter",
-        "protocol_name": "minimal_attacker_guided_headfix_plus_existing_layerwise",
+        "max_relative_update_distortion_l2": strong_l2,
+        "protocol_name": "paper_locked_complete_aslwf_five_group",
         "layers": [
             _exact_filter("classifier_head", head_basis, head_rank, head_alpha),
             _exact_filter("fusion", old_basis, old_rank, old_alpha),
@@ -155,7 +161,7 @@ def _formal_config(
     # reference is directly comparable: exact head every round, the same
     # milestone schedule, 16,384 coordinate sketches, and 2,048-d full-update
     # signed feature-hash projection.
-    milestones = [1, 5, 10, 20, 30, 50, 75, 100, 125, 150]
+    milestones = [1, 10, 30, 50, 75, 100, 125, 150]
     cfg["privacy_capture"] = {
         "every_round_exact_groups": [
             "classifier_bias",
@@ -251,7 +257,7 @@ def generate(
         "protocol": "HeadFix-Minimal-v2",
         "n_formal_runs": len(jobs),
         "capture": {
-            "milestones": [1, 5, 10, 20, 30, 50, 75, 100, 125, 150],
+            "milestones": [1, 10, 30, 50, 75, 100, 125, 150],
             "all_shared_sketch_dim": 16384,
             "full_update_projection_dim": 2048,
         },
