@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only provenance/preflight for the 2026-10-17 ASLWF manuscript.
+"""Strict single-protocol source and artifact preflight for the 2026-10-17 paper.
 
-Preflight checks are not an independent numerical reproduction. They verify
-protocol invariants and report missing original artifacts without fabricating
-results. Exit code is nonzero for a FAIL or for any missing artifact in strict mode.
+Exactly 8 milestone rounds, 2048-d full-update signed hash, and enforced
+original-coordinate common L2 budgets. No legacy/alternate protocol modes.
+A source PASS is not numerical reproduction; real artifacts must be verified.
 """
 from __future__ import annotations
 
@@ -19,14 +19,16 @@ EXPECTED_GROUPS = (
     "missing_modality", "image_encoder", "text_encoder", "all_shared", "full_update",
 )
 SOURCE_FILES = (
-    "src/acm_revision/core72_modality_first_plan.py",
+    "src/acm_revision/core72_plan.py",
     "src/acm_revision/defense70_prepare.py",
     "src/acm_revision/defense70_plan.py",
     "src/acm_revision/headfix_prepare.py",
     "src/acm_revision/headfix_plan.py",
-    "src/acm_revision/paper_protocol_plan.py",
     "src/acm_revision/defense_dispatch.py",
     "src/acm_revision/hash_subspace.py",
+    "src/acm_revision/l2_budget.py",
+    "src/acm_revision/paper_protocol_plan.py",
+    "src/acm_revision/privacy_capture_runner_v2.py",
     "scripts/acm_revision/audit_headfix.py",
     "scripts/acm_revision/verify_paper_table7.py",
     "docs/paper_repro/README.md",
@@ -37,15 +39,15 @@ HEAD_MANIFEST = "results/acm_revision/headfix_prep/locked_headfix.yaml"
 HEAD_RUN_ROOT = "results/acm_revision/headfix_r150"
 
 
-def read_yaml(path: Path) -> dict[str, Any]:
+def _yaml(path: Path) -> dict[str, Any]:
     try:
         import yaml
     except ImportError as exc:
-        raise RuntimeError("PyYAML is required to check locked manifests") from exc
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"Expected mapping: {path}")
-    return data
+        raise RuntimeError("PyYAML required for locked manifests") from exc
+    obj = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(obj, dict):
+        raise ValueError("Expected mapping: " + str(path))
+    return obj
 
 
 def run(root: Path, strict: bool = False) -> dict[str, Any]:
@@ -54,149 +56,154 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
     def add(name: str, status: str, detail: str) -> None:
         findings.append({"check": name, "status": status, "detail": detail})
 
-    for rel in SOURCE_FILES:
-        add("source:" + rel, "PASS" if (root / rel).is_file() else "FAIL",
-            "present" if (root / rel).is_file() else "missing source file")
+    for path in SOURCE_FILES:
+        add("source:" + path, "PASS" if (root / path).is_file() else "FAIL", path)
 
-    head_src = (root / "src/acm_revision/headfix_prepare.py")
-    plan_src = (root / "src/acm_revision/headfix_plan.py")
-    audit_src = (root / "scripts/acm_revision/audit_headfix.py")
-    if head_src.exists():
-        t = head_src.read_text(encoding="utf-8")
-        predicates = ("TRAIN_SEEDS = (142, 143)", "VAL_SEEDS = (242,)",
-                      "TRAIN_MAX_ROUND = 60", "VAL_MIN_ROUND = 61",
-                      "_build_iterative_basis", "worst_oriented_auroc")
-        add("head-basis-shadow-only-code", "PASS" if all(x in t for x in predicates) else "FAIL",
-            "shadow seeds, temporal train/selection split and iterative LR selection")
-    if plan_src.exists():
-        t = plan_src.read_text(encoding="utf-8")
-        patterns = ('"name": "layerwise_mixed_filter"',
-                    '_exact_filter("classifier_head", head_basis',
-                    '_exact_filter("fusion", old_basis',
-                    '_exact_filter("missing_modality", old_basis',
-                    '_hash_filter("image_encoder", old_basis',
-                    '_hash_filter("text_encoder", old_basis',
-                    '"all_defense_parameters_frozen_before_formal_target_runs": True')
-        add("combined-five-group-filter-implementation",
-            "PASS" if all(x in t for x in patterns) else "FAIL",
-            "attacker-guided head replaces matched head; other four groups remain matched-only")
-        capture10 = "milestones = [1, 5, 10, 20, 30, 50, 75, 100, 125, 150]" in t
-        add("historical-headfix-capture-calendar",
-            "INFO" if capture10 else "WARN",
-            "headfix captures 10 milestones; paper attacks must select canonical eight milestones")
-        add("headfix-full-hash-2048",
-            "PASS" if '"full_group_projection_dim": 2048' in t else "FAIL",
-            "paper full-update observation must be a 2048-dimensional all-coordinate signed hash")
+    def check_code(path: str, substrings: list[str], name: str, excluded: list[str] | None = None) -> None:
+        p = root / path
+        if not p.is_file():
+            return
+        text = p.read_text(encoding="utf-8")
+        matches = all(token in text for token in substrings)
+        incompatible = [s for s in (excluded or ()) if s in text]
+        add(name, "PASS" if matches and not incompatible else "FAIL",
+            "Required code present; incompatible markers=" + str(incompatible))
 
-    if audit_src.exists():
-        t = audit_src.read_text(encoding="utf-8")
-        predicates = ("--paper-milestones", "PAPER_MILESTONE_ROUNDS", "paper_milestones")
-        add("eight-milestone-paper-audit-available",
-            "PASS" if all(p in t for p in predicates) else "FAIL",
-            "paper-aligned attack filtering must be explicitly requested; legacy audit remains available")
+    check_code("src/acm_revision/paper_protocol_plan.py",
+               ["PAPER_MILESTONES = (1, 10, 30, 50, 75, 100, 125, 150)",
+                "PAPER_FULL_UPDATE_DIM = 2048", "def _core_templates(",
+                'if name == "matched":', '"core", "baselines", "complete"'],
+               "single-canonical-training-config")
+    check_code("src/acm_revision/defense70_plan.py",
+               ['"full_group_projection_dim": 2048',
+                '"max_relative_update_distortion_l2"', "weak_l2", "strong_l2"],
+               "same-protocol-all-baselines",
+               excluded=['"full_group_projection_dim": 8192'])
+    check_code("src/acm_revision/headfix_plan.py",
+               ["milestones = [1, 10, 30, 50, 75, 100, 125, 150]",
+                '"max_relative_update_distortion_l2": strong_l2',
+                '"name": "layerwise_mixed_filter"'],
+               "same-protocol-complete-aslwf",
+               excluded=["milestones = [1, 5, 10, 20, 30, 50, 75, 100, 125, 150]"])
+    check_code("src/acm_revision/privacy_capture_runner.py",
+               ["DEFAULT_MILESTONE_ROUNDS = [1, 10, 30, 50, 75, 100, 125, 150]"],
+               "default-capture-eight")
+    check_code("src/acm_revision/privacy_capture_runner_v2.py",
+               ["if projection_dim != 2048:", "Paper protocol requires exactly eight fixed capture rounds"],
+               "strict-2048-capture")
+    check_code("scripts/acm_revision/audit_headfix.py",
+               ["PAPER_MILESTONE_ROUNDS", 'metadata["round"].astype(int).isin(PAPER_MILESTONE_ROUNDS)',
+                "milestone_rounds_present", "target_mean_per_independent_run_auroc"],
+               "strict-eight-round-defense-aware-audit",
+               excluded=["parser.add_argument(\"--paper-milestones\""])
+    check_code("src/acm_revision/defense70_prepare.py",
+               ['"l2_budget": {', '"calibration_population": "shadow_val"',
+                '"weak_max_relative_update_distortion_l2"',
+                '"strong_max_relative_update_distortion_l2"'],
+               "shadow-locked-common-l2-budget")
+    check_code("src/acm_revision/defense_dispatch.py",
+               ["apply_common_l2_cap_inplace", "def _enforce_shared_l2(",
+                'detail = _enforce_shared_l2', "summary = _enforce_shared_l2"],
+               "actual-before-upload-l2-enforcement")
+    check_code("src/acm_revision/l2_budget.py",
+               ['"budget_verified": within_budget', "raw_norm", "distortion_sq",
+                "num_original_floating_coordinates"],
+               "measure-original-update-l2-not-sketch")
 
-    # Historical conflict is recorded, never hidden by modifying old configs.
-    d70plan = root / "src/acm_revision/defense70_plan.py"
-    if d70plan.exists():
-        old = d70plan.read_text(encoding="utf-8")
-        add("legacy-defense70-full-update-hash",
-            "WARN" if '"full_group_projection_dim": 8192' in old else "INFO",
-            "archive uses 8192 rather than paper's 2048; cannot claim its historical full-update attack is paper-equivalent without new consistent processing")
+    stale_roots = ("configs/acm_revision/generated", "logs")
+    for sub in stale_roots:
+        p = root / sub
+        any_files = p.exists() and any(x.is_file() for x in p.rglob("*"))
+        add("stale-artifacts:" + sub, "FAIL" if any_files else "PASS",
+            "The submission source tree must not contain legacy generated configs/logs")
 
-    artifacts: dict[str, dict[str, Any]] = {}
-    for name, rel in (("matched", OLD_MANIFEST), ("head", HEAD_MANIFEST)):
-        path = root / rel
+    matched = root / OLD_MANIFEST
+    head = root / HEAD_MANIFEST
+    for name, path in (("matched", matched), ("head", head)):
         if not path.is_file():
-            add(name + "-locked-manifest", "MISSING", f"not found: {rel}")
+            add(name + "-locked-manifest", "MISSING", "Real original lock not supplied: " + str(path))
             continue
         try:
-            manifest = read_yaml(path)
-            artifacts[name] = manifest
-            if manifest.get("status") != "LOCKED":
-                add(name + "-locked-manifest", "FAIL", "status is not LOCKED")
-            elif manifest.get("provenance", {}).get("target_data_used_for_basis_or_tuning") is not False:
-                add(name + "-locked-manifest", "FAIL", "target-free provenance not certified")
-            else:
-                add(name + "-locked-manifest", "PASS", "locked and target-free as recorded")
+            doc = _yaml(path)
+            ok = doc.get("status") == "LOCKED" and doc.get("provenance", {}).get(
+                "target_data_used_for_basis_or_tuning") is False
+            add(name + "-locked-manifest", "PASS" if ok else "FAIL", "must be LOCKED and target-free")
             if name == "matched":
-                point = manifest.get("selected", {}).get("strong", {})
-                okay = int(point.get("rank", -1)) == 5 and abs(float(point.get("alpha", -1)) - 1.0) < 1e-8
-                add("matched-strong-operating-point", "PASS" if okay else "FAIL",
-                    "expected r=5, alpha=1; actual=" + json.dumps(point, default=str))
-            if name == "head":
-                sel = manifest.get("selected", {})
-                rank = sel.get("rank")
-                okay = isinstance(rank, int) and rank > 0 and abs(float(sel.get("alpha", -1)) - 1) < 1e-8
-                add("actual-selected-head-rank", "PASS" if okay else "FAIL",
-                    "selected rank=" + str(rank) + "; MAX_RANK=64 is not the selected rank")
-                prv = manifest.get("provenance", {})
-                source_ok = list(prv.get("basis_seeds", [])) == [142, 143] and list(prv.get("validation_seeds", [])) == [242]
-                add("head-basis-populations", "PASS" if source_ok else "FAIL",
-                    "shadow train seeds 142,143; shadow validation 242")
+                l2 = doc.get("l2_budget", {})
+                good = l2.get("target_data_used") is False
+                for tier in ("weak", "strong"):
+                    x = float(l2[tier + "_max_relative_update_distortion_l2"])
+                    good = good and 0.0 < x <= 1.0
+                add("matched-common-l2-budget", "PASS" if good else "FAIL",
+                    "Both tiers must have the same locked cap per compared method")
+                w, s = doc["selected"]["weak"], doc["selected"]["strong"]
+                pts = (int(w["rank"]) == 1 and abs(float(w["alpha"]) - .25) < 1e-9
+                       and int(s["rank"]) == 5 and abs(float(s["alpha"]) - 1) < 1e-9)
+                add("matched-selected-weak-strong", "PASS" if pts else "FAIL",
+                    "Expected (r,alpha)=(1,.25),(5,1) if reproducing manuscript")
+            else:
+                rank = int(doc.get("selected", {}).get("rank", 0))
+                alpha = float(doc.get("selected", {}).get("alpha", -1))
+                add("head-final-selected-rank", "PASS" if rank > 0 and abs(alpha - 1) < 1e-9 else "FAIL",
+                    "Actual locked rank=" + str(rank) + ", not merely MAX_RANK")
         except Exception as exc:
-            add(name + "-locked-manifest", "FAIL", f"{type(exc).__name__}: {exc}")
+            add(name + "-locked-manifest", "FAIL", str(exc))
 
-    if artifacts.get("matched") and artifacts.get("head"):
-        add("separate-basis-manifests", "PASS", "both separately selected sources exist")
-
-    rroot = root / HEAD_RUN_ROOT
-    if not rroot.is_dir():
-        add("headfix-formal-runs", "MISSING", f"not found: {HEAD_RUN_ROOT}")
+    root_runs = root / HEAD_RUN_ROOT
+    if not root_runs.exists():
+        add("complete-formal-fl-runs", "MISSING", "Eight independent defended run outputs unavailable")
     else:
-        discovered: dict[tuple[str, int], list[str]] = {}
-        for summary_path in rroot.rglob("summary.json"):
+        found: dict[tuple[str, int], list[Path]] = {}
+        expected = {("shadow_train", 142), ("shadow_train", 143), ("shadow_val", 242)}
+        expected.update(("target", s) for s in EXPECTED_TARGET_SEEDS)
+        for path in root_runs.rglob("summary.json"):
             try:
-                summary = json.loads(summary_path.read_text(encoding="utf-8"))
-                p = str(summary.get("population", ""))
-                s = int(summary.get("seed", -1))
-                if p not in ("shadow_train", "shadow_val", "target"):
+                summary = json.loads(path.read_text(encoding="utf-8"))
+                population = str(summary.get("population", ""))
+                seed = int(summary.get("seed", -1))
+                if population not in ("shadow_train", "shadow_val", "target"):
                     continue
-                discovered.setdefault((p, s), []).append(str(summary_path.parent.relative_to(root)))
-                if int(summary.get("rounds", 0)) != 150:
-                    add("incomplete-fl:" + p + ":" + str(s), "FAIL", "not 150 rounds")
-                capture = summary_path.parent / "capture_manifest.json"
-                if not capture.exists() or json.loads(capture.read_text(encoding="utf-8")).get("status") != "PASS":
-                    add("capture:" + p + ":" + str(s), "FAIL", "capture manifest missing or not PASS")
-                if p == "target" and (summary.get("best") or {}).get("test_auroc") is None:
-                    add("utility:" + str(s), "FAIL", "missing independently trained target best test AUROC")
+                found.setdefault((population, seed), []).append(path)
+                capture_path = path.parent / "capture_manifest.json"
+                capture = json.loads(capture_path.read_text(encoding="utf-8"))
+                rounds = tuple(sorted(int(x) for x in capture.get("milestone_rounds_present", [])))
+                passed = (int(summary.get("rounds", 0)) == 150
+                          and capture.get("status") == "PASS" and rounds == PAPER_ROUNDS)
+                add("run:" + population + ":" + str(seed), "PASS" if passed else "FAIL",
+                    "150 rounds; capture PASS; exact eight milestones")
+                if population == "target" and (summary.get("best") or {}).get("test_auroc") is None:
+                    add("target-utility:" + str(seed), "FAIL", "Missing independent best test AUROC")
             except Exception as exc:
-                add("headfix-run-parse:" + str(summary_path), "FAIL", str(exc))
-        expected = {("shadow_train", 142), ("shadow_train", 143),
-                    ("shadow_val", 242)} | {("target", s) for s in EXPECTED_TARGET_SEEDS}
-        got = set(discovered)
-        if expected != got or any(len(v) != 1 for v in discovered.values()):
-            add("headfix-formal-runs", "FAIL",
-                "expected 8 unique population/seed runs; missing="
-                + str(sorted(expected - got)) + "; extra=" + str(sorted(got - expected)))
-        else:
-            add("headfix-formal-runs", "PASS", "8 distinct 150-round runs present; target seeds 42–46")
-        if not discovered:
-            add("headfix-formal-runs", "FAIL", "no valid population/seed summaries")
+                add("run-parse:" + str(path), "FAIL", str(exc))
+        good = set(found) == expected and all(len(v) == 1 for v in found.values())
+        add("complete-formal-fl-runs", "PASS" if good else "FAIL",
+            "Need exactly eight independent runs: expected=" + str(sorted(expected))
+            + "; obtained=" + str(sorted(found)))
 
-    failed = sum(f["status"] == "FAIL" for f in findings)
-    missing = sum(f["status"] == "MISSING" for f in findings)
-    warnings = sum(f["status"] == "WARN" for f in findings)
-    outcome = "FAIL" if failed or (strict and missing) else ("NEEDS_ARTIFACTS" if missing else ("REVIEW_REQUIRED" if warnings else "PASS"))
-    return {"status": outcome, "strict_artifacts": strict,
-            "paper_attack_milestones": list(PAPER_ROUNDS),
-            "paper_attack_configurations": len(EXPECTED_GROUPS) * 3 * 2,
-            "counts": {"fail": failed, "missing": missing, "warnings": warnings},
-            "findings": findings}
+    failures = sum(x["status"] == "FAIL" for x in findings)
+    missing = sum(x["status"] == "MISSING" for x in findings)
+    status = "FAIL" if failures or (strict and missing) else ("NEEDS_ARTIFACTS" if missing else "PASS")
+    return {"status": status, "strict_artifacts": strict,
+            "protocol": {"milestone_rounds": list(PAPER_ROUNDS),
+                         "full_update_dim": 2048,
+                         "attacks": len(EXPECTED_GROUPS) * 3 * 2,
+                         "l2_definition": "||Delta_filtered-Delta_raw||2 <= rho*||Delta_raw||2"},
+            "counts": {"fail": failures, "missing": missing}, "findings": findings}
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--root", type=Path, default=Path("."))
-    p.add_argument("--strict-artifacts", action="store_true", help="missing original artifact is a failing condition")
-    p.add_argument("--json-out", type=Path, help="optional JSON report file (never overwrites model outputs)")
+    p.add_argument("--strict-artifacts", action="store_true")
+    p.add_argument("--json-out", type=Path)
     args = p.parse_args()
-    report = run(args.root.resolve(), args.strict_artifacts)
-    formatted = json.dumps(report, indent=2, ensure_ascii=False)
-    print(formatted)
+    output = run(args.root.resolve(), args.strict_artifacts)
+    report = json.dumps(output, ensure_ascii=False, indent=2)
+    print(report)
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(formatted + "\n", encoding="utf-8")
-    return 1 if report["status"] == "FAIL" else 0
+        args.json_out.write_text(report + "\n", encoding="utf-8")
+    return 1 if output["status"] == "FAIL" else 0
 
 
 if __name__ == "__main__":
