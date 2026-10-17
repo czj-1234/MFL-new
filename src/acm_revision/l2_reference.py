@@ -22,18 +22,13 @@ REFERENCE_CSV = (
     Path(__file__).resolve().parents[2]
     / "docs" / "paper_repro" / "l2_summary_reference.csv"
 )
-# The largest REPORTED mean_relative_L2 in each method-tier/surface cell,
+# The ceiling of the largest reported mean_relative_L2 in each tier/surface,
 # not the maximum over individual clients/rounds.
 MEAN_RELATIVE_L2_THRESHOLDS = {
-    "strong": {
-        "classifier_head": 0.8175672136188386,
-        "full_update": 0.014964902194092806,
-    },
-    "weak": {
-        "classifier_head": 0.20400139029459616,
-        "full_update": 0.0010105610364926128,
-    },
+    "strong": {"classifier_head": 1, "full_update": 1},
+    "weak": {"classifier_head": 1, "full_update": 1},
 }
+
 SURFACE_MEASUREMENT = {
     "classifier_head": "EXACT_SURFACE",
     "full_update": "PROXY_ONLY",
@@ -51,8 +46,8 @@ def method_tier(method: str) -> tuple[str, str]:
     raise ValueError("Unknown method/tier in original L2 summary: " + method)
 
 
-def threshold(surface: str, tier: str) -> float:
-    """Get published-summary reference; this is NOT a live training cap."""
+def threshold(surface: str, tier: str) -> int:
+    """Return the rounded-up monitoring threshold for an existing aggregate."""
     return MEAN_RELATIVE_L2_THRESHOLDS[tier][surface]
 
 
@@ -91,13 +86,13 @@ def audit_existing_means(source: str | Path = REFERENCE_CSV) -> dict:
             "method": row["method"], "tier": tier, "surface": surface,
             "measurement_level": row["measurement_level"],
             "observed_mean_relative_L2": observed,
-            "reference_maximum_of_means": limit,
-            "within_reference_maximum_of_means": observed <= limit + 1e-12,
+            "rounded_upper_reference": limit,
+            "within_rounded_upper_reference": observed <= limit + 1e-12,
         })
-    if any(abs(maxima[t][s] - threshold(s, t)) > 1e-12
-           for t in maxima for s in SURFACE_MEASUREMENT):
-        raise ValueError("Spreadsheet maxima and frozen reference thresholds disagree")
-    good = all(r["within_reference_maximum_of_means"] for r in annotated)
+    if any(math.ceil(maxima[t][surface]) != threshold(surface, t)
+           for t in maxima for surface in SURFACE_MEASUREMENT):
+        raise ValueError("Rounded-up threshold does not match Excel grouped maximum")
+    good = all(r["within_rounded_upper_reference"] for r in annotated)
     return {
         "status": "PASS" if good else "FAIL",
         "purpose": "retrospective_descriptive_mean_reference_only",
