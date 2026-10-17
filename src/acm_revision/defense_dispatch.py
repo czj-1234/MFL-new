@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import math
 from typing import Mapping
 
 import numpy as np
@@ -11,6 +12,7 @@ from .defenses import (
     apply_vector_to_delta,
     delta_to_state,
     flatten_delta,
+    name_in_group,
     load_basis,
     state_delta,
     transform_vector,
@@ -96,6 +98,69 @@ def _apply_exact(delta, cfg: dict, seed: int) -> dict:
     }
 
 
+def _enforce_relative_l2_budget(before_state, after_state, delta, budget: dict) -> dict:
+    """Cap filter-induced relative L2 changes on each individual client update.
+
+    The two budgets apply to the EXACT classifier-head coordinates and the
+    ORIGINAL full floating-point model update (not its 2048-d attack sketch).
+    If either bound is exceeded, rescale the entire filtering perturbation
+    uniformly before returning the update to FedAvg. This preserves the
+    direction of the original defense-induced change. Clip+Gaussian has a
+    separate clipping rule and does not use this budget.
+    """
+    expected = {"classifier_head", "full_update"}
+    if set(budget) != expected:
+        raise ValueError("relative_l2_budget must define classifier_head and full_update")
+    limits = {group: float(budget[group]) for group in expected}
+    if any(not math.isfinite(limit) or limit <= 0 for limit in limits.values()):
+        raise ValueError("relative L2 budgets must be positive and finite")
+
+    base_sq = {group: 0.0 for group in expected}
+    diff_sq = {group: 0.0 for group in expected}
+    for name, filtered in delta.items():
+        if not torch.is_floating_point(filtered):
+            continue
+        original = after_state[name].detach().cpu().float() - before_state[name].detach().cpu().float()
+        perturbation = filtered.detach().cpu().float() - original
+        original_sq = float(torch.linalg.vector_norm(original).item()) ** 2
+        perturbation_sq = float(torch.linalg.vector_norm(perturbation).item()) ** 2
+        base_sq["full_update"] += original_sq
+        diff_sq["full_update"] += perturbation_sq
+        if name_in_group(name, "classifier_head"):
+            base_sq["classifier_head"] += original_sq
+            diff_sq["classifier_head"] += perturbation_sq
+
+    relative_before = {
+        group: math.sqrt(diff_sq[group]) / (math.sqrt(base_sq[group]) + 1e-12)
+        for group in expected
+    }
+    scale = min(1.0, *(limits[group] / relative_before[group]
+                       for group in expected if relative_before[group] > limits[group]))
+    if scale < 1.0:
+        for name, filtered in delta.items():
+            if not torch.is_floating_point(filtered):
+                continue
+            original = after_state[name].detach().cpu().float() - before_state[name].detach().cpu().float()
+            delta[name] = original + scale * (filtered.detach().cpu().float() - original)
+
+    return {
+        "norm_space": "exact_original_model_update",
+        "limits": limits,
+        "relative_before": relative_before,
+        "relative_after": {group: relative_before[group] * scale for group in expected},
+        "perturbation_scale": float(scale),
+        "activated": bool(scale < 1.0),
+    }
+
+
+def _finalize_filter(before_state, after_state, delta, cfg, detail):
+    if "relative_l2_budget" in cfg:
+        detail["relative_l2_budget"] = _enforce_relative_l2_budget(
+            before_state, after_state, delta, dict(cfg["relative_l2_budget"])
+        )
+    return delta_to_state(before_state, delta), detail
+
+
 def apply_defense_to_state(
     before_state: Mapping[str, torch.Tensor],
     after_state: Mapping[str, torch.Tensor],
@@ -117,12 +182,12 @@ def apply_defense_to_state(
     if name in _HASH_NAMES:
         delta = state_delta(before_state, after_state)
         detail = _apply_hash(delta, defense_cfg, seed)
-        return delta_to_state(before_state, delta), {"name": name, **detail}
+        return _finalize_filter(before_state, after_state, delta, defense_cfg, {"name": name, **detail})
 
     if name == "contrast_filter" and defense_cfg.get("basis_path"):
         delta = state_delta(before_state, after_state)
         detail = _apply_exact(delta, defense_cfg, seed)
-        return delta_to_state(before_state, delta), {"name": name, **detail}
+        return _finalize_filter(before_state, after_state, delta, defense_cfg, {"name": name, **detail})
 
     if name == "streaming_clip_gaussian":
         delta = state_delta(before_state, after_state)
@@ -150,10 +215,10 @@ def apply_defense_to_state(
                 details.append(_apply_hash(delta, cfg, layer_seed))
             else:
                 details.append(_apply_exact(delta, cfg, layer_seed))
-        return delta_to_state(before_state, delta), {
+        return _finalize_filter(before_state, after_state, delta, defense_cfg, {
             "name": name,
             "group": "layerwise",
             "layers": details,
-        }
+        })
 
     return apply_legacy_defense_to_state(before_state, after_state, defense_cfg, seed)
