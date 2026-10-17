@@ -15,6 +15,7 @@ from .defenses import (
     state_delta,
     transform_vector,
 )
+from .l2_budget import apply_common_l2_cap_inplace
 from .hash_subspace import (
     clip_gaussian_delta_inplace,
     load_hash_basis,
@@ -96,6 +97,22 @@ def _apply_exact(delta, cfg: dict, seed: int) -> dict:
     }
 
 
+def _enforce_shared_l2(before_state, after_state, delta, cfg: dict, details: dict) -> dict:
+    if "max_relative_update_distortion_l2" not in cfg:
+        raise ValueError(
+            "Paper matched/PCA/random/ASLWF defense missing an actual common L2 budget. "
+            "Regenerate locked parameters and job configs; do not silently skip."
+        )
+    audit = apply_common_l2_cap_inplace(
+        before_state, after_state, delta,
+        max_relative_l2=float(cfg["max_relative_update_distortion_l2"]),
+    )
+    if not audit["budget_verified"]:
+        raise AssertionError("Transmitted update exceeded the prescribed L2 perturbation budget")
+    details["l2_budget"] = audit
+    return details
+
+
 def apply_defense_to_state(
     before_state: Mapping[str, torch.Tensor],
     after_state: Mapping[str, torch.Tensor],
@@ -117,11 +134,14 @@ def apply_defense_to_state(
     if name in _HASH_NAMES:
         delta = state_delta(before_state, after_state)
         detail = _apply_hash(delta, defense_cfg, seed)
+        if name in ("implicit_hash_contrast", "implicit_hash_pca", "implicit_hash_random"):
+            detail = _enforce_shared_l2(before_state, after_state, delta, defense_cfg, detail)
         return delta_to_state(before_state, delta), {"name": name, **detail}
 
     if name == "contrast_filter" and defense_cfg.get("basis_path"):
         delta = state_delta(before_state, after_state)
         detail = _apply_exact(delta, defense_cfg, seed)
+        detail = _enforce_shared_l2(before_state, after_state, delta, defense_cfg, detail)
         return delta_to_state(before_state, delta), {"name": name, **detail}
 
     if name == "streaming_clip_gaussian":
@@ -150,10 +170,11 @@ def apply_defense_to_state(
                 details.append(_apply_hash(delta, cfg, layer_seed))
             else:
                 details.append(_apply_exact(delta, cfg, layer_seed))
-        return delta_to_state(before_state, delta), {
+        summary = _enforce_shared_l2(before_state, after_state, delta, defense_cfg, {
             "name": name,
             "group": "layerwise",
             "layers": details,
-        }
+        })
+        return delta_to_state(before_state, delta), summary
 
     return apply_legacy_defense_to_state(before_state, after_state, defense_cfg, seed)
