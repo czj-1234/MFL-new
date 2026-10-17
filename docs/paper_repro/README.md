@@ -98,6 +98,21 @@ python scripts/acm_revision/audit_headfix.py \
 
 The last command produces a **new paper-milestone audit**, not necessarily the same values as earlier all-round offline audits. Never overwrite, rename or relabel historical numerical outputs.
 
+## Numerical verification for manuscript Table 7
+
+The branch also contains a read-only comparator for the main paper results. It consumes the original per-target attack scores, run-resolved task values and 54-candidate shadow-selection audit results. It **does not generate any missing values from the manuscript**. It keeps fixed classifier-head CPT/RF, all-shared target-side diagnostic max and the shadow-selected strongest attack separate:
+
+~~~bash
+python scripts/acm_revision/verify_paper_table7.py \
+  --no-defense results/acm_revision/PAPER_AUDIT_NO_DEFENSE \
+  --matched-only results/acm_revision/PAPER_AUDIT_MATCHED_ONLY \
+  --complete-aslwf results/acm_revision/PAPER_AUDIT_COMPLETE \
+  --strict-protocol \
+  --output results/acm_revision/paper_table7_verification.json
+~~~
+
+Replace placeholder directories with genuine, independently generated **--paper-milestones** audit outputs. The verifier requires all five target seed scores for every reported metric and confirms the Table E3 chosen surface/protocol/model for each method. PASS is possible only when original artifacts agree with rounded Table 7 numbers within the declared tolerance. Before generating these audits, first run the original attack audit separately for all three methods with --paper-milestones; do not compare old all-round evaluations to paper-eight results.
+
 ## Known paper-to-code differences requiring validation
 
 1. **Attack observation calendar.** Historical HeadFix configs capture 10 milestone rounds: 1,5,10,20,30,50,75,100,125,150; the manuscript specifies 8. Extra *capture* rounds are acceptable only if the attack audit selects the paper's 8. Historical audit_headfix.py used all available observations before this branch added --paper-milestones. Without filtering, its CPT head attack can use every early and late round, contrary to the paper's eight-milestone attack protocol. Rerun and document the paper-aligned audit, do not assume published 0.6044 is reproduced.
