@@ -27,6 +27,8 @@ GROUPS = (
 )
 PROTOCOLS = ("cross_partition", "cross_partition_temporal")
 EXPECTED = {"shadow_train": (142,), "shadow_val": (242,), "target": (42, 43, 44, 45, 46)}
+# Seed143 may exist among complete ASLWF formal training outputs but is not an
+# attack-fitting input. Common-shadow attack comparisons always use seed142.
 SEED = 42
 PAPER_MILESTONE_ROUNDS = (1, 10, 30, 50, 75, 100, 125, 150)
 
@@ -73,7 +75,7 @@ def discover_runs(root):
     got = [(s["population"], int(s["seed"])) for _, s in valid]
     required = {(pop, seed) for pop, seeds in EXPECTED.items() for seed in seeds}
     if len(got) != len(required) or set(got) != required:
-        raise ValueError(f"Expected exactly 8 unique runs; got={got}, missing={required-set(got)}")
+        raise ValueError(f"Expected {len(required)} distinct common-shadow audit runs; got={got}, missing={required-set(got)}")
     return valid
 
 
