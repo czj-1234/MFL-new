@@ -28,6 +28,7 @@ GROUPS = (
 PROTOCOLS = ("cross_partition", "cross_partition_temporal")
 EXPECTED = {"shadow_train": (142, 143), "shadow_val": (242,), "target": (42, 43, 44, 45, 46)}
 SEED = 42
+PAPER_MILESTONE_ROUNDS = (1, 10, 30, 50, 75, 100, 125, 150)
 
 
 def bootstrap(values, nboot=5000):
@@ -238,6 +239,8 @@ def main():
     parser.add_argument("--groups", default=",".join(GROUPS))
     parser.add_argument("--protocols", default=",".join(PROTOCOLS))
     parser.add_argument("--models", default="LR,RF,MLP")
+    parser.add_argument("--paper-milestones", action="store_true",
+                        help="Use only the eight recorded manuscript milestones for all CP/CPT attack inputs")
     parser.add_argument("--baseline-task-csv", default=(
         "results/acm_revision/core72_modality_first_v2_postprocess_r150/"
         "modality_exclusive__c0p7__r150/task_metrics_per_target_run.csv"))
@@ -251,6 +254,11 @@ def main():
         raise ValueError("Unknown group/protocol/model")
     runs = discover_runs(root)
     metadata = all_metadata(runs)
+    if args.paper_milestones:
+        metadata = metadata.loc[metadata["round"].astype(int).isin(PAPER_MILESTONE_ROUNDS)].copy()
+        if metadata.empty:
+            raise RuntimeError("Paper-milestone restriction removed every observation")
+        print(f"[PAPER PROTOCOL] attacking only rounds {PAPER_MILESTONE_ROUNDS}", flush=True)
     print(f"[AUDIT] verified {len(runs)} complete runs; {len(metadata)} updates", flush=True)
     utility = utility_statistics(runs, args.baseline_task_csv, out)
     rows, per_seed_rows = [], []
@@ -297,6 +305,10 @@ def main():
         "selected_model": winner["model"],
         "selection_shadow_val_oriented_auroc": winner["shadow_val_auc_oriented"],
         "target_validation_oriented_auroc": winner["target_auc_validation_oriented"],
+        "target_pooled_auc_diagnostic": winner["target_auc_validation_oriented"],
+        "target_mean_per_independent_run_auroc": float(selected["target_auc_validation_oriented"].mean()),
+        "paper_milestones": bool(args.paper_milestones),
+        "paper_milestone_rounds": list(PAPER_MILESTONE_ROUNDS) if args.paper_milestones else None,
         "target_seed_statistics": bootstrap(selected["target_auc_validation_oriented"]),
         "target_per_seed": selected[["target_seed", "target_auc_validation_oriented"]].to_dict("records"),
         "n_candidates": len(attacks),
@@ -318,7 +330,8 @@ def main():
     print("\n[AUDIT COMPLETE]", flush=True)
     print(f"Selected on shadow-val: {winner['group']} | {winner['protocol']} | {winner['model']}", flush=True)
     print(f"Shadow-val AUROC: {winner['shadow_val_auc_oriented']:.4f}", flush=True)
-    print(f"Frozen target AUROC: {winner['target_auc_validation_oriented']:.4f}", flush=True)
+    print(f"Target mean of five independent run AUROCs: {selected['target_auc_validation_oriented'].mean():.4f}", flush=True)
+    print(f"Pooled target AUROC (separate diagnostic): {winner['target_auc_validation_oriented']:.4f}", flush=True)
     print(f"Upload result archive: {archive_path}", flush=True)
 
 
