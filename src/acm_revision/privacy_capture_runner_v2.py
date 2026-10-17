@@ -190,6 +190,15 @@ def _save_capture_npz_factory_v2(cfg: dict):
     projection_dim = int(capture_cfg.get("full_group_projection_dim", 2048))
     sketch_seed = int(capture_cfg.get("sketch_seed", 20260803))
     projection_seed = int(capture_cfg.get("full_group_projection_seed", 20260804))
+    if cfg.get("experiment", {}).get("paper_repro_protocol") == "ASLWF-manuscript-2026-10-17":
+        if tuple(sorted(milestone_rounds)) != (1, 10, 30, 50, 75, 100, 125, 150):
+            raise ValueError("Paper protocol requires exactly eight fixed capture rounds")
+        if projection_dim != 2048:
+            raise ValueError("Paper protocol requires 2048-dimensional full-update observation")
+        if projection_groups != {"full_update"} or sketch_dim != 16384:
+            raise ValueError("Paper protocol observation settings differ")
+        if int(cfg.get("federated", {}).get("rounds", 0)) != 150:
+            raise ValueError("Paper protocol requires exactly 150 communication rounds")
 
     def save_capture_npz(
         path: Path,
