@@ -61,6 +61,8 @@ class PaperReproGuards(unittest.TestCase):
         self.assertFalse(report["full_update_original_space_L2_verified"])
 
     def test_training_update_l2_budget_is_enforced(self):
+        if importlib.util.find_spec("torch") is None:
+            self.skipTest("Runtime update-level clipping test requires torch (GPU/FL environment)")
         import torch
         from src.acm_revision.defense_dispatch import _enforce_relative_l2_budget
 
