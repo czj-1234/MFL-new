@@ -28,6 +28,7 @@ SOURCE_FILES = (
     "src/acm_revision/defense_dispatch.py",
     "src/acm_revision/hash_subspace.py",
     "scripts/acm_revision/audit_headfix.py",
+    "scripts/acm_revision/verify_paper_table7.py",
     "docs/paper_repro/README.md",
     "docs/paper_repro/TRACEABILITY.csv",
 )
