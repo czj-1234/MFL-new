@@ -59,6 +59,15 @@ class PaperReproGuards(unittest.TestCase):
         ):
             self.assertIn(marker, plan)
 
+    def test_table7_comparator_checks_distinct_metrics_and_five_runs(self):
+        path = REPO_ROOT / "scripts" / "acm_revision" / "verify_paper_table7.py"
+        source = path.read_text()
+        for marker in ("EXPECTED_TABLE7", "TARGETS = (42, 43, 44, 45, 46)",
+                       "all_shared_cpt_diag_max", "head_cpt_rf",
+                       "shadow_selected", "strict-protocol",
+                       'if candidate_count != 54:'):
+            self.assertIn(marker, source)
+
     def test_appendix_traceability_covers_main_results(self):
         content = (REPO_ROOT / "docs" / "paper_repro" / "TRACEABILITY.csv").read_text()
         for table in ("Table 1", "Table 2", "Table 3", "Table 4",
