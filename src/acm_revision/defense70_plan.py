@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from .orchestrator import load_yaml
+from .l2_reference import MEAN_RELATIVE_L2_THRESHOLDS
 
 FORMAL_RUNS = (
     ("shadow_train", 142, 200),
@@ -83,7 +84,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
             "all_defense_parameters_frozen_before_formal_target_runs": True,
         }
 
-    return [
+    points = [
         OperatingPoint(
             "proposed_head_ablation",
             "proposed",
@@ -182,6 +183,19 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
             },
         ),
     ]
+    # Explicit hard per-client perturbation budgets for projection-filter methods.
+    # Both the exact classifier head and the original full-update L2 norm are
+    # checked after each local filter, before FedAvg. Clip+Gaussian retains its
+    # separate absolute update-norm clipping and noise configuration.
+    for point in points:
+        if point.family == "clip_gaussian":
+            continue
+        tier = point.tier if point.tier in ("weak", "strong") else "strong"
+        point.defense["relative_l2_budget"] = {
+            "classifier_head": float(MEAN_RELATIVE_L2_THRESHOLDS[tier]["classifier_head"]),
+            "full_update": float(MEAN_RELATIVE_L2_THRESHOLDS[tier]["full_update"]),
+        }
+    return points
 
 
 def _formal_config(base: dict, manifest: dict, op: OperatingPoint, population: str, seed: int, samples: int) -> dict:
