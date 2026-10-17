@@ -53,7 +53,7 @@ def attack_score(table: list[dict], group: str, protocol: str, model: str) -> fl
     return mean_five(subset, "target_auc_validation_oriented")
 
 
-def analyze(path: Path, strict_protocol: bool) -> dict:
+def analyze(path: Path) -> dict:
     grid = rows(path / "all_surface_per_target.csv")
     selected = rows(path / "selected_worstcase_per_target.csv")
     task = rows(path / "task_per_target.csv")
@@ -61,7 +61,7 @@ def analyze(path: Path, strict_protocol: bool) -> dict:
     if not meta_file.exists():
         raise FileNotFoundError(meta_file)
     metadata = json.loads(meta_file.read_text(encoding="utf-8"))
-    if strict_protocol and metadata.get("paper_milestones") is not True:
+    if metadata.get("paper_milestones") is not True or tuple(metadata.get("paper_milestone_rounds") or ()) != (1, 10, 30, 50, 75, 100, 125, 150):
         raise ValueError(f"Audit has not certified eight paper milestones: {meta_file}")
     candidate_count = metadata.get("n_candidates")
     if candidate_count != 54:
@@ -102,8 +102,6 @@ def main() -> int:
     parser.add_argument("--no-defense", type=Path, required=True)
     parser.add_argument("--matched-only", type=Path, required=True)
     parser.add_argument("--complete-aslwf", type=Path, required=True)
-    parser.add_argument("--strict-protocol", action="store_true",
-                        help="require the new paper-milestones audit marker in all three inputs")
     parser.add_argument("--tolerance", type=float, default=.00055,
                         help="manuscript values rounded to three decimals (default .00055)")
     parser.add_argument("--output", type=Path, default=Path("results/acm_revision/paper_table7_verification.json"))
@@ -120,7 +118,7 @@ def main() -> int:
               "analyses": {}, "uncertified": []}
     for method, path in paths.items():
         try:
-            actual = analyze(path, args.strict_protocol)
+            actual = analyze(path)
             checks = compare(actual, EXPECTED_TABLE7[method], args.tolerance)
             report["analyses"][method] = {"source": str(path), "observed": actual, "checks": checks}
             if not all(x["consistent"] for x in checks):
@@ -128,9 +126,6 @@ def main() -> int:
         except Exception as exc:
             report["status"] = "FAIL"
             report["analyses"][method] = {"source": str(path), "error": f"{type(exc).__name__}: {exc}"}
-    if report["status"] == "PASS" and not args.strict_protocol:
-        report["status"] = "PROVISIONAL"
-        report["uncertified"].append("Eight-milestone paper protocol not required; enable --strict-protocol for submission verification.")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"status": report["status"], "report": str(args.output),
