@@ -60,11 +60,60 @@ class PaperReproGuards(unittest.TestCase):
         self.assertFalse(report["historical_hard_cap_verified"])
         self.assertFalse(report["full_update_original_space_L2_verified"])
 
-    def test_original_filter_has_no_added_l2_clipping(self):
+    def test_training_update_l2_budget_is_enforced(self):
+        import torch
+        from src.acm_revision.defense_dispatch import _enforce_relative_l2_budget
+
+        before = {
+            "fusion.classifier.weight": torch.zeros(2),
+            "clip.vision_model.example": torch.zeros(2),
+        }
+        after = {
+            "fusion.classifier.weight": torch.tensor([1.0, 0.0]),
+            "clip.vision_model.example": torch.tensor([1.0, 0.0]),
+        }
+        delta = {
+            "fusion.classifier.weight": torch.tensor([3.0, 0.0]),
+            "clip.vision_model.example": torch.tensor([5.0, 0.0]),
+        }
+        detail = _enforce_relative_l2_budget(
+            before, after, delta, {"classifier_head": 1.0, "full_update": 1.0}
+        )
+        self.assertTrue(detail["activated"])
+        self.assertLess(detail["perturbation_scale"], 1.0)
+        for group, limit in detail["limits"].items():
+            self.assertLessEqual(detail["relative_after"][group], limit + 1e-6)
+        self.assertAlmostEqual(
+            float(delta["fusion.classifier.weight"][0]),
+            1.0 + 2.0 * detail["perturbation_scale"], places=5,
+        )
+        self.assertAlmostEqual(
+            float(delta["clip.vision_model.example"][0]),
+            1.0 + 4.0 * detail["perturbation_scale"], places=5,
+        )
+
+        already_compliant = {
+            "fusion.classifier.weight": torch.tensor([1.25, 0.0]),
+            "clip.vision_model.example": torch.tensor([1.5, 0.0]),
+        }
+        detail = _enforce_relative_l2_budget(
+            before, after, already_compliant,
+            {"classifier_head": 1.0, "full_update": 1.0}
+        )
+        self.assertFalse(detail["activated"])
+        self.assertEqual(detail["perturbation_scale"], 1.0)
+        self.assertEqual(float(already_compliant["fusion.classifier.weight"][0]), 1.25)
+        self.assertEqual(float(already_compliant["clip.vision_model.example"][0]), 1.5)
+
+    def test_common_budget_is_wired_to_filtered_methods(self):
         dispatcher = (ROOT / "src/acm_revision/defense_dispatch.py").read_text()
-        self.assertNotIn("apply_common_l2_cap_inplace", dispatcher)
-        self.assertNotIn("_enforce_shared_l2", dispatcher)
-        self.assertNotIn("max_relative_update_distortion_l2", (ROOT / "src/acm_revision/headfix_plan.py").read_text())
+        self.assertIn("_enforce_relative_l2_budget", dispatcher)
+        self.assertIn("return _finalize_filter(before_state, after_state, delta, defense_cfg", dispatcher)
+        from src.acm_revision.l2_reference import MEAN_RELATIVE_L2_THRESHOLDS
+        self.assertEqual(
+            MEAN_RELATIVE_L2_THRESHOLDS["weak"],
+            MEAN_RELATIVE_L2_THRESHOLDS["strong"],
+        )
 
     def test_config_generator_is_one_prospective_pipeline(self):
         src = (ROOT / "src/acm_revision/paper_protocol_plan.py").read_text()
@@ -118,9 +167,16 @@ class PaperReproGuards(unittest.TestCase):
         self.assertEqual(len(complete), 8)
         for _, cfg in controls:
             self.assertNotIn("max_relative_update_distortion_l2", cfg["defense"])
+            if cfg["defense"]["name"] == "streaming_clip_gaussian":
+                self.assertNotIn("relative_l2_budget", cfg["defense"])
+            else:
+                self.assertEqual(cfg["defense"]["relative_l2_budget"],
+                                 {"classifier_head": 1.0, "full_update": 1.0})
         for _, cfg in complete:
             defense = cfg["defense"]
             self.assertNotIn("max_relative_update_distortion_l2", defense)
+            self.assertEqual(defense["relative_l2_budget"],
+                             {"classifier_head": 1.0, "full_update": 1.0})
             self.assertEqual(len(defense["layers"]), 5)
             self.assertEqual(defense["layers"][0]["group"], "classifier_head")
             self.assertEqual(defense["layers"][0]["rank"], 8)
