@@ -35,6 +35,7 @@ Old generated YAML files and historical logs were removed **from this submission
 | Basis estimation | 96 identical-checkpoint concentrated-vs-balanced (70/30 vs 50/50) local contrasts from shadow-only seed142, 8 checkpoints x 12 client roles, 100 samples per matched branch, sample overlap maximized; centered SVD |
 | Large parameter group basis | rank <=5, 512-dimensional orthonormal-row signed hash projection, seed 20260820; distinct from 2048-d *attack* full-update hash |
 | Matched subspace weak/strong | (r,alpha)=(1,.25), (5,1) selected from shadow-val seed242 |
+| Per-client filtering budget | After each eligible filtered local update, enforce relative L2 perturbation <=1 on the exact classifier-head coordinates and <=1 on the original full-update coordinates. Scale the filtering difference uniformly if either limit is exceeded. Does not replace Clip+Gaussian clipping. |
 | Complete ASLWF | attacker-guided classifier-head basis learned with shadow_train 142/143 at rounds <=60 and chosen on independent shadow-val 242 at rounds >=61; alpha_head=1; replaces matched classifier-head basis; other four groups retain strong matched bases |
 | Attack models and selection | LR/RF/MLP x 9 surfaces x CP/CPT = 54; model+surface+protocol+orientation chosen using shadow-val **only**, target five AUROCs averaged separately |
 | Common-shadow audit | **shadow_train seed142** for fitting each method's defense-aware attackers (No Defense / Matched-contrast Only / Complete ASLWF); each uses shadow-val 242 and target 42–46. Seed143 may still be used to *construct* Complete ASLWF's head basis but does not enter common-shadow attack fitting |
@@ -46,7 +47,7 @@ Old generated YAML files and historical logs were removed **from this submission
 
 The L2 reference checker compares the existing shadow-validation aggregate means within each tier and observation surface. For both Strong and Weak, the integer upper reference is **1** on the exact classifier-head surface and **1** on the 2048-dimensional full-update sketch.
 
-The checker is read-only and does not alter gradients, transmitted updates or the original filtering rules. The full-update L2 statistic is sketch-based; it is not the norm of an uncompressed original update. The Clip+Gaussian baseline retains its own clipping and Gaussian perturbation configuration.
+The L2 reference checker is read-only, and the recorded 12 mean statistics are descriptive. **Separately**, the updated paper-protocol filtering dispatch now enforces per-client relative L2 budgets on the exact classifier-head update and original uncompressed full-model update, both with budget 1. For matched-contrast, PCA, random, head-only/full-basis ablations, and Complete ASLWF, the client filtering perturbation is uniformly rescaled before FedAvg **only if** either bound is exceeded. The Clip+Gaussian baseline retains its independent absolute-norm clipping and noise rule. The full-update L2 statistic in the spreadsheet is the 2,048-dimensional signed-hash proxy; it is **not** an exact full-model norm and cannot certify whether an old training run respected the new exact-space hard constraint. The new implementation affects prospective training, not already completed runs; historical table values require their original update-level evidence to establish that no additional clipping would occur.
 
 Run:
 `python -m src.acm_revision.l2_reference`
@@ -100,6 +101,7 @@ This pipeline contains **no option to revert to 8192 dimensions, 10 capture roun
 
 - Matched-basis construction is different from attacker-guide head-basis construction. The latter uses both shadow train seeds 142/143; all non-head groups retain matched contrast directions.
 - Original 72 core FL runs exclude the later defense experiments; 70 defense baseline jobs comprise 10 operating points x 7 run seeds; Complete ASLWF adds 8 independent training runs.
+- New per-client relative L2 enforcement is applied to the filtering perturbation, not the raw client update itself. A positive activation count in any rerun means that run is not numerically interchangeable with an uncapped historical output.
 - The common-shadow 54-candidate strongest attack and the target-side per-surface diagnostics are *different* reporting procedures, and neither proves a universal privacy guarantee. Table E2 residual image-pathway leakage remains relevant.
 - Track every stage with immutable generated YAML, SHA256 of both locked manifests, basis files, client partition manifests, capture manifests, attack-score CSVs, selected configurations, per-seed task checkpoints and confidence intervals. See \`TRACEABILITY.csv\`.
 - The uploaded PDF contains numerical results which **cannot be certified from source alone**. Submit all available traceable underlying records with the code where permitted.
