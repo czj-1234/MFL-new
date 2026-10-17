@@ -24,6 +24,7 @@ SOURCE_FILES = (
     "src/acm_revision/defense70_plan.py",
     "src/acm_revision/headfix_prepare.py",
     "src/acm_revision/headfix_plan.py",
+    "src/acm_revision/paper_protocol_plan.py",
     "src/acm_revision/defense_dispatch.py",
     "src/acm_revision/hash_subspace.py",
     "scripts/acm_revision/audit_headfix.py",
@@ -155,7 +156,7 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
                 capture = summary_path.parent / "capture_manifest.json"
                 if not capture.exists() or json.loads(capture.read_text(encoding="utf-8")).get("status") != "PASS":
                     add("capture:" + p + ":" + str(s), "FAIL", "capture manifest missing or not PASS")
-                if p == "target" and not (summary.get("best") or {}).get("test_auroc") is not None:
+                if p == "target" and (summary.get("best") or {}).get("test_auroc") is None:
                     add("utility:" + str(s), "FAIL", "missing independently trained target best test AUROC")
             except Exception as exc:
                 add("headfix-run-parse:" + str(summary_path), "FAIL", str(exc))
