@@ -72,8 +72,8 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
 
     check_code("src/acm_revision/paper_protocol_plan.py",
                ["PAPER_MILESTONES = (1, 10, 30, 50, 75, 100, 125, 150)",
-                "PAPER_FULL_UPDATE_DIM = 2048", "def _core_templates(",
-                'if name == "matched":', '"core", "baselines", "complete"'],
+                "PAPER_FULL_UPDATE_DIM = 2048", "def _core_templates(base_config: Path)",
+                '"core", "baselines", "complete"'],
                "single-canonical-training-config")
     check_code("src/acm_revision/defense70_plan.py",
                ['"full_group_projection_dim": 2048'],
