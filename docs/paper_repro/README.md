@@ -73,7 +73,7 @@ Prerequisites: licensed Hateful Memes dataset, prepared strict split files, Pyth
    \`python -m src.acm_revision.paper_protocol_plan --stage baselines\`
 
    This command **requires** the actual LOCKED \`locked_params.yaml\`. It fails if the new L2 budget is missing.
-5. Prepare the attacker-guided head basis from only shadow-training Core72 exact classifier-head updates (seeds142/143), validate on shadow-val242, and lock \`locked_headfix.yaml\`. The code: \`python -m src.acm_revision.headfix_prepare --core-root results/acm_revision/core72_modality_first_v2_r150\` (change \`--core-root\` to the genuine new Core72 root; do NOT relabel another run's directory). The chosen **rank** is read from \`locked_headfix.yaml\`, not the default search MAX_RANK=64.
+5. Prepare the attacker-guided head basis from only shadow-training Core72 exact classifier-head updates (seeds142/143), validate on shadow-val242, and lock \`locked_headfix.yaml\`. The code: \`python -m src.acm_revision.headfix_prepare --core-root results/acm_revision/paper_repro_20261017/core\`. The chosen **rank** is read from \`locked_headfix.yaml\`, not the default search MAX_RANK=64.
 6. Generate **8 complete ASLWF** FL configs:
 
    \`python -m src.acm_revision.paper_protocol_plan --stage complete\`
@@ -84,7 +84,7 @@ Prerequisites: licensed Hateful Memes dataset, prepared strict split files, Pyth
    \`CUDA_VISIBLE_DEVICES=0 python -m src.acm_revision.privacy_capture_runner_resume_v2 --config PATH_TO_GENERATED_YAML --population shadow_train\`
 
    Replace config/population/GPU for each row of \`jobs.tsv\`. Each population/seed has its own output directory. No target data may enter basis/rank/budget/attack selection.
-8. Produce **the one** common-shadow, defense-aware audit separately for No Defense, Matched-contrast Only and Complete ASLWF, providing each method's own consistent stored updates. Each audit uses shadow_train142, shadow_val242 and five independent targets, and unconditionally enforces 8 milestones/2048 full-update capture:
+8. Produce **the one** common-shadow, defense-aware audit separately for No Defense, Matched-contrast Only and Complete ASLWF, providing each method's own consistent stored updates and an explicitly supplied `--baseline-task-csv`. Each audit uses shadow_train142, shadow_val242 and five independent targets, and unconditionally enforces 8 milestones/2048 full-update capture:
 
    \`python scripts/acm_revision/audit_headfix.py --root ACTUAL_RUN_ROOT --out ACTUAL_PAPER_AUDIT_DIR --baseline-task-csv ACTUAL_BASELINE_TASK_CSV\`
 
