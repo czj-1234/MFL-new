@@ -34,6 +34,14 @@ def _load_locked(path: Path, name: str) -> dict:
         raise ValueError(f"{name} manifest is not LOCKED: {path}")
     if manifest.get("provenance", {}).get("target_data_used_for_basis_or_tuning") is not False:
         raise ValueError(f"{name} manifest lacks certified target-free provenance")
+    if name == "matched":
+        l2 = manifest.get("l2_budget")
+        if not isinstance(l2, dict) or l2.get("target_data_used") is not False:
+            raise ValueError("Matched manifest requires a locked target-free common L2 budget")
+        for tier in ("weak", "strong"):
+            rho = float(l2[tier + "_max_relative_update_distortion_l2"])
+            if not (0.0 < rho <= 1.0):
+                raise ValueError("Invalid common relative L2 budget: " + tier)
     return manifest
 
 
@@ -91,24 +99,37 @@ def _write_jobs(configs: list[tuple[str, dict]], phase: str, out: Path, result_r
     return {"phase": phase, "jobs": jobs, "count": len(jobs)}
 
 
-def _core_templates(template_root: Path) -> list[tuple[str, dict]]:
+def _core_templates(base_config: Path) -> list[tuple[str, dict]]:
+    """Build all 72 paper jobs from the one canonical Hateful Memes YAML."""
+    base = load_yaml(base_config)
     records = []
     for job in core72_plan.all_jobs():
-        path = template_root / (job.job_id + ".yaml")
-        if not path.is_file():
-            raise FileNotFoundError(f"Missing historical Core72 config template: {path}")
-        cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
-        exp = cfg["experiment"]
-        if (exp["setting_name"] != job.setting or
-            abs(float(exp["concentration"]) - job.concentration) > 1e-9 or
-            exp["population"] != job.population or int(cfg["seed"]) != job.seed or
-            int(cfg["federated"]["samples_per_client"]) != job.samples_per_client):
-            raise ValueError(f"Core template disagrees with Core72 job specification: {path}")
+        cfg = copy.deepcopy(base)
+        cfg["seed"] = int(job.seed)
+        cfg["federated"].update({
+            "num_clients": 12, "partition_mode": "fixed",
+            "samples_per_client": int(job.samples_per_client),
+            "rounds": 150, "participation_rate": 1.0,
+            "min_participants": 12, "local_epochs": 1,
+            "optimizer": "adamw", "lr": 0.000001, "weight_decay": 0.05,
+            "batch_size": 16, "max_local_steps": None,
+            "aggregation": "fedavg", "fedprox_mu": 0.0,
+        })
+        cfg.setdefault("evaluation", {}).update({"eval_every": 5, "num_workers": 2})
+        cfg["experiment"].update({
+            "population": job.population, "setting_name": job.setting,
+            "concentration": float(job.concentration),
+            "balanced_attribution_control": job.concentration == 0.5,
+        })
+        cfg["defense"] = {"name": "none"}
+        cfg["update_capture"] = {
+            "save_all_checkpoints": False, "checkpoint_rounds": [],
+            "model_checkpoint_rounds": [], "storage_dtype": "float32",
+        }
         records.append((job.job_id, cfg))
     if len(records) != 72:
-        raise AssertionError("Exactly 72 core jobs are required")
+        raise AssertionError("Exactly 72 core FL jobs required")
     return records
-
 
 def _defense_configs(base_config: Path, manifest: dict) -> list[tuple[str, dict]]:
     base = load_yaml(base_config)
@@ -161,7 +182,7 @@ def generate(
 
     for name in requested:
         if name == "core":
-            items = _core_templates(root / "configs/acm_revision/generated/core72_modality_first_v2_r150")
+            items = _core_templates(base_config)
         elif name == "baselines":
             items = _defense_configs(base_config, matched)
         elif name == "complete":
