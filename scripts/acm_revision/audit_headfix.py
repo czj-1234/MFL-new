@@ -238,14 +238,13 @@ def utility_statistics(runs, baseline_csv, output):
 def main():
     parser = argparse.ArgumentParser(
         description="All-surface HeadFix privacy audit; selects attacks only on shadow validation")
-    parser.add_argument("--root", default="results/acm_revision/headfix_r150")
+    parser.add_argument("--root", default="results/acm_revision/paper_repro_20261017/complete")
     parser.add_argument("--out", default="results/acm_revision/headfix_worstcase_audit")
     parser.add_argument("--groups", default=",".join(GROUPS))
     parser.add_argument("--protocols", default=",".join(PROTOCOLS))
     parser.add_argument("--models", default="LR,RF,MLP")
-    parser.add_argument("--baseline-task-csv", default=(
-        "results/acm_revision/core72_modality_first_v2_postprocess_r150/"
-        "modality_exclusive__c0p7__r150/task_metrics_per_target_run.csv"))
+    parser.add_argument("--baseline-task-csv", required=True,
+                        help="Explicit verified baseline test-AUROC per-target CSV for paired task changes")
     args = parser.parse_args()
     root, out = Path(args.root), Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
