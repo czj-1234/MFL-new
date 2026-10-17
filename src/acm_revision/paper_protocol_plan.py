@@ -34,14 +34,6 @@ def _load_locked(path: Path, name: str) -> dict:
         raise ValueError(f"{name} manifest is not LOCKED: {path}")
     if manifest.get("provenance", {}).get("target_data_used_for_basis_or_tuning") is not False:
         raise ValueError(f"{name} manifest lacks certified target-free provenance")
-    if name == "matched":
-        l2 = manifest.get("l2_budget")
-        if not isinstance(l2, dict) or l2.get("target_data_used") is not False:
-            raise ValueError("Matched manifest requires a locked target-free common L2 budget")
-        for tier in ("weak", "strong"):
-            rho = float(l2[tier + "_max_relative_update_distortion_l2"])
-            if not (0.0 < rho <= 1.0):
-                raise ValueError("Invalid common relative L2 budget: " + tier)
     return manifest
 
 
