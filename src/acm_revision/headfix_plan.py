@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from .orchestrator import load_yaml
+from .l2_reference import MEAN_RELATIVE_L2_THRESHOLDS
 
 
 FORMAL_RUNS = (
@@ -86,6 +87,10 @@ def _defense_cfg(old_manifest: dict, head_manifest: dict) -> dict:
     return {
         "name": "layerwise_mixed_filter",
         "protocol_name": "minimal_attacker_guided_headfix_plus_existing_layerwise",
+        "relative_l2_budget": {
+            "classifier_head": float(MEAN_RELATIVE_L2_THRESHOLDS["strong"]["classifier_head"]),
+            "full_update": float(MEAN_RELATIVE_L2_THRESHOLDS["strong"]["full_update"]),
+        },
         "layers": [
             _exact_filter("classifier_head", head_basis, head_rank, head_alpha),
             _exact_filter("fusion", old_basis, old_rank, old_alpha),
