@@ -67,11 +67,22 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
     fullbasis = manifest["selected"]["single_full_update_basis"]
     clip_weak = manifest["selected"]["clip_gaussian_weak"]
     clip_strong = manifest["selected"]["clip_gaussian_strong"]
+    if "l2_budget" not in manifest:
+        raise ValueError("Missing measured shadow-only L2 budget in locked manifest; re-run paper protocol preparation")
+    lb = manifest["l2_budget"]
+    if lb.get("target_data_used") is not False:
+        raise ValueError("L2 budget provenance must be target-free")
+    weak_l2 = float(lb["weak_max_relative_update_distortion_l2"])
+    strong_l2 = float(lb["strong_max_relative_update_distortion_l2"])
+    if not (0 < weak_l2 <= 1 and 0 < strong_l2 <= 1):
+        raise ValueError("Invalid locked L2 budget")
 
-    def layerwise(point: dict) -> dict:
+
+    def layerwise(point: dict, max_l2: float) -> dict:
         rank, alpha = int(point["rank"]), float(point["alpha"])
         return {
             "name": "layerwise_mixed_filter",
+            "max_relative_update_distortion_l2": max_l2,
             "protocol_name": "contrast_aware_system_wide_layerwise",
             "layers": [
                 _exact_contrast("classifier_head", paths["contrast"], rank, alpha),
@@ -88,10 +99,11 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
             "proposed_head_ablation",
             "proposed",
             "ablation",
-            _exact_contrast("classifier_head", paths["contrast"], int(head["rank"]), float(head["alpha"])),
+            _exact_contrast("classifier_head", paths["contrast"], int(head["rank"]), float(head["alpha"])) |
+            {"max_relative_update_distortion_l2": strong_l2},
         ),
-        OperatingPoint("proposed_system_weak", "proposed", "weak", layerwise(weak)),
-        OperatingPoint("proposed_system_strong", "proposed", "strong", layerwise(strong)),
+        OperatingPoint("proposed_system_weak", "proposed", "weak", layerwise(weak, weak_l2)),
+        OperatingPoint("proposed_system_strong", "proposed", "strong", layerwise(strong, strong_l2)),
         OperatingPoint(
             "proposed_single_fullbasis",
             "proposed",
@@ -103,7 +115,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(fullbasis["rank"]),
                 float(fullbasis["alpha"]),
                 manifest,
-            ),
+            ) | {"max_relative_update_distortion_l2": strong_l2},
         ),
         OperatingPoint(
             "pca_weak",
@@ -116,7 +128,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(weak["rank"]),
                 float(weak["alpha"]),
                 manifest,
-            ),
+            ) | {"max_relative_update_distortion_l2": weak_l2},
         ),
         OperatingPoint(
             "pca_strong",
@@ -129,7 +141,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(strong["rank"]),
                 float(strong["alpha"]),
                 manifest,
-            ),
+            ) | {"max_relative_update_distortion_l2": strong_l2},
         ),
         OperatingPoint(
             "random_weak",
@@ -142,7 +154,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(weak["rank"]),
                 float(weak["alpha"]),
                 manifest,
-            ),
+            ) | {"max_relative_update_distortion_l2": weak_l2},
         ),
         OperatingPoint(
             "random_strong",
@@ -155,7 +167,7 @@ def operating_points(manifest: dict) -> list[OperatingPoint]:
                 int(strong["rank"]),
                 float(strong["alpha"]),
                 manifest,
-            ),
+            ) | {"max_relative_update_distortion_l2": strong_l2},
         ),
         OperatingPoint(
             "clipgauss_weak",
@@ -229,14 +241,14 @@ def _formal_config(base: dict, manifest: dict, op: OperatingPoint, population: s
         "milestone_exact_groups": ["fusion", "missing_modality"],
         "milestone_sketch_groups": ["image_encoder", "text_encoder", "all_shared", "full_update"],
         "full_group_projection_groups": ["full_update"],
-        "full_group_projection_dim": 8192,
+        "full_group_projection_dim": 2048,
         "full_group_projection_seed": 20260804,
         "milestone_rounds": milestones,
         "sketch_dim": 16384,
         "sketch_seed": 20260803,
         "representation_scope_note": (
             "Classifier head is captured exactly each round. Fusion/missing groups are exact at milestones. "
-            "Encoder/all_shared use deterministic coordinate sketches. full_update uses an 8192-d signed feature-hash "
+            "Encoder/all_shared use deterministic coordinate sketches. full_update uses a 2048-d signed feature-hash "
             "in which every transmitted coordinate contributes; it is a compressed full-model observation, not an exact flat vector."
         ),
     }
