@@ -57,6 +57,23 @@ The paper of record is the 45-page manuscript "Introduction - 副本(20261017-03
 
 All transformations use the client's raw update before transmission; the server's aggregation remains FedAvg. No formal DP or unconditional privacy guarantee is claimed. Secure aggregation is not assumed.
 
+## Canonical config generator (does not start training)
+
+A new, non-destructive generator ensures that **prospective reproduction jobs** use the manuscript's exact eight analysis milestones and a 2,048-d full-update signed hash across all stages. It creates configs under configs/acm_revision/generated/paper_repro_20261017 and writes prospective results to a separate results/acm_revision/paper_repro_20261017 directory:
+
+~~~bash
+# 72 core jobs; reuses committed Core72 templates, needs no defense manifest
+python -m src.acm_revision.paper_protocol_plan --stage core
+
+# Requires real frozen results/acm_revision/defense70_prep/locked_params.yaml:
+python -m src.acm_revision.paper_protocol_plan --stage baselines
+
+# Requires BOTH real locked_params.yaml and locked_headfix.yaml:
+python -m src.acm_revision.paper_protocol_plan --stage complete
+~~~
+
+Use --stage all only when both locked manifest files are available. The generator does not download data, train CLIP, fabricate basis vectors, or automatically reproduce manuscript metrics. It fails rather than substituting default ranks for selected ones. Generated job configs are new reproducibility trials; do not retroactively identify them with historical paper runs.
+
 ## Reproduction stages
 
 1. **Data and core training.** Prepare Hateful Memes and strict de-duplicated disjoint pools using the existing strict_split / data_protocol utilities. Generate and run Core72 with the original launcher. Verify all 72 manifests, splits, configurations and captured updates.
