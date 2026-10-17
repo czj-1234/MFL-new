@@ -70,6 +70,7 @@ def apply_common_l2_cap_inplace(
     raw_norm = math.sqrt(max(raw_sq, 0.0))
     proposed_distortion = math.sqrt(max(distortion_sq, 0.0))
     scale = scaling_factor(raw_norm, proposed_distortion, max_relative_l2)
+    applied_sq = distortion_sq if scale == 1.0 else 0.0
     if scale < 1.0:
         for name in sorted(filtered_delta):
             tensor = filtered_delta[name]
@@ -84,17 +85,25 @@ def apply_common_l2_cap_inplace(
                 raw = (locally_trained[sl].to(device=flat.device, dtype=flat.dtype) -
                        original[sl].to(device=flat.device, dtype=flat.dtype))
                 flat[sl].copy_(raw + scale * (flat[sl] - raw))
-    final_distortion = proposed_distortion * scale
+                # Verify actual post-rounding original-coordinate perturbation.
+                real_change = (flat[sl].detach().to(device="cpu", dtype=torch.float64) -
+                               (locally_trained[sl].detach().to(device="cpu", dtype=torch.float64) -
+                                original[sl].detach().to(device="cpu", dtype=torch.float64)))
+                applied_sq += float(torch.dot(real_change, real_change).item())
+    final_distortion = math.sqrt(max(applied_sq, 0.0))
+    within_budget = final_distortion <= raw_norm * float(max_relative_l2) * (1.0 + 1e-6) + 1e-7
+    if not within_budget:
+        raise AssertionError("Actual transmitted update exceeds its original-coordinate L2 cap")
     return {
         "mechanism": "common_relative_raw_update_L2_cap",
         "max_relative_update_distortion_l2": float(max_relative_l2),
         "raw_update_l2": raw_norm,
         "proposed_change_l2": proposed_distortion,
         "allowed_change_l2": raw_norm * float(max_relative_l2),
-        "applied_change_l2_approx": final_distortion,
+        "applied_change_l2": final_distortion,
         "applied_scale": scale,
         "num_original_floating_coordinates": dimension,
         "is_active": bool(scale < 1.0),
-        "budget_verified": final_distortion <= raw_norm * float(max_relative_l2) + 1e-7,
+        "budget_verified": within_budget,
         "scope": "all_transmitted_floating_parameters_before_FedAvg",
     }
