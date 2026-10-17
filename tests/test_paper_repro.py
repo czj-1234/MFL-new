@@ -18,7 +18,7 @@ def from_path(name: str, relative: str):
 
 
 preflight = from_path("paper_repro_preflight", "scripts/acm_revision/paper_repro_preflight.py")
-budget = from_path("paper_l2_budget", "src/acm_revision/l2_budget.py")
+l2ref = from_path("paper_l2_reference", "src/acm_revision/l2_reference.py")
 
 
 class PaperReproGuards(unittest.TestCase):
@@ -49,24 +49,22 @@ class PaperReproGuards(unittest.TestCase):
         self.assertIn("target_mean_per_independent_run_auroc", src)
         self.assertIn("target_pooled_auc_diagnostic", src)
 
-    def test_shared_l2_budget_must_be_enforced_on_all_subspace_methods(self):
-        dispatcher = (ROOT / "src/acm_revision/defense_dispatch.py").read_text()
-        generator = (ROOT / "src/acm_revision/defense70_plan.py").read_text()
-        complete = (ROOT / "src/acm_revision/headfix_plan.py").read_text()
-        self.assertIn("apply_common_l2_cap_inplace(", dispatcher)
-        self.assertIn("def _enforce_shared_l2(", dispatcher)
-        self.assertIn("max_relative_update_distortion_l2", generator)
-        self.assertIn("max_relative_update_distortion_l2", complete)
-        self.assertIn("Missing measured shadow-only L2 budget", generator)
-        self.assertIn("Complete ASLWF requires the same locked strong L2 budget", complete)
+    def test_rounded_l2_reference_thresholds(self):
+        expected = {"strong": {"classifier_head": 1, "full_update": 1},
+                    "weak": {"classifier_head": 1, "full_update": 1}}
+        self.assertEqual(l2ref.MEAN_RELATIVE_L2_THRESHOLDS, expected)
+        report = l2ref.audit_existing_means()
+        self.assertEqual(report["status"], "PASS")
+        self.assertEqual(len(report["rows"]), 12)
+        self.assertTrue(report["no_training_updates_modified"])
+        self.assertFalse(report["historical_hard_cap_verified"])
+        self.assertFalse(report["full_update_original_space_L2_verified"])
 
-    def test_l2_budget_scales_real_change(self):
-        self.assertAlmostEqual(budget.scaling_factor(10, 5, .2), .4)
-        self.assertAlmostEqual(budget.scaling_factor(10, 1, .2), 1.0)
-        self.assertAlmostEqual(budget.scaling_factor(0, 3, .2), 0.0)
-        for invalid in (-1, 0, 1.01, float("nan")):
-            with self.assertRaises(ValueError):
-                budget.scaling_factor(10, 3, invalid)
+    def test_original_filter_has_no_added_l2_clipping(self):
+        dispatcher = (ROOT / "src/acm_revision/defense_dispatch.py").read_text()
+        self.assertNotIn("apply_common_l2_cap_inplace", dispatcher)
+        self.assertNotIn("_enforce_shared_l2", dispatcher)
+        self.assertNotIn("max_relative_update_distortion_l2", (ROOT / "src/acm_revision/headfix_plan.py").read_text())
 
     def test_config_generator_is_one_prospective_pipeline(self):
         src = (ROOT / "src/acm_revision/paper_protocol_plan.py").read_text()
@@ -81,8 +79,7 @@ class PaperReproGuards(unittest.TestCase):
             self.assertIn(marker, src)
         self.assertNotIn("core72_modality_first_v2_r150", src)
 
-    def test_70_and_8_generated_formal_configs_share_locked_real_l2_caps(self):
-        import tempfile
+    def test_70_and_8_generated_formal_configs_preserve_defense_parameters(self):
         from src.acm_revision.paper_protocol_plan import _defense_configs, _complete_configs
         base_config = ROOT / "configs/acm_revision/hateful_memes.yaml"
         basis = "frozen_sha256_named_basis.npz"  # synthetic config-only path, not numeric evidence
@@ -119,16 +116,11 @@ class PaperReproGuards(unittest.TestCase):
         complete = _complete_configs(base_config, matched, head)
         self.assertEqual(len(controls), 70)
         self.assertEqual(len(complete), 8)
-        for name, cfg in controls:
-            defense = cfg["defense"]
-            if defense["name"] == "streaming_clip_gaussian":
-                self.assertNotIn("max_relative_update_distortion_l2", defense)
-            else:
-                rho = .02 if "weak" in name else .14
-                self.assertAlmostEqual(defense["max_relative_update_distortion_l2"], rho)
+        for _, cfg in controls:
+            self.assertNotIn("max_relative_update_distortion_l2", cfg["defense"])
         for _, cfg in complete:
             defense = cfg["defense"]
-            self.assertAlmostEqual(defense["max_relative_update_distortion_l2"], .14)
+            self.assertNotIn("max_relative_update_distortion_l2", defense)
             self.assertEqual(len(defense["layers"]), 5)
             self.assertEqual(defense["layers"][0]["group"], "classifier_head")
             self.assertEqual(defense["layers"][0]["rank"], 8)
@@ -149,56 +141,6 @@ class PaperReproGuards(unittest.TestCase):
                      "Table 6", "Table 7", "Table 8", "Table D1", "Table E3", "Table F1"):
             self.assertIn(name, text)
 
-    def test_actual_dispatch_budget_and_missing_budget_rejected(self):
-        try:
-            import torch
-            import numpy as np
-            import tempfile
-            from src.acm_revision.defense_dispatch import apply_defense_to_state
-        except ImportError:
-            self.skipTest("Full Torch/Numpy not installed; run in l2-runtime CI")
-        with tempfile.TemporaryDirectory() as d:
-            path = Path(d) / "head.npz"
-            np.savez_compressed(path, classifier_head=np.array([[1.0], [0.0], [0.0]], dtype=np.float32))
-            before = {"fusion.classifier.weight": torch.tensor([0.0, 0.0, 0.0])}
-            trained = {"fusion.classifier.weight": torch.tensor([2.0, 1.0, 0.0])}
-            cfg = {
-                "name": "contrast_filter", "group": "classifier_head",
-                "basis_path": str(path), "rank": 1, "alpha": 1.0,
-                "max_relative_update_distortion_l2": .1,
-            }
-            defended, log = apply_defense_to_state(before, trained, cfg, seed=0)
-            self.assertTrue(log["l2_budget"]["budget_verified"])
-            raw = trained["fusion.classifier.weight"] - before["fusion.classifier.weight"]
-            transmitted = defended["fusion.classifier.weight"] - before["fusion.classifier.weight"]
-            measured = torch.linalg.vector_norm(transmitted - raw).item()
-            bound = .1 * torch.linalg.vector_norm(raw).item()
-            self.assertLessEqual(measured, bound + 1e-6)
-            self.assertTrue(log["l2_budget"]["is_active"])
-            del cfg["max_relative_update_distortion_l2"]
-            with self.assertRaises(ValueError):
-                apply_defense_to_state(before, trained, cfg, seed=0)
-
-    def test_true_original_coordinate_l2_cap_runtime(self):
-        try:
-            import torch
-        except ImportError:
-            self.skipTest("CPU Torch not installed; validated in separate runtime CI job")
-        before = {"a": torch.tensor([1., 2., 3.]), "b": torch.tensor([-1., 5.])}
-        trained = {"a": torch.tensor([3., 2., 3.]), "b": torch.tensor([-1., 7.])}
-        filtered = {"a": torch.tensor([0., 0., 0.]), "b": torch.tensor([0., 0.])}
-        report = budget.apply_common_l2_cap_inplace(before, trained, filtered, .2, chunk_size=2)
-        self.assertTrue(report["budget_verified"])
-        self.assertTrue(report["is_active"])
-        self.assertLessEqual(report["applied_change_l2"], .2 * report["raw_update_l2"] + 1e-6)
-        # All original coordinates included, not a reduced projection.
-        self.assertEqual(report["num_original_floating_coordinates"], 5)
-        self.assertGreater(report["raw_update_l2"], 0)
-        # Distortion should not be forced equal to other algorithms: only capped.
-        no_change = {k: (trained[k] - before[k]).clone() for k in before}
-        untouched = budget.apply_common_l2_cap_inplace(before, trained, no_change, .2)
-        self.assertFalse(untouched["is_active"])
-        self.assertAlmostEqual(untouched["applied_change_l2"], 0.0, places=7)
 
 
 if __name__ == "__main__":
