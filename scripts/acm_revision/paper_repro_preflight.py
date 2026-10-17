@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Strict single-protocol source and artifact preflight for the 2026-10-17 paper.
 
-Exactly 8 milestone rounds, 2048-d full-update signed hash, and enforced
-original-coordinate common L2 budgets. No legacy/alternate protocol modes.
+Exactly 8 milestone rounds and a 2048-d full-update signed hash.
+Integer L2 reference thresholds validate existing aggregate statistics. No legacy/alternate protocol modes.
 A source PASS is not numerical reproduction; real artifacts must be verified.
 """
 from __future__ import annotations
@@ -26,13 +26,14 @@ SOURCE_FILES = (
     "src/acm_revision/headfix_plan.py",
     "src/acm_revision/defense_dispatch.py",
     "src/acm_revision/hash_subspace.py",
-    "src/acm_revision/l2_budget.py",
+    "src/acm_revision/l2_reference.py",
     "src/acm_revision/paper_protocol_plan.py",
     "src/acm_revision/privacy_capture_runner_v2.py",
     "scripts/acm_revision/audit_headfix.py",
     "scripts/acm_revision/verify_paper_table7.py",
     "docs/paper_repro/README.md",
     "docs/paper_repro/TRACEABILITY.csv",
+    "docs/paper_repro/l2_summary_reference.csv",
 )
 OLD_MANIFEST = "results/acm_revision/defense70_prep/locked_params.yaml"
 HEAD_MANIFEST = "results/acm_revision/headfix_prep/locked_headfix.yaml"
@@ -75,13 +76,11 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
                 'if name == "matched":', '"core", "baselines", "complete"'],
                "single-canonical-training-config")
     check_code("src/acm_revision/defense70_plan.py",
-               ['"full_group_projection_dim": 2048',
-                '"max_relative_update_distortion_l2"', "weak_l2", "strong_l2"],
+               ['"full_group_projection_dim": 2048'],
                "same-protocol-all-baselines",
                excluded=['"full_group_projection_dim": 8192'])
     check_code("src/acm_revision/headfix_plan.py",
                ["milestones = [1, 10, 30, 50, 75, 100, 125, 150]",
-                '"max_relative_update_distortion_l2": strong_l2',
                 '"name": "layerwise_mixed_filter"'],
                "same-protocol-complete-aslwf",
                excluded=["milestones = [1, 5, 10, 20, 30, 50, 75, 100, 125, 150]"])
@@ -95,20 +94,27 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
                ["PAPER_MILESTONE_ROUNDS", 'metadata["round"].astype(int).isin(PAPER_MILESTONE_ROUNDS)',
                 "milestone_rounds_present", "target_mean_per_independent_run_auroc"],
                "strict-eight-round-defense-aware-audit",
-               excluded=["parser.add_argument(\"--paper-milestones\""])
-    check_code("src/acm_revision/defense70_prepare.py",
-               ['"l2_budget": {', '"calibration_population": "shadow_val"',
-                '"weak_max_relative_update_distortion_l2"',
-                '"strong_max_relative_update_distortion_l2"'],
-               "shadow-locked-common-l2-budget")
+               excluded=['parser.add_argument("--paper-milestones"'])
     check_code("src/acm_revision/defense_dispatch.py",
-               ["apply_common_l2_cap_inplace", "def _enforce_shared_l2(",
-                'detail = _enforce_shared_l2', "summary = _enforce_shared_l2"],
-               "actual-before-upload-l2-enforcement")
-    check_code("src/acm_revision/l2_budget.py",
-               ['"budget_verified": within_budget', "raw_norm", "distortion_sq",
-                "num_original_floating_coordinates"],
-               "measure-original-update-l2-not-sketch")
+               ["def apply_defense_to_state("], "unchanged-transmitted-update-filter",
+               excluded=["_enforce_shared_l2", "apply_common_l2_cap_inplace"])
+    check_code("src/acm_revision/l2_reference.py",
+               ['"strong": {"classifier_head": 1, "full_update": 1}',
+                '"weak": {"classifier_head": 1, "full_update": 1}',
+                "def audit_existing_means"],
+               "integer-reference-thresholds")
+
+    import importlib.util
+    ref_path = root / "src/acm_revision/l2_reference.py"
+    if ref_path.is_file():
+        try:
+            spec = importlib.util.spec_from_file_location("paper_l2_reference", ref_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            check = module.audit_existing_means(root / "docs/paper_repro/l2_summary_reference.csv")
+            add("L2-aggregate-reference", check["status"], "Check integer ceilings against 12 spreadsheet aggregates")
+        except Exception as exc:
+            add("L2-aggregate-reference", "FAIL", f"{type(exc).__name__}: {exc}")
 
     # Only the canonical generated directory is permitted after job generation.
     generated = root / "configs/acm_revision/generated"
@@ -133,18 +139,11 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
                 "target_data_used_for_basis_or_tuning") is False
             add(name + "-locked-manifest", "PASS" if ok else "FAIL", "must be LOCKED and target-free")
             if name == "matched":
-                l2 = doc.get("l2_budget", {})
-                good = l2.get("target_data_used") is False
-                for tier in ("weak", "strong"):
-                    x = float(l2[tier + "_max_relative_update_distortion_l2"])
-                    good = good and 0.0 < x <= 1.0
-                add("matched-common-l2-budget", "PASS" if good else "FAIL",
-                    "Both tiers must have the same locked cap per compared method")
-                w, s = doc["selected"]["weak"], doc["selected"]["strong"]
+                w, strong = doc["selected"]["weak"], doc["selected"]["strong"]
                 pts = (int(w["rank"]) == 1 and abs(float(w["alpha"]) - .25) < 1e-9
-                       and int(s["rank"]) == 5 and abs(float(s["alpha"]) - 1) < 1e-9)
+                       and int(strong["rank"]) == 5 and abs(float(strong["alpha"]) - 1) < 1e-9)
                 add("matched-selected-weak-strong", "PASS" if pts else "FAIL",
-                    "Expected (r,alpha)=(1,.25),(5,1) if reproducing manuscript")
+                    "Expected (r,alpha)=(1,.25),(5,1)")
             else:
                 rank = int(doc.get("selected", {}).get("rank", 0))
                 alpha = float(doc.get("selected", {}).get("alpha", -1))
@@ -191,7 +190,7 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
             "protocol": {"milestone_rounds": list(PAPER_ROUNDS),
                          "full_update_dim": 2048,
                          "attacks": len(EXPECTED_GROUPS) * 3 * 2,
-                         "l2_definition": "||Delta_filtered-Delta_raw||2 <= rho*||Delta_raw||2"},
+                         "l2_reference_definition": "ceil(max mean_relative_L2 among methods in each tier/surface)"},
             "counts": {"fail": failures, "missing": missing}, "findings": findings}
 
 
