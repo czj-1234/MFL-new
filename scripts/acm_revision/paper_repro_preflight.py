@@ -2,7 +2,7 @@
 """Strict single-protocol source and artifact preflight for the 2026-10-17 paper.
 
 Exactly 8 milestone rounds and a 2048-d full-update signed hash.
-Integer L2 reference thresholds validate existing aggregate statistics. No legacy/alternate protocol modes.
+Integer L2 references validate aggregate statistics; prospective filtering also has enforced per-client bounds. No legacy/alternate capture protocol modes.
 A source PASS is not numerical reproduction; real artifacts must be verified.
 """
 from __future__ import annotations
@@ -96,8 +96,15 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
                "strict-eight-round-defense-aware-audit",
                excluded=['parser.add_argument("--paper-milestones"'])
     check_code("src/acm_revision/defense_dispatch.py",
-               ["def apply_defense_to_state("], "unchanged-transmitted-update-filter",
-               excluded=["_enforce_shared_l2", "apply_common_l2_cap_inplace"])
+               ["def apply_defense_to_state(", "def _enforce_relative_l2_budget(", 
+                'if "relative_l2_budget" in cfg:', "return _finalize_filter("],
+               "per-client-l2-budget-enforcement")
+    check_code("src/acm_revision/defense70_plan.py",
+               ['point.defense["relative_l2_budget"]', '"classifier_head"', '"full_update"'],
+               "matched-pca-random-l2-budget")
+    check_code("src/acm_revision/headfix_plan.py",
+               ['"relative_l2_budget"', '"classifier_head"', '"full_update"'],
+               "complete-aslwf-l2-budget")
     check_code("src/acm_revision/l2_reference.py",
                ['"strong": {"classifier_head": 1, "full_update": 1}',
                 '"weak": {"classifier_head": 1, "full_update": 1}',
