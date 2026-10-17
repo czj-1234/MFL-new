@@ -47,6 +47,18 @@ class PaperReproGuards(unittest.TestCase):
         ):
             self.assertIn(required, content)
 
+    def test_canonical_job_generator_is_non_destructive_and_milestone_locked(self):
+        plan = (REPO_ROOT / "src" / "acm_revision" / "paper_protocol_plan.py").read_text()
+        for marker in (
+            "PAPER_MILESTONES = (1, 10, 30, 50, 75, 100, 125, 150)",
+            "PAPER_FULL_UPDATE_DIM = 2048",
+            '"historical_outputs_untouched": True',
+            '"PLANNED_NOT_RUN"',
+            'if list(directory.glob("*.yaml")):',
+            '"core", "baselines", "complete"',
+        ):
+            self.assertIn(marker, plan)
+
     def test_appendix_traceability_covers_main_results(self):
         content = (REPO_ROOT / "docs" / "paper_repro" / "TRACEABILITY.csv").read_text()
         for table in ("Table 1", "Table 2", "Table 3", "Table 4",
