@@ -25,6 +25,7 @@ SOURCE_FILES = (
     "src/acm_revision/headfix_prepare.py",
     "src/acm_revision/headfix_plan.py",
     "src/acm_revision/defense_dispatch.py",
+    "src/acm_revision/fl_resume.py",
     "src/acm_revision/hash_subspace.py",
     "src/acm_revision/l2_reference.py",
     "src/acm_revision/paper_protocol_plan.py",
@@ -105,6 +106,10 @@ def run(root: Path, strict: bool = False) -> dict[str, Any]:
     check_code("src/acm_revision/headfix_plan.py",
                ['"relative_l2_budget"', '"classifier_head"', '"full_update"'],
                "complete-aslwf-l2-budget")
+    check_code("src/acm_revision/fl_resume.py",
+               ['"defense_l2_scale"', '"defense_l2_activated"',
+                '"defense_l2_head_post"', '"defense_l2_full_post"'],
+               "per-update-l2-provenance-recording")
     check_code("src/acm_revision/l2_reference.py",
                ['"strong": {"classifier_head": 1, "full_update": 1}',
                 '"weak": {"classifier_head": 1, "full_update": 1}',
