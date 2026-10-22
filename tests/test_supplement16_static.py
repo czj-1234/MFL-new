@@ -100,11 +100,13 @@ class Supplement16StaticTest(unittest.TestCase):
             (0.25, 4.0, 0.25),
             (2.0, 4.0, 0.25),
         ):
-            actual = eval(compiled, {"min": min}, {
+            namespace = {
+                "min": min,
                 "limits": limits,
                 "relative_before": {"classifier_head": head, "full_update": full},
                 "expected": set(limits),
-            })
+            }
+            actual = eval(compiled, namespace)
             self.assertAlmostEqual(actual, expected, places=10)
 
     def test_foreground_live_progress_and_failure_propagation(self):
