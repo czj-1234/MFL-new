@@ -239,11 +239,23 @@ while (( ATTEMPT <= MAX_RETRIES )); do
 
   export MFL_NFS_WRITE_RETRIES="${MFL_NFS_WRITE_RETRIES:-8}"
 
-  PYTHONUNBUFFERED=1 CUDA_VISIBLE_DEVICES="${GPU}" \
-    python -m src.acm_revision.privacy_capture_runner_resume_v2 \
-      --config "${RUNTIME_CONFIG}" \
-      --population "${POPULATION}" \
-      > "${LOG}" 2>&1 &
+  # Final16 launchers opt in to foreground streaming; the default remains
+  # exactly as before for all other paper-reproduction scripts.
+  # With pipefail enabled above, waiting for the pipeline detects Python
+  # training failures (not merely the tee process exit code).
+  if [[ "${DEFENSE70_LIVE_STDOUT:-0}" == "1" ]]; then
+    PYTHONUNBUFFERED=1 CUDA_VISIBLE_DEVICES="${GPU}" \
+      python -m src.acm_revision.privacy_capture_runner_resume_v2 \
+        --config "${RUNTIME_CONFIG}" \
+        --population "${POPULATION}" \
+        2>&1 | tee "${LOG}" &
+  else
+    PYTHONUNBUFFERED=1 CUDA_VISIBLE_DEVICES="${GPU}" \
+      python -m src.acm_revision.privacy_capture_runner_resume_v2 \
+        --config "${RUNTIME_CONFIG}" \
+        --population "${POPULATION}" \
+        > "${LOG}" 2>&1 &
+  fi
   PID=$!
 
   sleep "${STARTUP_WAIT}"
