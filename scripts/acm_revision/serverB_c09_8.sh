@@ -2,8 +2,8 @@
 # Server B: eight c=.9 frozen-ASLWF transfer runs; four on each GPU.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-if [[ "$(git branch --show-current)" != "aslwf-supplement16-20261022" ]]; then
-  echo "[FATAL] checkout aslwf-supplement16-20261022 first" >&2; exit 2
+if [[ "$(git branch --show-current)" != "aslwf-final16-two-servers-20261022" ]]; then
+  echo "[FATAL] checkout aslwf-final16-two-servers-20261022 first" >&2; exit 2
 fi
 python -m src.acm_revision.supplement16 generate --phase c09
 PHASE=c09
