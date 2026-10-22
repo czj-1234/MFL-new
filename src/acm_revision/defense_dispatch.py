@@ -148,6 +148,12 @@ def _enforce_relative_l2_budget(before_state, after_state, delta, budget: dict) 
         "limits": limits,
         "relative_before": relative_before,
         "relative_after": {group: relative_before[group] * scale for group in expected},
+        # Exact pre- and post-filter norm measurements over original model tensors.
+        # These are NOT the 2048-d attack hash or a coordinate sketch.
+        "raw_update_l2": {group: math.sqrt(base_sq[group]) for group in expected},
+        "actual_difference_l2": {
+            group: math.sqrt(diff_sq[group]) * scale for group in expected
+        },
         "perturbation_scale": float(scale),
         "activated": bool(scale < 1.0),
     }
