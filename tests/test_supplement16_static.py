@@ -132,6 +132,14 @@ class Supplement16StaticTest(unittest.TestCase):
             wrapper = (ROOT / f"start_server{side}_live.sh").read_text(encoding="utf-8")
             self.assertIn(f'exec bash scripts/acm_revision/{script}', wrapper)
 
+    def test_gpu_start_gate_is_7500_mib_on_both_servers(self):
+        for name in ("serverA_uncentered_8.sh", "serverB_c09_8.sh"):
+            script = (ROOT / "scripts/acm_revision" / name).read_text(encoding="utf-8")
+            self.assertIn('DEFENSE70_MIN_FREE_MIB="${MIN_FREE_MIB:-7500}"', script)
+        runner = (ROOT / "scripts/acm_revision/run_defense70_job.sh").read_text(encoding="utf-8")
+        self.assertIn('(( free_mib >= MIN_FREE_MIB ))', runner)
+        self.assertIn('MIN_FREE_MIB="${DEFENSE70_MIN_FREE_MIB:-23000}"', runner)
+
     def test_both_server_launchers_exist(self):
         for phase, name in (("uncentered", "serverA_uncentered_8.sh"),
                             ("c09", "serverB_c09_8.sh")):
