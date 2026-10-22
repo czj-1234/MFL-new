@@ -26,7 +26,7 @@ jobs:
         run: python -m compileall -q src/acm_revision scripts/acm_revision tests/test_paper_repro.py
       - name: Check all reproduction shell scripts
         run: |
-          for f in scripts/acm_revision/*.sh; do bash -n "$f"; done
+          for f in scripts/acm_revision/*.sh start_serverA_live.sh start_serverB_live.sh; do bash -n "$f"; done
       - name: Compile paper tooling
         run: python -m py_compile src/acm_revision/paper_protocol_plan.py src/acm_revision/l2_reference.py src/acm_revision/defense_dispatch.py src/acm_revision/defense70_plan.py src/acm_revision/defense70_prepare.py src/acm_revision/headfix_plan.py scripts/acm_revision/paper_repro_preflight.py scripts/acm_revision/audit_headfix.py scripts/acm_revision/verify_paper_table7.py tests/test_paper_repro.py
       - name: Validate two-server supplement16 source and exact job matrix
