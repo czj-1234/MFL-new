@@ -14,6 +14,7 @@ if ! flock -n "$SERVER_LOCK_FD"; then
   echo "[FATAL] Server c09 launcher is already running; do not start duplicate GPU jobs." >&2
   exit 3
 fi
+bash scripts/acm_revision/verify_final16_gpu.sh
 python -m src.acm_revision.supplement16 generate --phase c09
 PHASE=c09
 
