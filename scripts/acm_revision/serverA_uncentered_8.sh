@@ -5,6 +5,7 @@ cd "$(dirname "$0")/../.."
 if [[ "$(git branch --show-current)" != "aslwf-final16-two-servers-20261022" ]]; then
   echo "[FATAL] checkout aslwf-final16-two-servers-20261022 first" >&2; exit 2
 fi
+bash scripts/acm_revision/verify_final16_gpu.sh
 command -v nvidia-smi >/dev/null || { echo "[FATAL] GPU not available" >&2; exit 2; }
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES="${GPU0:-0}"
