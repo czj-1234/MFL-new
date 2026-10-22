@@ -2,12 +2,13 @@ name: ASLWF paper reproduction guards
 
 on:
   push:
-    branches: [paper-aslwf-repro-20261017]
+    branches: [paper-aslwf-repro-20261017, aslwf-supplement16-20261022]
     paths:
       - 'docs/paper_repro/**'
       - 'scripts/acm_revision/**'
       - 'src/acm_revision/**'
       - 'tests/test_paper_repro.py'
+      - 'tests/test_supplement16_static.py'
       - '.github/workflows/paper-aslwf-repro-ci.yml'
   workflow_dispatch:
 
@@ -28,6 +29,12 @@ jobs:
           for f in scripts/acm_revision/*.sh; do bash -n "$f"; done
       - name: Compile paper tooling
         run: python -m py_compile src/acm_revision/paper_protocol_plan.py src/acm_revision/l2_reference.py src/acm_revision/defense_dispatch.py src/acm_revision/defense70_plan.py src/acm_revision/defense70_prepare.py src/acm_revision/headfix_plan.py scripts/acm_revision/paper_repro_preflight.py scripts/acm_revision/audit_headfix.py scripts/acm_revision/verify_paper_table7.py tests/test_paper_repro.py
+      - name: Validate two-server supplement16 source and exact job matrix
+        run: |
+          python -m py_compile src/acm_revision/supplement16.py src/acm_revision/supplement16_distortion.py
+          bash -n scripts/acm_revision/serverA_uncentered_8.sh
+          bash -n scripts/acm_revision/serverB_c09_8.sh
+          python -m unittest discover -s tests -p 'test_supplement16_static.py' -v
       - name: Generate all 72 canonical Core72 configs
         run: |
           python -m src.acm_revision.paper_protocol_plan --stage core --output /tmp/paper_repro_ci
