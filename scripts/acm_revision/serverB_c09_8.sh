@@ -29,7 +29,8 @@ for gpu in "$GPU0" "$GPU1"; do
   nvidia-smi -i "$gpu" --query-gpu=name --format=csv,noheader || exit 2
 done
 export PYTHONUNBUFFERED=1
-export DEFENSE70_MIN_FREE_MIB="${MIN_FREE_MIB:-23000}"
+# Final16 launch gate: start when a GPU has at least 7,500 MiB free.
+export DEFENSE70_MIN_FREE_MIB="${MIN_FREE_MIB:-7500}"
 export DEFENSE70_CHECKPOINT_EVERY="${CHECKPOINT_EVERY:-10}"
 export DEFENSE70_CHECKPOINT_KEEP_LAST="${CHECKPOINT_KEEP_LAST:-2}"
 export DEFENSE70_MAX_RETRIES="${MAX_RETRIES:-2}"
