@@ -87,6 +87,68 @@ def uncentered_lowrank(rows, rank):
     return q[:, :actual].astype(np.float32)
 
 
+def ensure_original_reference_config(reference: Path) -> None:
+    """Restore only the deterministic YAML for the already locked shadow run.
+
+    The original eight reference checkpoints must exist before this function
+    is called. It never runs FL, fits a new method, or changes locked data.
+    """
+    if REF_CONFIG.is_file():
+        return
+    from . import defense70_prepare as original_prep
+    if not Path("configs/acm_revision/hateful_memes.yaml").is_file():
+        raise FileNotFoundError("Cannot reconstruct old shadow YAML: Hateful Memes base config missing")
+    REF_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    candidate = REF_CONFIG.with_name(".reference_seed142.verify_only.yaml")
+    if candidate.exists():
+        raise FileExistsError(
+            f"Candidate reference config already exists: {candidate}. "
+            "Inspect it rather than overwriting.")
+    print(
+        "[REFERENCE CONFIG] Original shadow seed142 checkpoints exist, "
+        "but their generated YAML is missing. Reconstructing YAML only.",
+        flush=True,
+    )
+    try:
+        generated = original_prep.make_reference_config(
+            base_config="configs/acm_revision/hateful_memes.yaml",
+            output_config=candidate,
+            output_root=reference.parent,
+        )
+        actual = Path(generated["run_dir"]).resolve()
+        expected = reference.resolve()
+        if actual != expected:
+            raise ValueError(
+                "Regenerated reference configuration DOES NOT match the "
+                f"frozen checkpoint path: generated={actual}, locked={expected}. "
+                "Restore the original reference YAML; no new FL run was started."
+            )
+        original = load_yaml(candidate)
+        fed, exp = original["federated"], original["experiment"]
+        if (
+            int(original["seed"]) != 142
+            or exp["population"] != "shadow_train"
+            or exp["setting_name"] != "modality_exclusive"
+            or float(exp["concentration"]) != .7
+            or int(fed["num_clients"]) != 12
+            or int(fed["rounds"]) != 150
+            or tuple(original["update_capture"]["checkpoint_rounds"]) != MILESTONES
+            or original["defense"]["name"] != "none"
+        ):
+            raise ValueError(
+                "Regenerated YAML failed original shadow reference checks. "
+                "Existing locked runs have not been modified."
+            )
+        candidate.replace(REF_CONFIG)
+        print(
+            f"[REFERENCE CONFIG] Restored {REF_CONFIG}; locked checkpoints "
+            "and fitted ASLWF bases were NOT modified.",
+            flush=True,
+        )
+    finally:
+        candidate.unlink(missing_ok=True)
+
+
 def prepare_uncentered():
     matched, head = load_locks()
     reference = Path(matched["provenance"]["reference_run_dir"])
@@ -97,6 +159,7 @@ def prepare_uncentered():
         raise ValueError("Frozen hash-lift seed differs from original Defense70 extractor")
     checkpoints = [require_file(reference / "checkpoints" / f"round_{r:04d}.pt")
                    for r in MILESTONES]
+    ensure_original_reference_config(reference)
     source_hashes = {"matched_lock": sha(OLD_LOCK), "head_lock": sha(HEAD_LOCK)}
     source_hashes["reference_config"] = sha(REF_CONFIG)
     source_hashes["centered_basis"] = sha(matched["basis_paths"]["contrast"])
