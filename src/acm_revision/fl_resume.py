@@ -494,6 +494,21 @@ def run_strict_fl(cfg: dict, population: str = "target") -> dict:
         _atomic_dataframe_csv(pd.DataFrame(metadata_rows), out_dir / "update_metadata.csv")
         _atomic_dataframe_csv(pd.DataFrame(eval_rows), out_dir / "round_metrics.csv")
 
+        # Optional human-readable per-round status for the final16 foreground
+        # launchers. This is display-only and does not change any training,
+        # checkpoint, attack selection or result metric.
+        if os.environ.get("MFL_LIVE_PROGRESS") == "1":
+            elapsed_now = elapsed_before + (time.time() - started)
+            evaluated = round_id == 1 or round_id % eval_every == 0 or round_id == rounds
+            val_text = ""
+            if evaluated:
+                val_text = f" val_auroc={float(val_metrics.get('auroc', float('nan'))):.4f}"
+            print(
+                f"[FL PROGRESS] round={round_id}/{rounds} "
+                f"participants={n_participants} elapsed_s={elapsed_now:.0f}{val_text}",
+                flush=True,
+            )
+
         if resume_enabled and (round_id % checkpoint_every == 0 or round_id == rounds):
             elapsed_now = elapsed_before + (time.time() - started)
             cp_path = _save_resume_checkpoint(
