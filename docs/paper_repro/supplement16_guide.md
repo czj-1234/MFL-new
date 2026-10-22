@@ -70,7 +70,7 @@ python -m src.acm_revision.supplement16 verify --phase c09          # server B
 
 These require 8 complete, successful 150-round runs, exact eight capture milestones and all 5 target seeds. They output per-target **exact original-space actual relative L2** (mean, median, p95) and paired-run-unit five-target task AUROC mean, SD, bootstrap 95% CI in `results/acm_revision/supplement16/audits/<phase>_statistics.json`.
 
-Run the previously implemented defense-aware nine-surface CP/CPT LR/RF/MLP audit separately after finishing each condition and providing the **verified, matching no-defense baseline task AUROC CSV**:
+Each server launcher now **automatically performs** its own nine-surface CP/CPT LR/RF/MLP privacy audit after verifying the eight FL runs. A verified matching no-defense baseline task AUROC CSV is optional and is used only for paired utility comparisons. To rerun this audit manually, use:
 
 ```bash
 python scripts/acm_revision/audit_headfix.py \
@@ -80,7 +80,7 @@ python scripts/acm_revision/audit_headfix.py \
   --baseline-task-csv /path/to/verified_c09_nodefense_task.csv
 ```
 
-For uncentered use `--root results/acm_revision/supplement16/uncentered` and `--concentration 0.7`. The audit selects observation surface, attack model and AUC score orientation exclusively on shadow validation. It then computes five target seed results and uncertainty; it **does not** use target labels to tune the attack. The reused original centered-ASLWF c=.7 main result should also be audited under the same frozen protocol before any paired comparison.
+For uncentered use `--root results/acm_revision/supplement16/uncentered` and `--concentration 0.7`. By default the launchers run without `--baseline-task-csv`; pass `BASELINE_TASK_CSV=/path/to/verified.csv` in the environment if a verified baseline is available. The audit selects observation surface, attack model and AUC score orientation exclusively on shadow validation. It then computes five target seed results and uncertainty; it **does not** use target labels to tune the attack. The reused original centered-ASLWF c=.7 main result should also be audited under the same frozen protocol before any paired comparison.
 
 ## Matched-update L2 audit for the *old* PCA/Random/ASLWF baselines
 
