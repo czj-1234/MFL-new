@@ -117,6 +117,33 @@ mechanism, and completed-run skip behavior are retained from
 check its processes before starting a second instance.
 
 
+## CUDA driver preflight (mandatory)
+
+The final16 launchers now call
+`scripts/acm_revision/verify_final16_gpu.sh` **before** the first
+scientific preparation or training job. Each selected physical GPU must
+pass `torch.cuda.is_available()`, a CUDA tensor allocation, and device
+synchronization in its own `CUDA_VISIBLE_DEVICES` context. If the
+NVIDIA driver is too old for this PyTorch build, the launcher stops
+rather than silently switching to CPU.
+
+Diagnosis on either server:
+
+```bash
+nvidia-smi
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+```
+
+Do **not** merely lower `MIN_FREE_MIB` to bypass an incompatible CUDA driver:
+VRAM and CUDA compatibility are independent requirements. Existing
+checkpoint files are preserved and never automatically deleted. If any
+formal runs progressed on CPU due to the old automatic fallback, isolate
+those CPU-generated results/checkpoints before resuming GPU training;
+do not combine CPU and GPU trajectories in one formal seed result.
+To fix incompatibility, ask the machine administrator to upgrade the
+NVIDIA driver or use a pinned PyTorch build compatible with the
+machine's current driver, consistently across both servers.
+
 ## Outputs and audits
 
 Output directories are **separate** from the old supplemental branches:
