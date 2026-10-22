@@ -132,6 +132,23 @@ class Supplement16StaticTest(unittest.TestCase):
             wrapper = (ROOT / f"start_server{side}_live.sh").read_text(encoding="utf-8")
             self.assertIn(f'exec bash scripts/acm_revision/{script}', wrapper)
 
+    def test_final16_refuses_silent_cpu_fallback_before_any_training(self):
+        gate = (ROOT / "scripts/acm_revision/verify_final16_gpu.sh").read_text(encoding="utf-8")
+        self.assertIn("torch.cuda.is_available()", gate)
+        self.assertIn('torch.ones(1, device="cuda:0")', gate)
+        self.assertIn("CUDA_VISIBLE_DEVICES", gate)
+        self.assertIn("torch.cuda.synchronize()", gate)
+        for path, prep in (
+            ("serverA_uncentered_8.sh", "prepare-uncentered"),
+            ("serverB_c09_8.sh", "generate --phase c09"),
+        ):
+            launch = (ROOT / "scripts/acm_revision" / path).read_text(encoding="utf-8")
+            self.assertIn('bash scripts/acm_revision/verify_final16_gpu.sh', launch)
+            self.assertLess(
+                launch.index('bash scripts/acm_revision/verify_final16_gpu.sh'),
+                launch.index(prep),
+            )
+
     def test_gpu_start_gate_is_7500_mib_on_both_servers(self):
         for name in ("serverA_uncentered_8.sh", "serverB_c09_8.sh"):
             script = (ROOT / "scripts/acm_revision" / name).read_text(encoding="utf-8")
