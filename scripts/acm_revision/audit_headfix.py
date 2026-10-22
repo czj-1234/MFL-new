@@ -247,8 +247,8 @@ def main():
     parser.add_argument("--models", default="LR,RF,MLP")
     parser.add_argument("--concentration", type=float, default=0.7,
                         help="Expected concentration for all audited runs (0.7 or 0.9).")
-    parser.add_argument("--baseline-task-csv", required=True,
-                        help="Explicit verified baseline test-AUROC per-target CSV for paired task changes")
+    parser.add_argument("--baseline-task-csv", default=None,
+                        help="Optional verified baseline task CSV. Without it, still audit privacy and defended utility, but do not claim paired task improvement.")
     args = parser.parse_args()
     root, out = Path(args.root), Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
