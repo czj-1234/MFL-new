@@ -5,6 +5,15 @@ cd "$(dirname "$0")/../.."
 if [[ "$(git branch --show-current)" != "aslwf-final16-two-servers-20261022" ]]; then
   echo "[FATAL] checkout aslwf-final16-two-servers-20261022 first" >&2; exit 2
 fi
+# Refuse two copies of the same eight-run campaign on this server.
+# The lock is held from preparation through the last audit.
+command -v flock >/dev/null || { echo "[FATAL] flock required" >&2; exit 2; }
+mkdir -p logs/acm_revision/final16_20261022/c09
+exec {SERVER_LOCK_FD}>logs/acm_revision/final16_20261022/c09/launcher.lock
+if ! flock -n "$SERVER_LOCK_FD"; then
+  echo "[FATAL] Server c09 launcher is already running; do not start duplicate GPU jobs." >&2
+  exit 3
+fi
 python -m src.acm_revision.supplement16 generate --phase c09
 PHASE=c09
 
@@ -46,6 +55,7 @@ run_queue() {
     echo "[$(date -Iseconds)] [GPU $gpu_id] start $job / $population / seed $seed"
     bash scripts/acm_revision/run_defense70_job.sh "$gpu_id" "$job" "$cfg" || return $?
     done=$((done + 1))
+    echo "[QUEUE PROGRESS] GPU $gpu_id completed $done/4 jobs; phase=$phase"
   done < "$queue"
   [[ "$done" -eq 4 ]] || { echo "[FATAL] queue $queue had $done jobs, expected 4" >&2; return 5; }
 }
