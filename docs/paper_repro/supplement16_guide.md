@@ -20,7 +20,7 @@ The frozen Defense70 **internal basis-lift hash** remains at the dimension and s
 
 ## Prerequisites (on both servers)
 
-Checkout the same branch `aslwf-supplement16-20261022`. Activate the existing Python/torch environment. The repository **must** contain actual locked manifests and bases:
+Checkout the same branch `aslwf-final16-two-servers-20261022`. Activate the existing Python/torch environment. The repository **must** contain actual locked manifests and bases:
 
 - `results/acm_revision/defense70_prep/locked_params.yaml` and all listed basis NPZs;
 - `results/acm_revision/headfix_prep/locked_headfix.yaml` and its basis NPZ;
@@ -36,7 +36,7 @@ On Server A (two GPUs; four serial jobs on each):
 
 ```bash
 git fetch origin
-git checkout aslwf-supplement16-20261022
+git checkout aslwf-final16-two-servers-20261022
 conda activate mfl
 bash scripts/acm_revision/serverA_uncentered_8.sh
 ```
@@ -45,18 +45,18 @@ On Server B (start independently of A; two GPUs):
 
 ```bash
 git fetch origin
-git checkout aslwf-supplement16-20261022
+git checkout aslwf-final16-two-servers-20261022
 conda activate mfl
 bash scripts/acm_revision/serverB_c09_8.sh
 ```
 
 If device IDs differ: `GPU0=1 GPU1=2 bash scripts/acm_revision/serverB_c09_8.sh`. Launch scripts once per server, not once per GPU. Each starts **two child GPU queues**. The pre-existing resumable `run_defense70_job.sh` handles GPU free-memory checks, checkpointing, retries, duplicate-pass skipping and an independent job completion audit. Re-run the same server script after an interruption to resume.
 
-- Logs: `logs/acm_revision/supplement16/{uncentered,c09}/` (including per-GPU queue logs and per-job attempts).
-- Runtime YAML: `logs/acm_revision/supplement16/<phase>/runtime_configs/`.
-- Rolling resume checkpoints: `checkpoints/acm_revision/supplement16/<phase>/`.
-- Results: `results/acm_revision/supplement16/{uncentered,c09}/`.
-- Frozen job configs and GPU queues: `configs/acm_revision/generated/supplement16/<phase>/`.
+- Logs: `logs/acm_revision/final16_20261022/{uncentered,c09}/` (including per-GPU queue logs and per-job attempts).
+- Runtime YAML: `logs/acm_revision/final16_20261022/<phase>/runtime_configs/`.
+- Rolling resume checkpoints: `checkpoints/acm_revision/final16_20261022/<phase>/`.
+- Results: `results/acm_revision/final16_20261022/{uncentered,c09}/`.
+- Frozen job configs and GPU queues: `configs/acm_revision/generated/final16_20261022/<phase>/`.
 - The eight runs per server include two shadow-training, one shadow-validation and **five independent target** runs (42–46). GPU queues do **not** share a mutable active model between jobs.
 
 ## Verified results and statistical postprocessing
@@ -68,19 +68,19 @@ python -m src.acm_revision.supplement16 verify --phase uncentered  # server A
 python -m src.acm_revision.supplement16 verify --phase c09          # server B
 ```
 
-These require 8 complete, successful 150-round runs, exact eight capture milestones and all 5 target seeds. They output per-target **exact original-space actual relative L2** (mean, median, p95) and paired-run-unit five-target task AUROC mean, SD, bootstrap 95% CI in `results/acm_revision/supplement16/audits/<phase>_statistics.json`.
+These require 8 complete, successful 150-round runs, exact eight capture milestones and all 5 target seeds. They output per-target **exact original-space actual relative L2** (mean, median, p95) and paired-run-unit five-target task AUROC mean, SD, bootstrap 95% CI in `results/acm_revision/final16_20261022/audits/<phase>_statistics.json`.
 
 Each server launcher now **automatically performs** its own nine-surface CP/CPT LR/RF/MLP privacy audit after verifying the eight FL runs. A verified matching no-defense baseline task AUROC CSV is optional and is used only for paired utility comparisons. To rerun this audit manually, use:
 
 ```bash
 python scripts/acm_revision/audit_headfix.py \
-  --root results/acm_revision/supplement16/c09 \
-  --out results/acm_revision/supplement16/audits/c09_attacks \
+  --root results/acm_revision/final16_20261022/c09 \
+  --out results/acm_revision/final16_20261022/audits/c09_attacks \
   --concentration 0.9 \
   --baseline-task-csv /path/to/verified_c09_nodefense_task.csv
 ```
 
-For uncentered use `--root results/acm_revision/supplement16/uncentered` and `--concentration 0.7`. By default the launchers run without `--baseline-task-csv`; pass `BASELINE_TASK_CSV=/path/to/verified.csv` in the environment if a verified baseline is available. The audit selects observation surface, attack model and AUC score orientation exclusively on shadow validation. It then computes five target seed results and uncertainty; it **does not** use target labels to tune the attack. The reused original centered-ASLWF c=.7 main result should also be audited under the same frozen protocol before any paired comparison.
+For uncentered use `--root results/acm_revision/final16_20261022/uncentered` and `--concentration 0.7`. By default the launchers run without `--baseline-task-csv`; pass `BASELINE_TASK_CSV=/path/to/verified.csv` in the environment if a verified baseline is available. The audit selects observation surface, attack model and AUC score orientation exclusively on shadow validation. It then computes five target seed results and uncertainty; it **does not** use target labels to tune the attack. The reused original centered-ASLWF c=.7 main result should also be audited under the same frozen protocol before any paired comparison.
 
 ## Matched-update L2 audit for the *old* PCA/Random/ASLWF baselines
 
@@ -91,7 +91,7 @@ CUDA_VISIBLE_DEVICES=0 python -m src.acm_revision.supplement16_distortion \
   --rounds 10,75,150 --clients 12
 ```
 
-It replays **one identical raw update per checkpoint/client**, then passes that same update through the locked baseline defenses and Complete/Uncentered ASLWF. Output `results/acm_revision/supplement16/audits/matched_update/summary.csv` includes exact-model L2 mean/median/p95 and raw/difference norms for PCA/Random/ASLWF, with clip-Gaussian tagged separately (different mechanism). It uses **shadow-side auxiliary data only**. This is a checkpoint-matched comparative audit, **not** a substitute for per-step historical end-to-end actual distortion, and it produces no new attack/utility claims.
+It replays **one identical raw update per checkpoint/client**, then passes that same update through the locked baseline defenses and Complete/Uncentered ASLWF. Output `results/acm_revision/final16_20261022/audits/matched_update/summary.csv` includes exact-model L2 mean/median/p95 and raw/difference norms for PCA/Random/ASLWF, with clip-Gaussian tagged separately (different mechanism). It uses **shadow-side auxiliary data only**. This is a checkpoint-matched comparative audit, **not** a substitute for per-step historical end-to-end actual distortion, and it produces no new attack/utility claims.
 
 ## Integrity constraints
 
