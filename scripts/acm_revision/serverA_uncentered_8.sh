@@ -82,5 +82,9 @@ if [[ -n "${BASELINE_TASK_CSV:-}" ]]; then
 fi
 python scripts/acm_revision/audit_headfix.py "${audit_args[@]}" \
   >"$DEFENSE70_LOG_ROOT/all_surface_CP_CPT_audit.log" 2>&1
-echo "[COMPLETE] $phase: eight runs + nine-surface CP/CPT audit verified"
+echo "[AUDIT] exact original-space matched-update distortion for historical PCA/Random/Complete ASLWF"
+CUDA_VISIBLE_DEVICES="$GPU0" python -m src.acm_revision.supplement16_distortion \
+  --rounds 10,75,150 --clients 12 \
+  >"$DEFENSE70_LOG_ROOT/matched_original_space_L2_audit.log" 2>&1
+echo "[COMPLETE] $phase: eight runs + nine-surface CP/CPT + historical baseline actual-L2 audit verified"
 
