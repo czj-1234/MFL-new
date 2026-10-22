@@ -45,8 +45,7 @@ class Supplement16StaticTest(unittest.TestCase):
         self.assertIn('Attacker-refined head must not change', self.text)
         self.assertIn('d["layers"][0] == frozen["layers"][0]', self.text)
         self.assertIn('full_group_projection_dim"] == 2048', self.text)
-        self.assertIn('defense70_prepare', (ROOT / "src/acm_revision/supplement16_distortion.py")
-                      .read_text(encoding="utf-8") if False else "defense70_prepare")
+        self.assertIn('prep._fit_lowrank(rows[group], prep.MAX_RANK)', self.text)
 
     def test_per_update_original_parameter_distortion(self):
         src = (ROOT / "src/acm_revision/defense_dispatch.py").read_text(encoding="utf-8")
