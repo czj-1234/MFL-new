@@ -64,23 +64,43 @@ git switch aslwf-final16-two-servers-20261022
 conda activate mfl
 ```
 
-**Server A (uncentered, eight FL runs):**
+**Server A (uncentered, eight FL runs; foreground live status):**
 
 ```bash
-nohup bash scripts/acm_revision/serverA_uncentered_8.sh > serverA_final16.log 2>&1 &
+bash start_serverA_live.sh
 ```
 
-**Server B (c=.9 frozen, eight FL runs):**
+**Server B (c=.9 frozen, eight FL runs; foreground live status):**
 
 ```bash
-nohup bash scripts/acm_revision/serverB_c09_8.sh > serverB_final16.log 2>&1 &
+bash start_serverB_live.sh
 ```
 
-To specify other physical GPU IDs, use e.g. `GPU0=1 GPU1=3 bash
-scripts/acm_revision/serverB_c09_8.sh`. Launch **one** script per server.
-Do not start the same queue concurrently. The scripts use the existing
-GPU-memory checks, checkpoints, retry mechanism and completed-run skip
-behavior from `run_defense70_job.sh`.
+Do **not** use `nohup`, redirect the commands to files, or add `&` if
+you want to see the progress in your current terminal. The two local GPU
+queues are launched automatically by each script and stream their outputs
+concurrently to one screen with `[GPU 0]` / `[GPU 1]` prefixes.
+Each completed communication round is reported as
+`[FL PROGRESS] round=.../150 participants=12 elapsed_s=...`,
+and per-GPU queue completion appears as `[QUEUE PROGRESS] ... 1/4 jobs`.
+Validation AUROC appears when validation runs. This is a **real per-round
+completion log**, not an estimate of how long a round will take.
+
+The detailed GPU queue logs and per-job attempt logs are **still saved**
+at `logs/acm_revision/final16_20261022/{uncentered,c09}/`; the final
+CP/CPT attack and original-model-space distortion audits also stream
+their progress. If model initialization, basis fitting or GPU-memory
+checks take time, the terminal shows the current preparatory phase.
+For A, basis fitting must complete before its eight formal FL runs start.
+
+To specify other physical GPU IDs, use e.g.
+`GPU0=1 GPU1=3 bash start_serverB_live.sh`.
+Launch **one** script per server. A per-phase `flock` guard now refuses
+a duplicate launcher; the same GPU-memory checks, retry/resume checkpoint
+mechanism, and completed-run skip behavior are retained from
+`run_defense70_job.sh`. If you already launched a prior background copy,
+check its processes before starting a second instance.
+
 
 ## Outputs and audits
 
