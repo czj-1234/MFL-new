@@ -134,8 +134,15 @@ def _enforce_relative_l2_budget(before_state, after_state, delta, budget: dict) 
         group: math.sqrt(diff_sq[group]) / (math.sqrt(base_sq[group]) + 1e-12)
         for group in expected
     }
-    scale = min(1.0, *(limits[group] / relative_before[group]
-                       for group in expected if relative_before[group] > limits[group]))
+    # Keep 1.0 as an item in the iterable: min(1.0, *[]) raises
+    # TypeError when neither budget is exceeded (the common case).
+    scale = min(
+        [1.0] + [
+            limits[group] / relative_before[group]
+            for group in expected
+            if relative_before[group] > limits[group]
+        ]
+    )
     if scale < 1.0:
         for name, filtered in delta.items():
             if not torch.is_floating_point(filtered):
