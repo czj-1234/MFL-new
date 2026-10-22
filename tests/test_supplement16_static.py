@@ -32,6 +32,29 @@ class Supplement16StaticTest(unittest.TestCase):
         self.assertEqual(self._constant("OTHER_GROUPS"),
                          ("fusion", "missing_modality", "image_encoder", "text_encoder"))
 
+    def test_missing_reference_yaml_is_rebuilt_without_refitting(self):
+        helper = next(node for node in self.tree.body if isinstance(node, ast.FunctionDef)
+                      and node.name == "ensure_original_reference_config")
+        src = ast.get_source_segment(self.text, helper)
+        self.assertIn('original_prep.make_reference_config(', src)
+        self.assertIn('output_root=reference.parent', src)
+        self.assertIn('actual != expected', src)
+        self.assertIn('candidate.replace(REF_CONFIG)', src)
+        self.assertIn('if REF_CONFIG.is_file()', src)
+        self.assertNotIn('local_train(', src)
+        self.assertNotIn('fit_shadow_only_preparation(', src)
+        main = next(node for node in self.tree.body if isinstance(node, ast.FunctionDef)
+                    and node.name == "prepare_uncentered")
+        psrc = ast.get_source_segment(self.text, main)
+        self.assertLess(
+            psrc.index('checkpoints = [require_file('),
+            psrc.index('ensure_original_reference_config(reference)'),
+        )
+        self.assertLess(
+            psrc.index('ensure_original_reference_config(reference)'),
+            psrc.index('source_hashes["reference_config"]'),
+        )
+
     def test_no_target_data_in_basis_preparation(self):
         func = next(node for node in self.tree.body if isinstance(node, ast.FunctionDef)
                     and node.name == "prepare_uncentered")
