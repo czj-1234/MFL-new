@@ -26,7 +26,7 @@ Checkout the same branch `aslwf-final16-two-servers-20261022`. Activate the exis
 - `results/acm_revision/headfix_prep/locked_headfix.yaml` and its basis NPZ;
 - original Hateful Memes pools, pretrained model files, `configs/acm_revision/hateful_memes.yaml`.
 
-Additionally **Server A** requires the original `configs/acm_revision/generated/defense70_prep/reference_seed142.yaml` and the actual eight reference checkpoints from `locked_params.yaml -> provenance.reference_run_dir`. It does **not** silently replace missing checkpoints with a newly trained trajectory. This protects centered/uncentered comparability.
+Additionally **Server A** requires the actual eight reference checkpoints from `locked_params.yaml -> provenance.reference_run_dir`. If only the generated `configs/acm_revision/generated/defense70_prep/reference_seed142.yaml` is missing, the preflight **recreates that YAML only** using the canonical original generator and the frozen checkpoint directory; it checks the regenerated run path against the locked reference path before saving the YAML. It will not retrain, replace, or fabricate the old checkpoints. If the inferred path differs, it stops and requires the original YAML. This protects centered/uncentered comparability.
 
 If either server has only a copy of the GitHub repository without the actual original large manifests/checkpoints, the scripts stop with a clear missing-artifact error. Copy the actual frozen artifacts first and verify their origin; do not fabricate placeholder manifests.
 
