@@ -156,6 +156,14 @@ def prepare_uncentered():
                 rows[group].append((cf[group] - bf[group]).astype(np.float32))
             del cf, bf
             gc.collect()
+            # Shadow-only basis preparation happens before the 8 formal jobs;
+            # show its own live progress so the launcher never appears idle.
+            print(
+                f"[PREP PROGRESS] reference_round={round_id}/150 "
+                f"matched_client={spec.client_id} "
+                f"pairs_done_this_checkpoint={len(rows[OTHER_GROUPS[0]]) % 12 or 12}/12",
+                flush=True,
+            )
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         del before, state
