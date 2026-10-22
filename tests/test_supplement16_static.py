@@ -80,6 +80,33 @@ class Supplement16StaticTest(unittest.TestCase):
                     "defense_l2_head_post", "defense_l2_full_post"):
             self.assertIn(key, capture)
 
+    def test_relative_l2_budget_scale_never_calls_single_arg_min_on_float(self):
+        # Evaluate the exact scalar scale expression with stdlib-only fixtures,
+        # even on GitHub CI machines without torch or private data.
+        source = (ROOT / "src/acm_revision/defense_dispatch.py").read_text(encoding="utf-8")
+        module = ast.parse(source)
+        func = next(n for n in module.body if isinstance(n, ast.FunctionDef)
+                    and n.name == "_enforce_relative_l2_budget")
+        scale_stmt = next(n for n in ast.walk(func) if isinstance(n, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == "scale" for t in n.targets))
+        expression = ast.fix_missing_locations(ast.Expression(body=scale_stmt.value))
+        compiled = compile(expression, "<l2-budget-scale>", "eval")
+        limits = {"classifier_head": 1.0, "full_update": 1.0}
+        for head, full, expected in (
+            (0.0, 0.0, 1.0),
+            (0.2, 0.9, 1.0),
+            (1.0, 1.0, 1.0),
+            (2.0, 0.5, 0.5),
+            (0.25, 4.0, 0.25),
+            (2.0, 4.0, 0.25),
+        ):
+            actual = eval(compiled, {"min": min}, {
+                "limits": limits,
+                "relative_before": {"classifier_head": head, "full_update": full},
+                "expected": set(limits),
+            })
+            self.assertAlmostEqual(actual, expected, places=10)
+
     def test_foreground_live_progress_and_failure_propagation(self):
         job_runner = (ROOT / "scripts/acm_revision/run_defense70_job.sh").read_text(encoding="utf-8")
         trainer = (ROOT / "src/acm_revision/fl_resume.py").read_text(encoding="utf-8")
