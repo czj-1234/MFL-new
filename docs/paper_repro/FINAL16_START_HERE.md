@@ -92,6 +92,15 @@ and per-GPU queue completion appears as `[QUEUE PROGRESS] ... 1/4 jobs`.
 Validation AUROC appears when validation runs. This is a **real per-round
 completion log**, not an estimate of how long a round will take.
 
+Each GPU queue waits until `nvidia-smi` reports **at least 7,500 MiB
+of free GPU memory** before launching a task. This is a startup
+threshold, **not a guarantee** that a CLIP ViT-L/14 training task can
+complete within 7.5 GiB; an out-of-memory error can still occur.
+You may override the startup threshold, e.g.
+`MIN_FREE_MIB=12000 bash start_serverA_live.sh`, but the default for
+these two final16 launchers is 7,500 MiB. The general-purpose
+`run_defense70_job.sh` default for other experiments is unchanged.
+
 The detailed GPU queue logs and per-job attempt logs are **still saved**
 at `logs/acm_revision/final16_20261022/{uncentered,c09}/`; the final
 CP/CPT attack and original-model-space distortion audits also stream
