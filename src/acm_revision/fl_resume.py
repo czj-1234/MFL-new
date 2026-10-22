@@ -422,6 +422,10 @@ def run_strict_fl(cfg: dict, population: str = "target") -> dict:
                 "defense_l2_head_post": (defense_meta.get("relative_l2_budget") or {}).get("relative_after", {}).get("classifier_head"),
                 "defense_l2_full_pre": (defense_meta.get("relative_l2_budget") or {}).get("relative_before", {}).get("full_update"),
                 "defense_l2_full_post": (defense_meta.get("relative_l2_budget") or {}).get("relative_after", {}).get("full_update"),
+                "defense_l2_head_raw_norm": (defense_meta.get("relative_l2_budget") or {}).get("raw_update_l2", {}).get("classifier_head"),
+                "defense_l2_full_raw_norm": (defense_meta.get("relative_l2_budget") or {}).get("raw_update_l2", {}).get("full_update"),
+                "defense_l2_head_difference_norm": (defense_meta.get("relative_l2_budget") or {}).get("actual_difference_l2", {}).get("classifier_head"),
+                "defense_l2_full_difference_norm": (defense_meta.get("relative_l2_budget") or {}).get("actual_difference_l2", {}).get("full_update"),
             }
             for label in range(num_classes):
                 row[f"label_count_{label}"] = counts.get(label, 0)
