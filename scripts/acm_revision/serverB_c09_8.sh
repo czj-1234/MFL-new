@@ -25,6 +25,9 @@ export DEFENSE70_CHECKPOINT_EVERY="${CHECKPOINT_EVERY:-10}"
 export DEFENSE70_CHECKPOINT_KEEP_LAST="${CHECKPOINT_KEEP_LAST:-2}"
 export DEFENSE70_MAX_RETRIES="${MAX_RETRIES:-2}"
 export DEFENSE70_STARTUP_WAIT="${STARTUP_WAIT:-90}"
+# Opt-in to flushed per-round trainer output, mirrored to the attempt log.
+export DEFENSE70_LIVE_STDOUT=1
+export MFL_LIVE_PROGRESS=1
 phase="$PHASE"
 export DEFENSE70_LOG_ROOT="logs/acm_revision/final16_20261022/$phase"
 export DEFENSE70_STATE_ROOT="logs/acm_revision/final16_20261022/$phase/state"
@@ -46,9 +49,15 @@ run_queue() {
   done < "$queue"
   [[ "$done" -eq 4 ]] || { echo "[FATAL] queue $queue had $done jobs, expected 4" >&2; return 5; }
 }
-run_queue "$GPU0" 0 >"$DEFENSE70_LOG_ROOT/gpu0.queue.log" 2>&1 &
+echo "[LIVE] ${PHASE}: two GPU queues, four runs per GPU; training progress below."
+echo "[LIVE] Each line is tagged with its physical GPU ID; logs are still saved."
+echo "[LIVE] No nohup required: launch this script with bash from a foreground terminal."
+# Keep BOTH GPU queues concurrent; their output is line-buffered, labeled, and
+# displayed immediately while also being appended to their separate log files.
+# With 'set -o pipefail', a failed trainer/queue propagates through awk and tee.
+run_queue "$GPU0" 0 2>&1 | awk -v gpu="$GPU0" '{print "[GPU " gpu "] " $0; fflush()}' | tee -a "$DEFENSE70_LOG_ROOT/gpu0.queue.log" &
 pid0=$!
-run_queue "$GPU1" 1 >"$DEFENSE70_LOG_ROOT/gpu1.queue.log" 2>&1 &
+run_queue "$GPU1" 1 2>&1 | awk -v gpu="$GPU1" '{print "[GPU " gpu "] " $0; fflush()}' | tee -a "$DEFENSE70_LOG_ROOT/gpu1.queue.log" &
 pid1=$!
 set +e
 wait "$pid0"; code0=$?
@@ -72,7 +81,8 @@ if [[ -n "${BASELINE_TASK_CSV:-}" ]]; then
   [[ -f "$BASELINE_TASK_CSV" ]] || { echo "[FATAL] baseline CSV missing: $BASELINE_TASK_CSV" >&2; exit 3; }
   audit_args+=(--baseline-task-csv "$BASELINE_TASK_CSV")
 fi
-python scripts/acm_revision/audit_headfix.py "${audit_args[@]}" \
-  >"$DEFENSE70_LOG_ROOT/all_surface_CP_CPT_audit.log" 2>&1
+echo "[AUDIT] Starting nine-surface CP/CPT defense-aware attacks; showing live output"
+python -u scripts/acm_revision/audit_headfix.py "${audit_args[@]}" \
+  2>&1 | tee "$DEFENSE70_LOG_ROOT/all_surface_CP_CPT_audit.log"
 echo "[COMPLETE] $phase: eight runs + nine-surface CP/CPT audit verified"
 
