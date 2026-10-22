@@ -60,4 +60,19 @@ if [[ "$code0" -ne 0 || "$code1" -ne 0 ]]; then
   exit 1
 fi
 python -m src.acm_revision.supplement16 verify --phase "$phase"
-echo "[COMPLETE] $phase: eight formal 150-round runs verified"
+# End-to-end nine-surface, CP/CPT, LR/RF/MLP defense-aware audit.
+concentration=0.7
+[[ "$phase" == "c09" ]] && concentration=0.9
+audit_args=(
+  --root "results/acm_revision/supplement16/$phase"
+  --out "results/acm_revision/supplement16/audits/${phase}_attacks"
+  --concentration "$concentration"
+)
+if [[ -n "${BASELINE_TASK_CSV:-}" ]]; then
+  [[ -f "$BASELINE_TASK_CSV" ]] || { echo "[FATAL] baseline CSV missing: $BASELINE_TASK_CSV" >&2; exit 3; }
+  audit_args+=(--baseline-task-csv "$BASELINE_TASK_CSV")
+fi
+python scripts/acm_revision/audit_headfix.py "${audit_args[@]}" \
+  >"$DEFENSE70_LOG_ROOT/all_surface_CP_CPT_audit.log" 2>&1
+echo "[COMPLETE] $phase: eight runs + nine-surface CP/CPT audit verified"
+
