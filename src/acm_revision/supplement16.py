@@ -155,6 +155,9 @@ def prepare_uncentered():
             for group in OTHER_GROUPS:
                 rows[group].append((cf[group] - bf[group]).astype(np.float32))
             del cf, bf
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         del before, state
         gc.collect()
         if torch.cuda.is_available():
