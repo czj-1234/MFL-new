@@ -8,10 +8,10 @@ fi
 command -v nvidia-smi >/dev/null || { echo "[FATAL] GPU not available" >&2; exit 2; }
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES="${GPU0:-0}"
-mkdir -p logs/acm_revision/supplement16/uncentered
+mkdir -p logs/acm_revision/final16_20261022/uncentered
 echo "[PREP] compute shadow-only uncentered subspaces (head stays locked)"
 python -m src.acm_revision.supplement16 prepare-uncentered \
-  2>&1 | tee logs/acm_revision/supplement16/uncentered/shadow_basis_preparation.log
+  2>&1 | tee logs/acm_revision/final16_20261022/uncentered/shadow_basis_preparation.log
 unset CUDA_VISIBLE_DEVICES
 python -m src.acm_revision.supplement16 generate --phase uncentered
 PHASE=uncentered
@@ -34,12 +34,12 @@ export DEFENSE70_CHECKPOINT_KEEP_LAST="${CHECKPOINT_KEEP_LAST:-2}"
 export DEFENSE70_MAX_RETRIES="${MAX_RETRIES:-2}"
 export DEFENSE70_STARTUP_WAIT="${STARTUP_WAIT:-90}"
 phase="$PHASE"
-export DEFENSE70_LOG_ROOT="logs/acm_revision/supplement16/$phase"
-export DEFENSE70_STATE_ROOT="logs/acm_revision/supplement16/$phase/state"
-export DEFENSE70_CHECKPOINT_ROOT="checkpoints/acm_revision/supplement16/$phase"
-export DEFENSE70_RUNTIME_CFG_ROOT="logs/acm_revision/supplement16/$phase/runtime_configs"
+export DEFENSE70_LOG_ROOT="logs/acm_revision/final16_20261022/$phase"
+export DEFENSE70_STATE_ROOT="logs/acm_revision/final16_20261022/$phase/state"
+export DEFENSE70_CHECKPOINT_ROOT="checkpoints/acm_revision/final16_20261022/$phase"
+export DEFENSE70_RUNTIME_CFG_ROOT="logs/acm_revision/final16_20261022/$phase/runtime_configs"
 mkdir -p "$DEFENSE70_LOG_ROOT"
-plan_dir="configs/acm_revision/generated/supplement16/$phase"
+plan_dir="configs/acm_revision/generated/final16_20261022/$phase"
 run_queue() {
   local gpu_id="$1" queue_id="$2"
   local queue="$plan_dir/gpu${queue_id}.tsv"
@@ -72,8 +72,8 @@ python -m src.acm_revision.supplement16 verify --phase "$phase"
 concentration=0.7
 [[ "$phase" == "c09" ]] && concentration=0.9
 audit_args=(
-  --root "results/acm_revision/supplement16/$phase"
-  --out "results/acm_revision/supplement16/audits/${phase}_attacks"
+  --root "results/acm_revision/final16_20261022/$phase"
+  --out "results/acm_revision/final16_20261022/audits/${phase}_attacks"
   --concentration "$concentration"
 )
 if [[ -n "${BASELINE_TASK_CSV:-}" ]]; then
