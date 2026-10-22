@@ -57,6 +57,29 @@ class Supplement16StaticTest(unittest.TestCase):
                     "defense_l2_head_post", "defense_l2_full_post"):
             self.assertIn(key, capture)
 
+    def test_foreground_live_progress_and_failure_propagation(self):
+        job_runner = (ROOT / "scripts/acm_revision/run_defense70_job.sh").read_text(encoding="utf-8")
+        trainer = (ROOT / "src/acm_revision/fl_resume.py").read_text(encoding="utf-8")
+        self.assertIn('DEFENSE70_LIVE_STDOUT:-0', job_runner)
+        self.assertIn('2>&1 | tee "${LOG}" &', job_runner)
+        self.assertIn('set -uo pipefail', job_runner)
+        self.assertIn('MFL_LIVE_PROGRESS', trainer)
+        self.assertIn('[FL PROGRESS] round=', trainer)
+        for side, script in (
+            ("A", "serverA_uncentered_8.sh"),
+            ("B", "serverB_c09_8.sh"),
+        ):
+            text = (ROOT / "scripts/acm_revision" / script).read_text(encoding="utf-8")
+            self.assertIn('export DEFENSE70_LIVE_STDOUT=1', text)
+            self.assertIn('export MFL_LIVE_PROGRESS=1', text)
+            self.assertIn('run_queue "$GPU0" 0 2>&1 | awk', text)
+            self.assertIn('run_queue "$GPU1" 1 2>&1 | awk', text)
+            self.assertIn('tee -a "$DEFENSE70_LOG_ROOT/gpu0.queue.log"', text)
+            self.assertIn('tee -a "$DEFENSE70_LOG_ROOT/gpu1.queue.log"', text)
+            self.assertIn('flock -n "$SERVER_LOCK_FD"', text)
+            wrapper = (ROOT / f"start_server{side}_live.sh").read_text(encoding="utf-8")
+            self.assertIn(f'exec bash scripts/acm_revision/{script}', wrapper)
+
     def test_both_server_launchers_exist(self):
         for phase, name in (("uncentered", "serverA_uncentered_8.sh"),
                             ("c09", "serverB_c09_8.sh")):
