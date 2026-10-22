@@ -2,7 +2,7 @@ name: ASLWF paper reproduction guards
 
 on:
   push:
-    branches: [paper-aslwf-repro-20261017, aslwf-supplement16-20261022]
+    branches: [paper-aslwf-repro-20261017, aslwf-final16-two-servers-20261022]
     paths:
       - 'docs/paper_repro/**'
       - 'scripts/acm_revision/**'
