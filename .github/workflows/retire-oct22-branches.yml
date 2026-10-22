@@ -1,0 +1,65 @@
+name: Retire three superseded October 22 branches
+
+on:
+  push:
+    branches: [aslwf-final16-two-servers-20261022]
+    paths:
+      - '.github/workflows/retire-oct22-branches.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Confirm the final 16-job source is preserved
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/aslwf-final16-two-servers-20261022'
+          git merge-base --is-ancestor 8cd9c2f4dfa519ac0a6a12aeb34c3afdae5a67d0 HEAD
+          test -f scripts/acm_revision/serverA_uncentered_8.sh
+          test -f scripts/acm_revision/serverB_c09_8.sh
+          test -f src/acm_revision/supplement16.py
+          test -f docs/paper_repro/FINAL16_START_HERE.md
+          bash -n scripts/acm_revision/serverA_uncentered_8.sh
+          bash -n scripts/acm_revision/serverB_c09_8.sh
+          python -m py_compile src/acm_revision/supplement16.py src/acm_revision/supplement16_distortion.py
+      - name: Verify exact old branch heads and delete only those three
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branches=(
+            'aslwf-supplement16-20261022:8cd9c2f4dfa519ac0a6a12aeb34c3afdae5a67d0'
+            'aslwf-16run-robustness-20261022:589872229c3e948468e19a22a3eb00e599eb5c6c'
+            'aslwf-review-16groups-2servers:f2aa6567799eb448fe2c78f2e02a11579fc269cb'
+          )
+          for pair in "${branches[@]}"; do
+            branch="${pair%%:*}"
+            expected="${pair#*:}"
+            actual="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" --jq '.object.sha')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "REFUSING to delete changed branch $branch: $actual != $expected" >&2
+              exit 2
+            fi
+          done
+          for pair in "${branches[@]}"; do
+            branch="${pair%%:*}"
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
+            echo "DELETED $branch"
+          done
+          for pair in "${branches[@]}"; do
+            branch="${pair%%:*}"
+            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" >/dev/null 2>&1; then
+              echo "Ref still exists: $branch" >&2
+              exit 3
+            fi
+          done
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/aslwf-final16-two-servers-20261022" --jq '.object.sha'
+          echo 'Verified: exactly three obsolete branches retired; final branch remains.'
