@@ -47,7 +47,7 @@ def bootstrap(values, nboot=5000):
             "ci_high": float(np.quantile(sampled, .975))}
 
 
-def discover_runs(root):
+def discover_runs(root, concentration=0.7):
     valid = []
     for metadata_path in sorted(root.rglob("update_metadata.csv")):
         summary_path = metadata_path.parent / "summary.json"
@@ -60,7 +60,7 @@ def discover_runs(root):
         seed = int(summary.get("seed", -1))
         if (pop not in EXPECTED or seed not in EXPECTED[pop]
                 or summary.get("setting_name") != "modality_exclusive"
-                or not math.isclose(float(summary.get("concentration", -1)), .7, abs_tol=1e-9)):
+                or not math.isclose(float(summary.get("concentration", -1)), concentration, abs_tol=1e-9)):
             continue
         if int(summary.get("rounds", -1)) != 150 or capture.get("status") != "PASS":
             raise ValueError(f"Incomplete run or failed capture: {metadata_path.parent}")
@@ -245,6 +245,8 @@ def main():
     parser.add_argument("--groups", default=",".join(GROUPS))
     parser.add_argument("--protocols", default=",".join(PROTOCOLS))
     parser.add_argument("--models", default="LR,RF,MLP")
+    parser.add_argument("--concentration", type=float, default=0.7,
+                        help="Expected concentration for all audited runs (0.7 or 0.9).")
     parser.add_argument("--baseline-task-csv", required=True,
                         help="Explicit verified baseline test-AUROC per-target CSV for paired task changes")
     args = parser.parse_args()
@@ -255,7 +257,9 @@ def main():
     models = [v.strip() for v in args.models.split(",") if v.strip()]
     if not set(groups).issubset(GROUPS) or not set(protocols).issubset(PROTOCOLS) or not set(models).issubset(("LR", "RF", "MLP")):
         raise ValueError("Unknown group/protocol/model")
-    runs = discover_runs(root)
+    if args.concentration not in (0.7, 0.9):
+        raise ValueError('Paper protocol only has c=0.7/0.9 defense phases')
+    runs = discover_runs(root, args.concentration)
     metadata = all_metadata(runs)
     metadata = metadata.loc[metadata["round"].astype(int).isin(PAPER_MILESTONE_ROUNDS)].copy()
     if metadata.empty:
@@ -309,6 +313,7 @@ def main():
         "target_validation_oriented_auroc": winner["target_auc_validation_oriented"],
         "target_pooled_auc_diagnostic": winner["target_auc_validation_oriented"],
         "target_mean_per_independent_run_auroc": float(selected["target_auc_validation_oriented"].mean()),
+        "concentration": args.concentration,
         "paper_milestones": True,
         "paper_milestone_rounds": list(PAPER_MILESTONE_ROUNDS),
         "target_seed_statistics": bootstrap(selected["target_auc_validation_oriented"]),
