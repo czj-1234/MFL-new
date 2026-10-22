@@ -46,10 +46,16 @@ results/acm_revision/headfix_prep/locked_headfix.yaml
 results/acm_revision/headfix_prep/attacker_guided_classifier_head_basis.npz
 ```
 
-Server A additionally needs the original seed142 shadow reference YAML at
-`configs/acm_revision/generated/defense70_prep/reference_seed142.yaml`
-and eight original reference checkpoints at the path specified in
+Server A needs eight **original** seed142 shadow reference checkpoints
+at the path specified in
 `locked_params.yaml -> provenance.reference_run_dir`.
+If only the generated YAML
+`configs/acm_revision/generated/defense70_prep/reference_seed142.yaml`
+is missing, Server A will **automatically reconstruct the YAML only** from
+the original Defense70 generator and verify that its derived run path exactly
+matches the existing locked checkpoint directory. It does **not** rerun
+or replace the old 150-round reference training. A mismatch is fatal,
+and an existing YAML is never overwritten.
 The uncentered-basis reconstruction checks that its **centered** version
 matches the old basis (minimum principal cosine .995), then alters
 **only** centering. If the old checkpoints or parity are missing, the
