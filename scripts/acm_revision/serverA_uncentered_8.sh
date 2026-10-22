@@ -2,8 +2,8 @@
 # Server A: eight c=.7 uncentered-contrast ASLWF runs, four on each GPU.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-if [[ "$(git branch --show-current)" != "aslwf-supplement16-20261022" ]]; then
-  echo "[FATAL] checkout aslwf-supplement16-20261022 first" >&2; exit 2
+if [[ "$(git branch --show-current)" != "aslwf-final16-two-servers-20261022" ]]; then
+  echo "[FATAL] checkout aslwf-final16-two-servers-20261022 first" >&2; exit 2
 fi
 command -v nvidia-smi >/dev/null || { echo "[FATAL] GPU not available" >&2; exit 2; }
 export PYTHONUNBUFFERED=1
