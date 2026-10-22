@@ -84,7 +84,7 @@ For uncentered use `--root results/acm_revision/supplement16/uncentered` and `--
 
 ## Matched-update L2 audit for the *old* PCA/Random/ASLWF baselines
 
-Because historical raw full-model updates might be absent, this branch includes a separate shadow-only **matched-update perturbation** procedure. Run on Server A after basis preparation and preferably after the 16 FL runs (to avoid competing for resources):
+Because historical raw full-model updates might be absent, this branch includes a separate shadow-only **matched-update perturbation** procedure. **Server A automatically executes this L2 audit after its eight FL runs and nine-surface attack audit.** To rerun it manually (or change checkpoint sampling), use:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -m src.acm_revision.supplement16_distortion \
