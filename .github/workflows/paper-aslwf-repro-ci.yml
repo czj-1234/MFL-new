@@ -9,6 +9,7 @@ on:
       - 'src/acm_revision/**'
       - 'tests/test_paper_repro.py'
       - 'tests/test_supplement16_static.py'
+      - 'tests/test_final16_packaging.py'
       - '.github/workflows/paper-aslwf-repro-ci.yml'
   workflow_dispatch:
 
@@ -35,6 +36,7 @@ jobs:
           bash -n scripts/acm_revision/serverA_uncentered_8.sh
           bash -n scripts/acm_revision/serverB_c09_8.sh
           python -m unittest discover -s tests -p 'test_supplement16_static.py' -v
+          python -m unittest discover -s tests -p 'test_final16_packaging.py' -v
       - name: Generate all 72 canonical Core72 configs
         run: |
           python -m src.acm_revision.paper_protocol_plan --stage core --output /tmp/paper_repro_ci
