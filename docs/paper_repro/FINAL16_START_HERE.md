@@ -181,41 +181,38 @@ The full technical guide is
 describe the new numerical results as obtained until all runs and audits
 actually complete.
 
-## Lightweight result export for analysis (no model weights)
+## Lightweight result export for shared storage (no model weights)
 
-After a run, or to inspect interim progress, update the source branch then
-run on **each respective server**:
+When both servers see the **same mounted** project and results folders, run
+**once from either server**:
 
 ```bash
-# Server A / Rheal
-bash scripts/acm_revision/package_final16_analysis.sh A
-
-# Server B / Eureka1
-bash scripts/acm_revision/package_final16_analysis.sh B
+bash scripts/acm_revision/package_final16_analysis.sh ALL
 ```
 
-The packages are saved separately as:
+The default with no argument is also ALL. One combined archive is saved at:
 
 ```text
-exports/aslwf_final16_serverA_YYYYMMDD_HHMMSS_analysis.tar.gz
-exports/aslwf_final16_serverB_YYYYMMDD_HHMMSS_analysis.tar.gz
+exports/aslwf_final16_combined_YYYYMMDD_HHMMSS_analysis.tar.gz
 ```
 
-Each includes the per-seed `summary.json`, `round_metrics.csv`,
-`update_metadata.csv` (actual head/full L2), `capture_manifest.json`,
-and `resolved_config.json`; generated YAML plans, frozen-manifest YAMLs,
-per-target statistics and nine-surface CP/CPT attack CSV/JSON; and Server A's
-matched-update distortion statistics when available.
+It includes compact results under **both** `uncentered/` and `c09/`,
+both sets of per-target statistics and CP/CPT LR/RF/MLP audits when
+available, plus `META/RUN_STATUS.csv` covering **all 16 expected runs**
+with an explicit phase column. The output prints A and B completion counts
+independently. If a phase has not yet written results, it will be marked
+MISSING rather than misrepresented as complete.
 
-No `.pt`, `.npz`, `.npy`, model weights, raw client updates, large logs,
-private datasets or client sample-assignment manifest are included. Each
-file has a default **25 MiB** limit. If a needed `update_metadata.csv`
-exceeds this, rerun with `MAX_ANALYSIS_FILE_MIB=100` and inspect
-`META/SKIPPED_FILES.txt`. The archive is a read-only copy, with no
-effects on the original training processes or checkpoints.
+The archive does **not** include original client data, `.pt` or `.npz`
+weights/updates, checkpoints, large logs or raw sample-assignment manifests.
+Each included file is capped at 25 MiB by default. Any omissions are listed
+in `META/SKIPPED_FILES.txt`. To include a larger necessary CSV, use e.g.
 
-`META/RUN_STATUS.csv` marks the eight expected per-server runs as
-`PASS`, `MISSING`, `AMBIGUOUS` or `PARTIAL/NOT_VERIFIED`.
-Only verified complete runs and complete audits should be used to draw
-final numerical conclusions. Both servers' archives are needed for the
-centered/uncentered and c=.9 publication-ready comparative analysis.
+```bash
+MAX_ANALYSIS_FILE_MIB=100 bash scripts/acm_revision/package_final16_analysis.sh ALL
+```
+
+For separate single-phase exports, `A` or `B` still work, but are
+unnecessary for shared storage. The archive is read-only: packaging does not
+interrupt, kill or modify training. For the final publication analysis,
+re-export after both training and the offline attacks have finished.
