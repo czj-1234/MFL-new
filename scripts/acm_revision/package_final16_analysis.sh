@@ -3,8 +3,8 @@
 # Run on Rheal: bash scripts/acm_revision/package_final16_analysis.sh A
 # Run on Eureka1: bash scripts/acm_revision/package_final16_analysis.sh B
 set -Eeuo pipefail
-cd "$(dirname "\${BASH_SOURCE[0]}")/../.."
-case "\${1:-}" in
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+case "${1:-}" in
   A|a|uncentered) export PHASE=uncentered SERVER=A ;;
   B|b|c09) export PHASE=c09 SERVER=B ;;
   -h|--help)
