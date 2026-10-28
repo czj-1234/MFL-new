@@ -180,3 +180,42 @@ The full technical guide is
 16-job schedule. It does not run private dataset or GPU jobs. Do not
 describe the new numerical results as obtained until all runs and audits
 actually complete.
+
+## Lightweight result export for analysis (no model weights)
+
+After a run, or to inspect interim progress, update the source branch then
+run on **each respective server**:
+
+```bash
+# Server A / Rheal
+bash scripts/acm_revision/package_final16_analysis.sh A
+
+# Server B / Eureka1
+bash scripts/acm_revision/package_final16_analysis.sh B
+```
+
+The packages are saved separately as:
+
+```text
+exports/aslwf_final16_serverA_YYYYMMDD_HHMMSS_analysis.tar.gz
+exports/aslwf_final16_serverB_YYYYMMDD_HHMMSS_analysis.tar.gz
+```
+
+Each includes the per-seed `summary.json`, `round_metrics.csv`,
+`update_metadata.csv` (actual head/full L2), `capture_manifest.json`,
+and `resolved_config.json`; generated YAML plans, frozen-manifest YAMLs,
+per-target statistics and nine-surface CP/CPT attack CSV/JSON; and Server A's
+matched-update distortion statistics when available.
+
+No `.pt`, `.npz`, `.npy`, model weights, raw client updates, large logs,
+private datasets or client sample-assignment manifest are included. Each
+file has a default **25 MiB** limit. If a needed `update_metadata.csv`
+exceeds this, rerun with `MAX_ANALYSIS_FILE_MIB=100` and inspect
+`META/SKIPPED_FILES.txt`. The archive is a read-only copy, with no
+effects on the original training processes or checkpoints.
+
+`META/RUN_STATUS.csv` marks the eight expected per-server runs as
+`PASS`, `MISSING`, `AMBIGUOUS` or `PARTIAL/NOT_VERIFIED`.
+Only verified complete runs and complete audits should be used to draw
+final numerical conclusions. Both servers' archives are needed for the
+centered/uncentered and c=.9 publication-ready comparative analysis.
